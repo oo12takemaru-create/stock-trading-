@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<title>📊 BNF×Minervini ダッシュボード</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "ヒラギノ角ゴシック", "Yu Gothic", sans-serif;
+  background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+  color: #e6edf3;
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 16px; }
+.header { padding: 16px 0 24px; text-align: center; }
+.header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.header .subtitle { font-size: 12px; color: #7d8590; margin-top: 4px; }
+.header .updated { font-size: 11px; color: #6e7681; margin-top: 8px; }
+
+.card {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  padding: 16px; margin-bottom: 12px;
+}
+.card-title {
+  font-size: 13px; color: #7d8590; text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 12px; font-weight: 600;
+}
+.regime-bullish { background: linear-gradient(135deg, #1a6e2c 0%, #238636 100%); border-color: #2ea043; }
+.regime-neutral { background: linear-gradient(135deg, #4a3f00 0%, #6e5e00 100%); border-color: #b8a200; }
+.regime-bearish { background: linear-gradient(135deg, #6e1f1f 0%, #8b2828 100%); border-color: #f85149; }
+.regime-panic   { background: linear-gradient(135deg, #b13838 0%, #da3633 100%); border-color: #ff5555; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
+
+.regime-card .regime-label { font-size: 14px; opacity: 0.9; margin-bottom: 4px; }
+.regime-card .regime-value { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; }
+.regime-card .regime-detail { font-size: 12px; opacity: 0.8; margin-top: 6px; }
+.regime-card .regime-stats {
+  display: flex; gap: 16px; margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.2); font-size: 13px;
+}
+.regime-card .regime-stat-label { opacity: 0.7; font-size: 11px; }
+.regime-card .regime-stat-value { font-weight: 600; font-size: 16px; }
+
+.halt-banner {
+  background: #5a1f1f; border: 2px solid #f85149; padding: 12px;
+  border-radius: 8px; margin-bottom: 12px; display: none;
+}
+.halt-banner.active { display: block; }
+.halt-banner .halt-title { font-size: 14px; font-weight: 700; color: #f85149; }
+.halt-banner .halt-detail { font-size: 12px; color: #ffa198; margin-top: 4px; }
+
+.signal-card {
+  background: #1a2332; border-left: 4px solid; border-radius: 8px;
+  padding: 14px; margin-bottom: 10px; cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+.signal-card:active { transform: scale(0.98); background: #243144; }
+.signal-card.strategy-MOMENTUM { border-left-color: #58a6ff; }
+.signal-card.strategy-BNF-LITE { border-left-color: #d2a8ff; }
+.signal-card.strategy-MINERVINI { border-left-color: #2ea043; }
+
+.signal-strategy {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; margin-bottom: 6px;
+}
+.signal-strategy.MOMENTUM { background: #1f6feb; color: #fff; }
+.signal-strategy.BNF-LITE { background: #8957e5; color: #fff; }
+.signal-strategy.MINERVINI { background: #2ea043; color: #fff; }
+
+.signal-name { font-size: 16px; font-weight: 700; }
+.signal-ticker { font-size: 12px; color: #7d8590; margin-left: 4px; }
+.signal-sector { font-size: 11px; color: #6e7681; margin-top: 2px; }
+
+.signal-numbers {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #30363d;
+}
+.signal-num-label { font-size: 10px; color: #6e7681; }
+.signal-num-value { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.num-entry { color: #58a6ff; }
+.num-stop { color: #f85149; }
+.num-target { color: #2ea043; }
+
+.signal-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: #7d8590; margin-top: 8px;
+}
+.copy-btn {
+  background: #21262d; border: 1px solid #30363d; color: #58a6ff;
+  padding: 6px 12px; border-radius: 6px; font-size: 11px;
+  cursor: pointer; font-family: inherit;
+}
+.copy-btn:active { background: #30363d; }
+.copy-btn.copied { background: #1a4d2e; color: #56d364; border-color: #2ea043; }
+
+.no-signal-card {
+  background: #161b22; padding: 32px 16px; text-align: center;
+  border: 1px dashed #30363d; border-radius: 12px; color: #7d8590;
+}
+.no-signal-card .icon { font-size: 36px; margin-bottom: 8px; }
+
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.stat-box {
+  background: #21262d; padding: 12px; border-radius: 8px;
+}
+.stat-label { font-size: 11px; color: #7d8590; }
+.stat-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+.stat-value.green { color: #56d364; }
+.stat-value.red { color: #f85149; }
+
+.history-list { display: flex; flex-direction: column; gap: 6px; }
+.history-row {
+  display: grid; grid-template-columns: 50px 1fr 70px 60px;
+  gap: 8px; padding: 10px; background: #21262d; border-radius: 6px;
+  font-size: 12px; align-items: center;
+}
+.history-date { color: #7d8590; font-size: 10px; }
+.history-name { font-weight: 600; font-size: 13px; }
+.history-strategy { font-size: 10px; padding: 2px 6px; border-radius: 3px; text-align: center; }
+.history-price { color: #58a6ff; font-weight: 600; text-align: right; }
+
+.action-buttons {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px;
+}
+.btn {
+  background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+  padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: inherit;
+}
+.btn:active { background: #30363d; }
+.btn-primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+.btn-primary:active { background: #2563eb; }
+
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #161b22; border-top: 1px solid #30363d;
+  display: flex; padding: 8px 0; padding-bottom: env(safe-area-inset-bottom, 8px);
+  z-index: 100;
+}
+.tab {
+  flex: 1; text-align: center; padding: 8px;
+  font-size: 11px; color: #6e7681; cursor: pointer;
+  border: none; background: transparent; font-family: inherit;
+}
+.tab.active { color: #58a6ff; }
+.tab .tab-icon { font-size: 22px; display: block; margin-bottom: 2px; }
+
+.section { display: none; }
+.section.active { display: block; }
+
+.loading {
+  text-align: center; padding: 60px 20px; color: #7d8590; font-size: 14px;
+}
+.loading .spinner {
+  display: inline-block; width: 32px; height: 32px;
+  border: 3px solid #30363d; border-top-color: #58a6ff;
+  border-radius: 50%; animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-message {
+  background: #5a1f1f; border: 1px solid #f85149; padding: 16px;
+  border-radius: 8px; color: #ffa198; margin: 16px 0; font-size: 13px;
+}
+.error-message strong { color: #f85149; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📊 BNF × Minervini</h1>
+    <div class="subtitle">Trading Signal Dashboard v2.7.4</div>
+    <div class="updated" id="last-updated">読み込み中...</div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB 1: TODAY -->
+  <!-- ========================================= -->
+  <div class="section active" id="section-today">
+
+    <!-- マーケット環境 -->
+    <div class="card regime-card" id="regime-card">
+      <div class="regime-label">📈 MARKET REGIME</div>
+      <div class="regime-value" id="regime-name">--</div>
+      <div class="regime-detail" id="regime-detail">--</div>
+      <div class="regime-stats">
+        <div>
+          <div class="regime-stat-label">VIX</div>
+          <div class="regime-stat-value" id="regime-vix">--</div>
+        </div>
+        <div>
+          <div class="regime-stat-label">日経225</div>
+          <div class="regime-stat-value" id="regime-n225">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HALTバナー(発動時のみ) -->
+    <div class="halt-banner" id="halt-banner">
+      <div class="halt-title">🚨 サーキットブレーカー HALT</div>
+      <div class="halt-detail" id="halt-detail">--</div>
+    </div>
+
+    <!-- 今日のシグナル -->
+    <div class="card-title">🎯 今日のシグナル</div>
+    <div id="today-signals"></div>
+
+    <!-- アクションボタン -->
+    <div class="action-buttons">
+      <a class="btn btn-primary" id="run-action-btn" target="_blank">
+        ▶ 手動スキャン実行
+      </a>
+      <a class="btn" id="github-issues-btn" target="_blank">
+        📥 全Issuesを見る
+      </a>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB 2: HISTORY -->
+  <!-- ========================================= -->
+  <div class="section" id="section-history">
+    <div class="card-title">📜 シグナル履歴(直近30件)</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB 3: STATS -->
+  <!-- ========================================= -->
+  <div class="section" id="section-stats">
+    <div class="card">
+      <div class="card-title">📊 累計統計</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">総スキャン回数</div>
+          <div class="stat-value" id="stat-scans">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">総シグナル件数</div>
+          <div class="stat-value" id="stat-signals">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">月平均シグナル</div>
+          <div class="stat-value" id="stat-monthly">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">HALT 発動率</div>
+          <div class="stat-value" id="stat-halt-rate">--</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚔ 戦略別シグナル</div>
+      <div id="strategy-breakdown"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🌤 環境別シグナル</div>
+      <div id="regime-breakdown"></div>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB 4: HELP -->
+  <!-- ========================================= -->
+  <div class="section" id="section-help">
+    <div class="card">
+      <div class="card-title">📖 使い方</div>
+      <div style="font-size: 13px; line-height: 1.7;">
+        <p style="margin-bottom: 12px;"><strong>📅 自動実行スケジュール</strong></p>
+        <p style="margin-bottom: 4px;">🌅 朝 08:00 JST(月〜金)</p>
+        <p style="margin-bottom: 4px;">☀️ 昼 12:00 JST(月〜金)</p>
+        <p style="margin-bottom: 16px;">🌙 夕 18:00 JST(月〜金)</p>
+
+        <p style="margin-bottom: 12px;"><strong>🎯 シグナルの読み方</strong></p>
+        <p style="margin-bottom: 4px;"><span style="color:#58a6ff">青枠</span>: MOMENTUM(20日高値ブレイク順張り)</p>
+        <p style="margin-bottom: 4px;"><span style="color:#d2a8ff">紫枠</span>: BNF-LITE(乖離率逆張り)</p>
+        <p style="margin-bottom: 16px;"><span style="color:#56d364">緑枠</span>: MINERVINI(成長株ブレイク)</p>
+
+        <p style="margin-bottom: 12px;"><strong>🚦 マーケット環境</strong></p>
+        <p style="margin-bottom: 4px;">🚀 BULLISH: MOMENTUM 主力</p>
+        <p style="margin-bottom: 4px;">⚖️ NEUTRAL: BNF + MINERVINI</p>
+        <p style="margin-bottom: 4px;">⚠️ BEARISH: BNF のみ</p>
+        <p style="margin-bottom: 16px;">🚨 PANIC: BNF のみ(リスク半減)</p>
+
+        <p style="margin-bottom: 12px;"><strong>📱 SBI証券発注</strong></p>
+        <p style="margin-bottom: 8px;">シグナルカードをタップでコピー → SBI証券アプリに貼り付け</p>
+        <p style="font-size: 12px; color: #7d8590;">⚠️ 投資助言ではありません。最終判断は自己責任で。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ 設定</div>
+      <div style="font-size: 13px; line-height: 1.7;">
+        <p style="margin-bottom: 8px;"><strong>運用資金 (1トレードあたり計算用)</strong></p>
+        <input type="number" id="capital-input" placeholder="1000000" style="width:100%;padding:10px;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:6px;font-size:14px;font-family:inherit;">
+        <button class="btn" onclick="saveCapital()" style="margin-top:8px;">💾 保存</button>
+        <p id="capital-saved" style="font-size:11px;color:#56d364;margin-top:8px;display:none;">✓ 保存しました</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- タブバー -->
+<div class="tab-bar">
+  <button class="tab active" onclick="showSection('today')">
+    <span class="tab-icon">🎯</span>今日
+  </button>
+  <button class="tab" onclick="showSection('history')">
+    <span class="tab-icon">📜</span>履歴
+  </button>
+  <button class="tab" onclick="showSection('stats')">
+    <span class="tab-icon">📊</span>統計
+  </button>
+  <button class="tab" onclick="showSection('help')">
+    <span class="tab-icon">❓</span>ヘルプ
+  </button>
+</div>
+
+<script>
+// ============================================
+// 設定: GitHubリポジトリ情報を自動検出
+// ============================================
+function detectRepo() {
+  // URL: https://USER.github.io/REPO/ から推定
+  const host = location.hostname; // USER.github.io
+  const user = host.replace('.github.io', '');
+  const path = location.pathname.split('/').filter(p => p);
+  const repo = path[0] || '';
+  return { user, repo };
+}
+
+const { user, repo } = detectRepo();
+const RAW_BASE = `https://raw.githubusercontent.com/${user}/${repo}/main`;
+const SIGNALS_URL = `${RAW_BASE}/signals_log.csv`;
+const ACTIONS_URL = `https://github.com/${user}/${repo}/actions/workflows/daily-signal.yml`;
+const ISSUES_URL = `https://github.com/${user}/${repo}/issues?q=is%3Aissue+label%3Aauto-signal`;
+
+document.getElementById('run-action-btn').href = ACTIONS_URL;
+document.getElementById('github-issues-btn').href = ISSUES_URL;
+
+// ============================================
+// CSV パース
+// ============================================
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',');
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h.replace(/^﻿/, '').trim()] = (values[idx] || '').trim();
+    });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let inQuote = false;
+  let cur = '';
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      result.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ============================================
+// データ取得
+// ============================================
+let allSignals = [];
+
+async function loadSignals() {
+  try {
+    // キャッシュ回避のため timestamp を追加
+    const url = `${SIGNALS_URL}?_=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    allSignals = parseCSV(text);
+    render();
+    document.getElementById('last-updated').textContent =
+      `更新: ${new Date().toLocaleString('ja-JP', {hour: '2-digit', minute: '2-digit'})}`;
+  } catch (e) {
+    document.getElementById('today-signals').innerHTML =
+      `<div class="error-message">
+        <strong>signals_log.csv が見つかりません</strong><br>
+        GitHub Actions が初回実行されるまで、または<br>
+        リポジトリにファイルがアップロードされるまでお待ちください。<br>
+        <span style="font-size:11px;opacity:0.7">URL: ${SIGNALS_URL}</span>
+      </div>`;
+  }
+}
+
+// ============================================
+// レンダリング
+// ============================================
+function render() {
+  renderToday();
+  renderHistory();
+  renderStats();
+}
+
+function renderToday() {
+  // 最新スキャンの結果を表示
+  const today = new Date().toISOString().slice(0, 10);
+  // signals は scan_date が新しい順にソート
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+
+  // 最新スキャンの timestamp を取得
+  const latest = sorted[0];
+  if (!latest) return;
+
+  // 同じ scan_timestamp の全レコードを「今のスキャン」として扱う
+  const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
+
+  // 環境表示
+  const regime = latest.regime || 'UNKNOWN';
+  const regimeEmoji = {
+    BULLISH: '🚀', NEUTRAL: '⚖️', BEARISH: '⚠️', PANIC: '🚨'
+  }[regime] || '❓';
+
+  document.getElementById('regime-name').textContent = `${regimeEmoji} ${regime}`;
+  document.getElementById('regime-vix').textContent = latest.vix ? Number(latest.vix).toFixed(1) : '-';
+  document.getElementById('regime-n225').textContent =
+    latest.n225 ? '¥' + Math.round(Number(latest.n225)).toLocaleString() : '-';
+
+  const scanDate = latest.scan_date || '-';
+  const scanSlot = latest.scan_slot || '-';
+  document.getElementById('regime-detail').textContent = `${scanDate} ${scanSlot}スキャン`;
+
+  // CSS class
+  const card = document.getElementById('regime-card');
+  card.className = 'card regime-card regime-' + regime.toLowerCase();
+
+  // HALTバナー
+  const haltBanner = document.getElementById('halt-banner');
+  if (latest.is_halt === 'Y') {
+    haltBanner.classList.add('active');
+    document.getElementById('halt-detail').textContent =
+      latest.halt_reason || 'サーキットブレーカー発動中';
+  } else {
+    haltBanner.classList.remove('active');
+  }
+
+  // シグナル一覧
+  const signalsContainer = document.getElementById('today-signals');
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+
+  if (realSignals.length === 0) {
+    signalsContainer.innerHTML = `
+      <div class="no-signal-card">
+        <div class="icon">😴</div>
+        <div>今日のシグナルはありません</div>
+        <div style="font-size:11px;margin-top:8px;color:#6e7681">
+          月平均22件、2-3日に1件出ます。焦らず待ちましょう。
+        </div>
+      </div>`;
+    return;
+  }
+
+  signalsContainer.innerHTML = realSignals.map((s, idx) => renderSignalCard(s, idx)).join('');
+}
+
+function renderSignalCard(s, idx) {
+  const capital = parseInt(localStorage.getItem('capital') || '1000000');
+  const entry = Number(s.entry_price);
+  const stop = Number(s.stop_price);
+  const target = Number(s.target_price);
+  const riskPerShare = entry - stop;
+  const sharesIdeal = riskPerShare > 0 ? Math.floor((capital * 0.01) / riskPerShare / 100) * 100 : 0;
+  const cost = sharesIdeal * entry;
+
+  const ticker = (s.ticker || '').replace('.T', '');
+
+  return `
+    <div class="signal-card strategy-${s.strategy}" onclick="copySignal(${idx})">
+      <div class="signal-strategy ${s.strategy}">${s.strategy}</div>
+      <div>
+        <span class="signal-name">${escapeHtml(s.name || '')}</span>
+        <span class="signal-ticker">(${ticker})</span>
+      </div>
+      <div class="signal-sector">${escapeHtml(s.sector || '')}</div>
+      <div class="signal-numbers">
+        <div>
+          <div class="signal-num-label">買値</div>
+          <div class="signal-num-value num-entry">¥${entry.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="signal-num-label">損切り</div>
+          <div class="signal-num-value num-stop">¥${stop.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="signal-num-label">目標</div>
+          <div class="signal-num-value num-target">¥${target.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="signal-meta">
+        <span>${sharesIdeal}株 / ¥${cost.toLocaleString()}</span>
+        <button class="copy-btn" id="copy-btn-${idx}" onclick="event.stopPropagation();copySignal(${idx})">
+          📋 コピー
+        </button>
+      </div>
+    </div>`;
+}
+
+function copySignal(idx) {
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+  const latest = sorted[0];
+  if (!latest) return;
+  const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const s = realSignals[idx];
+  if (!s) return;
+
+  const capital = parseInt(localStorage.getItem('capital') || '1000000');
+  const entry = Number(s.entry_price);
+  const stop = Number(s.stop_price);
+  const target = Number(s.target_price);
+  const riskPerShare = entry - stop;
+  const shares = riskPerShare > 0 ? Math.floor((capital * 0.01) / riskPerShare / 100) * 100 : 0;
+  const cost = shares * entry;
+  const ticker = (s.ticker || '').replace('.T', '');
+
+  const text = `【SBI証券 発注メモ】
+銘柄: ${s.name} (${ticker})
+戦略: ${s.strategy}
+買い指値: ¥${entry.toLocaleString()}
+逆指値: ¥${stop.toLocaleString()}
+利確目標: ¥${target.toLocaleString()}
+株数: ${shares}株
+必要資金: ¥${cost.toLocaleString()}
+保有期限: ${s.hold_days}日`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(`copy-btn-${idx}`);
+    if (btn) {
+      btn.textContent = '✓ コピー完了';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '📋 コピー';
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  }).catch(() => {
+    alert('コピー失敗。手動でコピーしてください。\n\n' + text);
+  });
+}
+
+function renderHistory() {
+  const sorted = [...allSignals]
+    .filter(s => s.ticker && s.strategy !== '(no signal)')
+    .sort((a, b) => (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''))
+    .slice(0, 30);
+
+  if (sorted.length === 0) {
+    document.getElementById('history-list').innerHTML =
+      '<div class="no-signal-card"><div>履歴がまだありません</div></div>';
+    return;
+  }
+
+  const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+
+  document.getElementById('history-list').innerHTML = sorted.map(s => {
+    const ticker = (s.ticker || '').replace('.T', '');
+    const date = s.scan_date ? s.scan_date.slice(5) : '-'; // MM-DD
+    const slot = s.scan_slot || '';
+    const color = colors[s.strategy] || '#6e7681';
+    return `
+      <div class="history-row">
+        <div>
+          <div class="history-date">${date}</div>
+          <div class="history-date">${slot}</div>
+        </div>
+        <div>
+          <div class="history-name">${escapeHtml(s.name || '')}</div>
+          <div class="history-date">${ticker}</div>
+        </div>
+        <div class="history-strategy" style="background:${color};color:#fff">${s.strategy}</div>
+        <div class="history-price">¥${Number(s.entry_price).toLocaleString()}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const totalScans = new Set(allSignals.map(s => s.scan_timestamp)).size;
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const totalSignals = realSignals.length;
+
+  // 月平均シグナル
+  const dates = realSignals.map(s => s.scan_date).filter(Boolean);
+  let months = 1;
+  if (dates.length > 1) {
+    const sortedDates = [...dates].sort();
+    const first = new Date(sortedDates[0]);
+    const last = new Date(sortedDates[sortedDates.length - 1]);
+    months = Math.max(1, Math.round((last - first) / (1000 * 60 * 60 * 24 * 30)));
+  }
+  const monthlyAvg = (totalSignals / months).toFixed(1);
+
+  // HALT率
+  const haltScans = new Set(
+    allSignals.filter(s => s.is_halt === 'Y').map(s => s.scan_timestamp)
+  ).size;
+  const haltRate = totalScans > 0 ? (haltScans / totalScans * 100).toFixed(1) : 0;
+
+  document.getElementById('stat-scans').textContent = totalScans;
+  document.getElementById('stat-signals').textContent = totalSignals;
+  document.getElementById('stat-monthly').textContent = monthlyAvg + ' 件';
+  document.getElementById('stat-halt-rate').textContent = haltRate + '%';
+
+  // 戦略別
+  const strategies = {};
+  realSignals.forEach(s => {
+    strategies[s.strategy] = (strategies[s.strategy] || 0) + 1;
+  });
+  const strategyHTML = Object.entries(strategies).sort((a,b) => b[1]-a[1]).map(([k, v]) => {
+    const pct = ((v / totalSignals) * 100).toFixed(1);
+    const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #30363d">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colors[k]||'#6e7681'}"></span>
+          <strong>${k}</strong>
+        </div>
+        <span>${v} 件 <span style="color:#7d8590;font-size:11px">(${pct}%)</span></span>
+      </div>`;
+  }).join('');
+  document.getElementById('strategy-breakdown').innerHTML =
+    strategyHTML || '<div style="color:#7d8590;text-align:center;padding:16px">データなし</div>';
+
+  // 環境別
+  const regimes = {};
+  realSignals.forEach(s => {
+    regimes[s.regime] = (regimes[s.regime] || 0) + 1;
+  });
+  const regimeColors = {
+    BULLISH: '#2ea043', NEUTRAL: '#b8a200', BEARISH: '#f85149', PANIC: '#ff5555'
+  };
+  const regimeHTML = Object.entries(regimes).sort((a,b) => b[1]-a[1]).map(([k, v]) => {
+    const pct = ((v / totalSignals) * 100).toFixed(1);
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #30363d">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${regimeColors[k]||'#6e7681'}"></span>
+          <strong>${k}</strong>
+        </div>
+        <span>${v} 件 <span style="color:#7d8590;font-size:11px">(${pct}%)</span></span>
+      </div>`;
+  }).join('');
+  document.getElementById('regime-breakdown').innerHTML =
+    regimeHTML || '<div style="color:#7d8590;text-align:center;padding:16px">データなし</div>';
+}
+
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+// ============================================
+// タブ切替
+// ============================================
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  event.target.closest('.tab').classList.add('active');
+}
+
+// ============================================
+// 設定保存
+// ============================================
+function saveCapital() {
+  const v = document.getElementById('capital-input').value;
+  const n = parseInt(v);
+  if (n && n > 0) {
+    localStorage.setItem('capital', n);
+    document.getElementById('capital-saved').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('capital-saved').style.display = 'none';
+    }, 2000);
+    render();
+  }
+}
+
+// 初期値読み込み
+document.getElementById('capital-input').value = localStorage.getItem('capital') || '1000000';
+
+// ============================================
+// 起動
+// ============================================
+loadSignals();
+
+// 5分おきに自動更新
+setInterval(loadSignals, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>
