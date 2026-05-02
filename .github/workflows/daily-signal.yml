@@ -17,7 +17,7 @@ on:
         default: '1.0'
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -94,6 +94,23 @@ jobs:
             signal.md
             signal.json
           retention-days: 30
+
+      - name: Append to signals_log.csv
+        run: |
+          python signal_logger.py signal.json signals_log.csv
+
+      - name: Commit signals_log.csv
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add signals_log.csv
+          if git diff --staged --quiet; then
+            echo "変更なし(全て既存シグナル)"
+          else
+            git commit -m "📊 Update signals_log.csv (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
+            git push
+            echo "✓ signals_log.csv を更新しました"
+          fi
 
       - name: Write summary
         run: |
