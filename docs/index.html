@@ -773,7 +773,7 @@ function renderToday() {
 
   // シグナル一覧
   const signalsContainer = document.getElementById('today-signals');
-  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
 
   if (realSignals.length === 0) {
     signalsContainer.innerHTML = `
@@ -838,7 +838,7 @@ function copySignal(idx) {
   const latest = sorted[0];
   if (!latest) return;
   const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
-  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   const s = realSignals[idx];
   if (!s) return;
 
@@ -878,7 +878,7 @@ function copySignal(idx) {
 
 function renderHistory() {
   const sorted = [...allSignals]
-    .filter(s => s.ticker && s.strategy !== '(no signal)')
+    .filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)')
     .sort((a, b) => (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''))
     .slice(0, 30);
 
@@ -918,7 +918,7 @@ function renderStats() {
   renderBenchmark();
 
   const totalScans = new Set(allSignals.map(s => s.scan_timestamp)).size;
-  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   const totalSignals = realSignals.length;
 
   // 月平均シグナル
@@ -1384,7 +1384,7 @@ window.recordSignalAsTrade = function(idx) {
   const latest = sorted[0];
   if (!latest) return;
   const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
-  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   const s = realSignals[idx];
   if (!s) return;
 
@@ -1431,7 +1431,7 @@ function renderCalendar() {
   const container = document.getElementById('signal-calendar');
   if (!container) return;
 
-  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   if (realSignals.length === 0) {
     container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">データなし</div>';
     return;
@@ -1507,7 +1507,7 @@ function renderHeatmap() {
   const container = document.getElementById('strategy-heatmap');
   if (!container) return;
 
-  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   const strategies = ['MOMENTUM', 'BNF-LITE', 'MINERVINI'];
   const regimes = ['BULLISH', 'NEUTRAL', 'BEARISH', 'PANIC'];
 
@@ -1558,7 +1558,7 @@ function renderAllSignalsSim() {
   const container = document.getElementById('all-signals-sim');
   if (!container) return;
 
-  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
   if (realSignals.length === 0) {
     container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">データなし</div>';
     return;
