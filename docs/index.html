@@ -343,6 +343,42 @@ body {
       </div>
     </div>
 
+    <!-- 🆕 カレンダー表示 -->
+    <div class="card">
+      <div class="card-title">🗓 シグナル発生カレンダー</div>
+      <div id="signal-calendar"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        🟢 シグナル発生日 / 🔴 HALT発動日 / ⚪ 通常スキャン
+      </p>
+    </div>
+
+    <!-- 🆕 戦略別ヒートマップ -->
+    <div class="card">
+      <div class="card-title">🌡 戦略 × 環境 ヒートマップ</div>
+      <div id="strategy-heatmap"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        どの戦略がどの相場で多く発生するか
+      </p>
+    </div>
+
+    <!-- 🆕 「全シグナル取ったら」シミュレーション -->
+    <div class="card">
+      <div class="card-title">💎 「もし全シグナル取っていたら」(理論値)</div>
+      <div id="all-signals-sim"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        バックテスト想定の期待値ベース計算(コスト未考慮)
+      </p>
+    </div>
+
+    <!-- 🆕 ベンチマーク比較 -->
+    <div class="card">
+      <div class="card-title">🌐 ベンチマーク比較</div>
+      <div id="benchmark-compare"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        日経225 / TOPIX に対するパフォーマンス
+      </p>
+    </div>
+
     <div class="card">
       <div class="card-title">⚔ 戦略別シグナル</div>
       <div id="strategy-breakdown"></div>
@@ -386,6 +422,15 @@ body {
       <button class="btn btn-primary" onclick="openEntryModal()">
         ➕ 新規エントリー記録
       </button>
+    </div>
+
+    <!-- 🆕 セクター分散表示 -->
+    <div class="card" id="sector-distribution-card" style="display:none;">
+      <div class="card-title">🏢 セクター分散</div>
+      <div id="sector-distribution"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        ⚠️ 同一セクターに集中するとリスク上昇
+      </p>
     </div>
 
     <!-- 保有中のポジション -->
@@ -675,6 +720,14 @@ function render() {
   renderStats();
 }
 
+// 日本語化ヘルパー
+const REGIME_JA = {BULLISH:'強気相場', NEUTRAL:'中立相場', BEARISH:'弱気相場', PANIC:'暴落相場'};
+const STRATEGY_JA = {MOMENTUM:'モメンタム', 'BNF-LITE':'BNF逆張り', MINERVINI:'ミネルヴィニ'};
+const SLOT_JA = {morning:'朝', midday:'昼', evening:'夕'};
+
+function regimeJa(r) { return REGIME_JA[r] || r; }
+function strategyJa(s) { return STRATEGY_JA[s] || s; }
+
 function renderToday() {
   // 最新スキャンの結果を表示
   const today = new Date().toISOString().slice(0, 10);
@@ -695,7 +748,7 @@ function renderToday() {
     BULLISH: '🚀', NEUTRAL: '⚖️', BEARISH: '⚠️', PANIC: '🚨'
   }[regime] || '❓';
 
-  document.getElementById('regime-name').textContent = `${regimeEmoji} ${regime}`;
+  document.getElementById('regime-name').textContent = `${regimeEmoji} ${regimeJa(regime)}`;
   document.getElementById('regime-vix').textContent = latest.vix ? Number(latest.vix).toFixed(1) : '-';
   document.getElementById('regime-n225').textContent =
     latest.n225 ? '¥' + Math.round(Number(latest.n225)).toLocaleString() : '-';
@@ -859,6 +912,11 @@ function renderHistory() {
 }
 
 function renderStats() {
+  renderCalendar();
+  renderHeatmap();
+  renderAllSignalsSim();
+  renderBenchmark();
+
   const totalScans = new Set(allSignals.map(s => s.scan_timestamp)).size;
   const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
   const totalSignals = realSignals.length;
@@ -1364,6 +1422,412 @@ window.renderSignalCard = function(s, idx) {
     /(<button class="copy-btn"[^>]*>.*?<\/button>)/,
     `$1 <button class="copy-btn" style="background:#1a4d2e;color:#56d364;border-color:#2ea043;margin-left:4px;" onclick="event.stopPropagation();recordSignalAsTrade(${idx})">📝 記録</button>`
   );
+};
+
+// ============================================
+// 🆕 カレンダー表示
+// ============================================
+function renderCalendar() {
+  const container = document.getElementById('signal-calendar');
+  if (!container) return;
+
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  if (realSignals.length === 0) {
+    container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">データなし</div>';
+    return;
+  }
+
+  // 日付ごとにシグナル数を集計
+  const byDate = {};
+  realSignals.forEach(s => {
+    const d = s.scan_date || '';
+    if (!d) return;
+    if (!byDate[d]) byDate[d] = { count: 0, halt: false, regimes: new Set(), strategies: new Set() };
+    byDate[d].count++;
+    if (s.is_halt === 'Y') byDate[d].halt = true;
+    if (s.regime) byDate[d].regimes.add(s.regime);
+    if (s.strategy) byDate[d].strategies.add(s.strategy);
+  });
+
+  // 過去30日のカレンダー(最新月のみ表示)
+  const dates = Object.keys(byDate).sort();
+  if (dates.length === 0) return;
+  const latest = new Date(dates[dates.length - 1]);
+  const year = latest.getFullYear();
+  const month = latest.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+
+  let html = `
+    <div style="text-align:center;font-weight:700;margin-bottom:8px;">
+      ${year}年 ${month + 1}月
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;">
+      ${['日','月','火','水','木','金','土'].map(d => `<div style="text-align:center;color:#7d8590;padding:4px;">${d}</div>`).join('')}
+  `;
+
+  // 空白セル
+  for (let i = 0; i < startWeekday; i++) {
+    html += '<div></div>';
+  }
+
+  // 日付セル
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const data = byDate[dateStr];
+    let bg = '#161b22', dot = '';
+    if (data) {
+      if (data.halt) {
+        bg = '#5a1f1f';
+        dot = '🔴';
+      } else if (data.count > 0) {
+        bg = '#1a4d2e';
+        dot = `🟢${data.count}`;
+      }
+    }
+    const isToday = (new Date().toISOString().slice(0,10) === dateStr);
+    const border = isToday ? 'border:2px solid #58a6ff;' : 'border:1px solid #30363d;';
+    html += `
+      <div style="${border}background:${bg};padding:6px 2px;border-radius:4px;text-align:center;font-size:11px;">
+        <div style="font-weight:600;">${day}</div>
+        <div style="font-size:9px;">${dot}</div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ============================================
+// 🆕 戦略 × 環境 ヒートマップ
+// ============================================
+function renderHeatmap() {
+  const container = document.getElementById('strategy-heatmap');
+  if (!container) return;
+
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const strategies = ['MOMENTUM', 'BNF-LITE', 'MINERVINI'];
+  const regimes = ['BULLISH', 'NEUTRAL', 'BEARISH', 'PANIC'];
+
+  // 集計
+  const matrix = {};
+  strategies.forEach(s => {
+    matrix[s] = {};
+    regimes.forEach(r => matrix[s][r] = 0);
+  });
+  realSignals.forEach(s => {
+    if (matrix[s.strategy] && matrix[s.strategy][s.regime] !== undefined) {
+      matrix[s.strategy][s.regime]++;
+    }
+  });
+
+  const maxVal = Math.max(...strategies.flatMap(s => regimes.map(r => matrix[s][r])), 1);
+
+  let html = `
+    <div style="display:grid;grid-template-columns:auto repeat(4,1fr);gap:4px;font-size:11px;">
+      <div></div>
+      ${regimes.map(r => `<div style="text-align:center;color:#7d8590;padding:4px;">${regimeJa(r)}</div>`).join('')}
+  `;
+
+  strategies.forEach(s => {
+    html += `<div style="font-weight:600;padding:8px 4px;font-size:11px;">${strategyJa(s)}</div>`;
+    regimes.forEach(r => {
+      const v = matrix[s][r];
+      const intensity = v / maxVal;
+      const bg = v > 0
+        ? `rgba(46, 160, 67, ${0.2 + intensity * 0.7})`
+        : '#21262d';
+      html += `
+        <div style="background:${bg};padding:10px 4px;border-radius:4px;text-align:center;font-weight:600;">
+          ${v}
+        </div>
+      `;
+    });
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ============================================
+// 🆕 「全シグナル取ったら」シミュレーション
+// ============================================
+function renderAllSignalsSim() {
+  const container = document.getElementById('all-signals-sim');
+  if (!container) return;
+
+  const realSignals = allSignals.filter(s => s.ticker && s.strategy !== '(no signal)');
+  if (realSignals.length === 0) {
+    container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">データなし</div>';
+    return;
+  }
+
+  // バックテスト期待値(v2.7.4 実証値)
+  const EXPECTED = {
+    MOMENTUM:   { winRate: 0.612, avgWin: 0.10, avgLoss: -0.05 },
+    'BNF-LITE': { winRate: 0.531, avgWin: 0.08, avgLoss: -0.05 },
+    MINERVINI:  { winRate: 0.562, avgWin: 0.15, avgLoss: -0.09 },
+  };
+
+  // 戦略別期待値計算
+  const byStrategy = {};
+  realSignals.forEach(s => {
+    if (!byStrategy[s.strategy]) byStrategy[s.strategy] = 0;
+    byStrategy[s.strategy]++;
+  });
+
+  let totalSignals = 0, totalEv = 0;
+  let html = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">
+  `;
+
+  Object.entries(byStrategy).forEach(([s, count]) => {
+    const e = EXPECTED[s];
+    if (!e) return;
+    const evPerTrade = e.winRate * e.avgWin + (1 - e.winRate) * e.avgLoss;
+    const totalEvForStrategy = count * evPerTrade;
+    totalSignals += count;
+    totalEv += totalEvForStrategy;
+    const color = totalEvForStrategy > 0 ? '#56d364' : '#f85149';
+    html += `
+      <div class="stat-box">
+        <div class="stat-label">${strategyJa(s)} (${count}件)</div>
+        <div class="stat-value" style="color:${color};font-size:16px;">${(totalEvForStrategy*100).toFixed(1)}%</div>
+        <div style="font-size:10px;color:#7d8590;">勝率${(e.winRate*100).toFixed(0)}%×${(e.avgWin*100).toFixed(0)}%</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  // 全体合計
+  const capital = parseInt(localStorage.getItem('capital') || '1000000');
+  const riskPct = 0.01; // 1%リスク
+  const totalEvYen = totalEv * capital * riskPct * totalSignals; // 概算: 全シグナルに1%リスクで取った場合
+  const color = totalEv > 0 ? '#56d364' : '#f85149';
+
+  html += `
+    <div style="background:#1a4d2e;padding:14px;border-radius:8px;text-align:center;margin-top:8px;">
+      <div style="font-size:11px;color:#7d8590;margin-bottom:4px;">期待損益(理論値)</div>
+      <div style="font-size:24px;font-weight:800;color:${color};">
+        ${totalEv >= 0 ? '+' : ''}${(totalEv*100).toFixed(1)}% / 取引
+      </div>
+      <div style="font-size:11px;color:#7d8590;margin-top:4px;">
+        全 ${totalSignals} シグナルの平均期待値
+      </div>
+    </div>
+  `;
+  container.innerHTML = html;
+}
+
+// ============================================
+// 🆕 ベンチマーク比較
+// ============================================
+function renderBenchmark() {
+  const container = document.getElementById('benchmark-compare');
+  if (!container) return;
+
+  const sorted = [...allSignals].sort((a, b) => (a.scan_date || '').localeCompare(b.scan_date || ''));
+  if (sorted.length < 2) {
+    container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">データ不足(最低2回のスキャン必要)</div>';
+    return;
+  }
+
+  // 最初と最新の N225 を比較
+  const first = sorted.find(s => s.n225);
+  const last = [...sorted].reverse().find(s => s.n225);
+  if (!first || !last || first === last) {
+    container.innerHTML = '<div style="color:#7d8590;text-align:center;padding:16px;font-size:12px;">N225 データ不足</div>';
+    return;
+  }
+
+  const n225First = parseFloat(first.n225);
+  const n225Last = parseFloat(last.n225);
+  const n225Change = (n225Last - n225First) / n225First * 100;
+
+  // 自分のトレード成績
+  const trades = loadTrades();
+  const closed = trades.filter(t => t.status === 'CLOSED');
+  let myReturn = 0;
+  let myReturnPct = 0;
+  if (closed.length > 0) {
+    const totalPnl = closed.reduce((s, t) => s + (t.pnl || 0), 0);
+    const capital = parseInt(localStorage.getItem('capital') || '1000000');
+    myReturn = totalPnl;
+    myReturnPct = totalPnl / capital * 100;
+  }
+
+  const days = Math.max(1, Math.round((new Date(last.scan_date) - new Date(first.scan_date)) / (1000*60*60*24)));
+
+  const myColor = myReturnPct >= 0 ? '#56d364' : '#f85149';
+  const n225Color = n225Change >= 0 ? '#56d364' : '#f85149';
+  const diff = myReturnPct - n225Change;
+  const diffColor = diff >= 0 ? '#56d364' : '#f85149';
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="stat-box">
+        <div class="stat-label">📊 あなたの実績</div>
+        <div class="stat-value" style="color:${myColor};font-size:18px;">
+          ${myReturnPct >= 0 ? '+' : ''}${myReturnPct.toFixed(2)}%
+        </div>
+        <div style="font-size:10px;color:#7d8590;">
+          ¥${Math.round(myReturn).toLocaleString()}(${closed.length}件)
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">📈 日経225</div>
+        <div class="stat-value" style="color:${n225Color};font-size:18px;">
+          ${n225Change >= 0 ? '+' : ''}${n225Change.toFixed(2)}%
+        </div>
+        <div style="font-size:10px;color:#7d8590;">¥${Math.round(n225First).toLocaleString()} → ¥${Math.round(n225Last).toLocaleString()}</div>
+      </div>
+    </div>
+    <div style="background:#1a4d2e;padding:14px;border-radius:8px;text-align:center;margin-top:8px;">
+      <div style="font-size:11px;color:#7d8590;">市場との差(${days}日間)</div>
+      <div style="font-size:24px;font-weight:800;color:${diffColor};">
+        ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}pp
+      </div>
+      <div style="font-size:11px;color:#7d8590;margin-top:4px;">
+        ${diff >= 0 ? '✅ アウトパフォーム' : '⚠️ アンダーパフォーム'}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================
+// 🆕 セクター分散表示
+// ============================================
+function renderSectorDistribution() {
+  const trades = loadTrades();
+  const open = trades.filter(t => t.status === 'OPEN');
+
+  const card = document.getElementById('sector-distribution-card');
+  const container = document.getElementById('sector-distribution');
+  if (!card || !container) return;
+
+  if (open.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+
+  // セクター集計(銘柄名から推定 or trade.sector があれば使う)
+  const SECTOR_MAP = {
+    '8035': '半導体製造装置', '6857': '半導体製造装置', '6920': '半導体製造装置',
+    '6981': '電子部品', '6762': '電子部品', '6971': '電子部品', '6976': '電子部品',
+    '8306': '銀行', '8316': '銀行', '8411': '銀行',
+    '8058': '商社', '8031': '商社', '8001': '商社',
+    '7203': '自動車', '7267': '自動車',
+    '6758': '電機', '6701': '電機', '6702': '電機',
+    '4519': '医薬品', '4568': '医薬品', '4523': '医薬品',
+    '9983': '小売', '8267': '小売', '9843': '小売', '8572': '消費者金融',
+    '4385': 'フリマEC', '4478': 'SaaS',
+  };
+
+  const bySector = {};
+  open.forEach(t => {
+    const ticker = (t.ticker || '').replace('.T', '').slice(0, 4);
+    const sector = SECTOR_MAP[ticker] || 'その他';
+    const value = t.entry_price * t.shares;
+    if (!bySector[sector]) bySector[sector] = { count: 0, value: 0 };
+    bySector[sector].count++;
+    bySector[sector].value += value;
+  });
+
+  const totalValue = Object.values(bySector).reduce((s, v) => s + v.value, 0);
+  const sorted = Object.entries(bySector).sort((a, b) => b[1].value - a[1].value);
+
+  let html = '';
+  sorted.forEach(([sec, data]) => {
+    const pct = (data.value / totalValue * 100);
+    const warning = pct > 40 ? '⚠️' : '';
+    const barColor = pct > 40 ? '#f85149' : (pct > 25 ? '#d29922' : '#58a6ff');
+    html += `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+          <span><strong>${sec}</strong> ${warning} (${data.count}銘柄)</span>
+          <span style="color:#7d8590;">${pct.toFixed(1)}% / ¥${Math.round(data.value).toLocaleString()}</span>
+        </div>
+        <div style="background:#21262d;height:8px;border-radius:4px;overflow:hidden;">
+          <div style="background:${barColor};width:${pct}%;height:100%;"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  // 警告
+  const maxPct = Math.max(...sorted.map(([_, v]) => v.value / totalValue * 100));
+  if (maxPct > 40) {
+    html += `
+      <div style="background:#5a1f1f;border:1px solid #f85149;padding:10px;border-radius:6px;margin-top:8px;font-size:12px;color:#ffa198;">
+        ⚠️ ${sorted[0][0]} に ${maxPct.toFixed(0)}% 集中しています。リスク分散のため、別セクターも検討を。
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+// ============================================
+// 🆕 シグナル理由のストーリー表示(renderSignalCardを上書き)
+// ============================================
+function getSignalReason(s) {
+  const strategy = s.strategy;
+  const dev = s.info || '';
+
+  if (strategy === 'MOMENTUM') {
+    return `
+      <div style="background:#0d1117;padding:10px;border-radius:6px;margin-top:10px;font-size:12px;line-height:1.6;">
+        <strong style="color:#58a6ff;">📊 シグナル根拠</strong><br>
+        ✓ 20日高値ブレイクアウト<br>
+        ✓ 出来高 20日平均の1.5倍以上<br>
+        ✓ 200日MA・50日MA を上回る強気銘柄<br>
+        ✓ 環境: ${regimeJa(s.regime)}<br>
+        <span style="color:#7d8590;">バックテスト勝率 62% / 平均利益 +10%</span>
+      </div>`;
+  } else if (strategy === 'BNF-LITE') {
+    return `
+      <div style="background:#0d1117;padding:10px;border-radius:6px;margin-top:10px;font-size:12px;line-height:1.6;">
+        <strong style="color:#d2a8ff;">📊 シグナル根拠(BNF逆張り)</strong><br>
+        ✓ 25日移動平均線から大きく下方乖離<br>
+        ✓ ボリンジャーバンド -1.5σ 以下<br>
+        ✓ 出来高セリングクライマックス<br>
+        ✓ 環境: ${regimeJa(s.regime)}<br>
+        <span style="color:#7d8590;">バックテスト勝率 53% / 平均利益 +8%</span>
+      </div>`;
+  } else if (strategy === 'MINERVINI') {
+    return `
+      <div style="background:#0d1117;padding:10px;border-radius:6px;margin-top:10px;font-size:12px;line-height:1.6;">
+        <strong style="color:#56d364;">📊 シグナル根拠(成長株)</strong><br>
+        ✓ Trend Template 8/8 条件クリア<br>
+        ✓ VCP(ボラティリティ収縮)パターン<br>
+        ✓ ピボット価格をブレイクアウト<br>
+        ✓ 環境: ${regimeJa(s.regime)}<br>
+        <span style="color:#7d8590;">バックテスト勝率 56% / 平均利益 +15% / 保有最大90日</span>
+      </div>`;
+  }
+  return '';
+}
+
+// 既存 renderSignalCard を上書きしてシグナル理由を追加
+const _origRenderSignalCard = window.renderSignalCard;
+window.renderSignalCard = function(s, idx) {
+  const baseHTML = _origRenderSignalCard(s, idx);
+  const reasonHTML = getSignalReason(s);
+  // signal-meta の前に挿入
+  return baseHTML.replace(
+    /(<div class="signal-meta">)/,
+    reasonHTML + '$1'
+  );
+};
+
+// renderTrades の中でセクター分散も呼ぶ
+const _origRenderTrades = renderTrades;
+renderTrades = function() {
+  _origRenderTrades();
+  renderSectorDistribution();
 };
 
 // 初期描画
