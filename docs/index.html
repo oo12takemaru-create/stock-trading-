@@ -171,6 +171,90 @@ body {
   border-radius: 8px; color: #ffa198; margin: 16px 0; font-size: 13px;
 }
 .error-message strong { color: #f85149; }
+
+/* トレード関連 */
+.trade-card {
+  background: #1a2332; border-left: 4px solid #58a6ff;
+  border-radius: 8px; padding: 14px; margin-bottom: 10px;
+}
+.trade-card.win { border-left-color: #2ea043; }
+.trade-card.loss { border-left-color: #f85149; }
+.trade-card.open { border-left-color: #d29922; }
+.trade-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 8px;
+}
+.trade-title { font-weight: 700; font-size: 16px; }
+.trade-ticker { color: #7d8590; font-size: 12px; margin-left: 4px; }
+.trade-strategy {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; margin-top: 2px;
+}
+.trade-numbers {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #30363d;
+}
+.trade-num-label { font-size: 10px; color: #6e7681; }
+.trade-num-value { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.trade-pnl-banner {
+  margin-top: 10px; padding: 8px 12px; border-radius: 6px;
+  font-size: 14px; font-weight: 700; text-align: center;
+}
+.trade-pnl-banner.profit { background: #1a4d2e; color: #56d364; }
+.trade-pnl-banner.loss { background: #5a1f1f; color: #f85149; }
+.trade-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.trade-action-btn {
+  flex: 1; padding: 8px; background: #21262d; border: 1px solid #30363d;
+  color: #c9d1d9; border-radius: 6px; font-size: 12px; cursor: pointer;
+  font-family: inherit;
+}
+.trade-action-btn.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+.trade-action-btn.danger:active { background: #5a1f1f; color: #f85149; border-color: #f85149; }
+
+/* モーダル */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-content {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 16px; border-bottom: 1px solid #30363d;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h2 { font-size: 16px; }
+.modal-close {
+  background: none; border: none; color: #7d8590; font-size: 28px;
+  cursor: pointer; line-height: 1; padding: 0 8px;
+}
+.modal-body { padding: 16px; flex: 1; }
+.modal-footer {
+  padding: 12px 16px; border-top: 1px solid #30363d;
+  display: flex; gap: 8px;
+}
+.modal-footer .btn { flex: 1; }
+.form-group { margin-bottom: 12px; }
+.form-group label {
+  display: block; font-size: 12px; color: #7d8590;
+  margin-bottom: 4px; font-weight: 600;
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px; background: #0d1117;
+  border: 1px solid #30363d; color: #e6edf3;
+  border-radius: 6px; font-size: 14px; font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus {
+  outline: none; border-color: #58a6ff;
+}
+.form-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
 </style>
 </head>
 <body>
@@ -271,7 +355,63 @@ body {
   </div>
 
   <!-- ========================================= -->
-  <!-- TAB 4: HELP -->
+  <!-- TAB 4: TRADES (新規) -->
+  <!-- ========================================= -->
+  <div class="section" id="section-trades">
+    <!-- 統計サマリー -->
+    <div class="card" id="trades-summary-card">
+      <div class="card-title">💼 累計トレード成績</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">総トレード数</div>
+          <div class="stat-value" id="t-total">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">勝率</div>
+          <div class="stat-value" id="t-winrate">--</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">確定損益</div>
+          <div class="stat-value" id="t-realized">¥0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">含み損益</div>
+          <div class="stat-value" id="t-unrealized">¥0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新規エントリー追加ボタン -->
+    <div class="action-buttons" style="grid-template-columns: 1fr;">
+      <button class="btn btn-primary" onclick="openEntryModal()">
+        ➕ 新規エントリー記録
+      </button>
+    </div>
+
+    <!-- 保有中のポジション -->
+    <div class="card-title" style="margin-top: 24px;">📂 保有中のポジション</div>
+    <div id="open-trades-list"></div>
+
+    <!-- クローズ済みトレード -->
+    <div class="card-title" style="margin-top: 24px;">📜 クローズ済みトレード</div>
+    <div id="closed-trades-list"></div>
+
+    <!-- データ管理 -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title">⚙️ データ管理</div>
+      <div class="action-buttons">
+        <button class="btn" onclick="exportTrades()">📤 エクスポート(JSON)</button>
+        <button class="btn" onclick="document.getElementById('import-input').click()">📥 インポート</button>
+      </div>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importTrades(event)">
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        トレードデータはこのブラウザに保存されます。バックアップは Export してください。
+      </p>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB 5: HELP -->
   <!-- ========================================= -->
   <div class="section" id="section-help">
     <div class="card">
@@ -323,9 +463,120 @@ body {
   <button class="tab" onclick="showSection('stats')">
     <span class="tab-icon">📊</span>統計
   </button>
+  <button class="tab" onclick="showSection('trades')">
+    <span class="tab-icon">💼</span>トレード
+  </button>
   <button class="tab" onclick="showSection('help')">
     <span class="tab-icon">❓</span>ヘルプ
   </button>
+</div>
+
+<!-- ============================================ -->
+<!-- 新規エントリー モーダル -->
+<!-- ============================================ -->
+<div class="modal-overlay" id="entry-modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📝 新規エントリー記録</h2>
+      <button class="modal-close" onclick="closeEntryModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>銘柄コード</label>
+        <input type="text" id="m-ticker" placeholder="例: 6762">
+      </div>
+      <div class="form-group">
+        <label>銘柄名</label>
+        <input type="text" id="m-name" placeholder="例: TDK">
+      </div>
+      <div class="form-group">
+        <label>戦略</label>
+        <select id="m-strategy">
+          <option value="MOMENTUM">MOMENTUM</option>
+          <option value="BNF-LITE">BNF-LITE</option>
+          <option value="MINERVINI">MINERVINI</option>
+          <option value="OTHER">その他</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>取得単価(円)</label>
+          <input type="number" id="m-entry" step="0.5" placeholder="2557">
+        </div>
+        <div class="form-group">
+          <label>株数</label>
+          <input type="number" id="m-shares" placeholder="100">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>損切り(円)</label>
+          <input type="number" id="m-stop" step="0.5" placeholder="2429">
+        </div>
+        <div class="form-group">
+          <label>利確目標(円)</label>
+          <input type="number" id="m-target" step="0.5" placeholder="2813">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>エントリー日</label>
+        <input type="date" id="m-date">
+      </div>
+      <div class="form-group">
+        <label>メモ(任意)</label>
+        <textarea id="m-notes" rows="2" placeholder="任意"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeEntryModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEntry()">💾 記録</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 決済モーダル -->
+<!-- ============================================ -->
+<div class="modal-overlay" id="exit-modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💰 決済記録</h2>
+      <button class="modal-close" onclick="closeExitModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="exit-info" style="margin-bottom:12px;font-size:13px;color:#7d8590;"></div>
+      <div class="form-group">
+        <label>決済日</label>
+        <input type="date" id="x-date">
+      </div>
+      <div class="form-group">
+        <label>決済単価(円)</label>
+        <input type="number" id="x-price" step="0.5" placeholder="2700">
+      </div>
+      <div class="form-group">
+        <label>決済理由</label>
+        <select id="x-reason">
+          <option value="+10%利確">+10%利確</option>
+          <option value="損切り">損切り</option>
+          <option value="保有期限">保有期限</option>
+          <option value="25日MA戻り">25日MA戻り</option>
+          <option value="50EMA下抜け">50EMA下抜け</option>
+          <option value="半分利確">半分利確</option>
+          <option value="手動">手動</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>メモ(任意)</label>
+        <textarea id="x-notes" rows="2" placeholder="任意"></textarea>
+      </div>
+      <div id="exit-preview" style="background:#1a2332;padding:12px;border-radius:8px;margin-top:12px;font-size:13px;display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeExitModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveExit()">💾 決済確定</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -710,6 +961,413 @@ function saveCapital() {
 
 // 初期値読み込み
 document.getElementById('capital-input').value = localStorage.getItem('capital') || '1000000';
+
+// ============================================
+// 💼 TRADE TRACKING (LocalStorage)
+// ============================================
+
+function loadTrades() {
+  const data = localStorage.getItem('trades');
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTradesToStorage(trades) {
+  localStorage.setItem('trades', JSON.stringify(trades));
+}
+
+function nextTradeId(trades) {
+  return trades.length === 0 ? 1 : Math.max(...trades.map(t => t.id || 0)) + 1;
+}
+
+// 新規エントリーモーダル
+function openEntryModal(prefill = null) {
+  document.getElementById('entry-modal').style.display = 'flex';
+
+  // 今日の日付をデフォルトに
+  document.getElementById('m-date').value = new Date().toISOString().slice(0, 10);
+
+  if (prefill) {
+    document.getElementById('m-ticker').value = (prefill.ticker || '').replace('.T', '');
+    document.getElementById('m-name').value = prefill.name || '';
+    document.getElementById('m-strategy').value = prefill.strategy || 'MOMENTUM';
+    document.getElementById('m-entry').value = prefill.entry_price || '';
+    document.getElementById('m-stop').value = prefill.stop_price || '';
+    document.getElementById('m-target').value = prefill.target_price || '';
+    document.getElementById('m-shares').value = prefill.shares || '';
+  } else {
+    document.getElementById('m-ticker').value = '';
+    document.getElementById('m-name').value = '';
+    document.getElementById('m-strategy').value = 'MOMENTUM';
+    document.getElementById('m-entry').value = '';
+    document.getElementById('m-stop').value = '';
+    document.getElementById('m-target').value = '';
+    document.getElementById('m-shares').value = '';
+    document.getElementById('m-notes').value = '';
+  }
+}
+
+function closeEntryModal() {
+  document.getElementById('entry-modal').style.display = 'none';
+}
+
+function saveEntry() {
+  const ticker = document.getElementById('m-ticker').value.trim();
+  const name = document.getElementById('m-name').value.trim();
+  const strategy = document.getElementById('m-strategy').value;
+  const entry = parseFloat(document.getElementById('m-entry').value);
+  const shares = parseInt(document.getElementById('m-shares').value);
+  const stop = parseFloat(document.getElementById('m-stop').value) || (entry * 0.95);
+  const target = parseFloat(document.getElementById('m-target').value) || (entry * 1.10);
+  const date = document.getElementById('m-date').value;
+  const notes = document.getElementById('m-notes').value.trim();
+
+  if (!ticker || !name || !entry || !shares || !date) {
+    alert('銘柄コード、銘柄名、買値、株数、日付は必須です');
+    return;
+  }
+
+  const trades = loadTrades();
+  const newTrade = {
+    id: nextTradeId(trades),
+    ticker: ticker.endsWith('.T') ? ticker : ticker + '.T',
+    name,
+    strategy,
+    entry_date: date,
+    entry_price: entry,
+    shares,
+    stop_price: stop,
+    target_price: target,
+    exit_date: null,
+    exit_price: null,
+    exit_reason: null,
+    pnl: null,
+    pnl_pct: null,
+    holding_days: null,
+    status: 'OPEN',
+    notes,
+    created_at: new Date().toISOString(),
+  };
+  trades.push(newTrade);
+  saveTradesToStorage(trades);
+  closeEntryModal();
+  renderTrades();
+}
+
+// 決済モーダル
+let exitTargetId = null;
+
+function openExitModal(id) {
+  const trades = loadTrades();
+  const trade = trades.find(t => t.id === id);
+  if (!trade) return;
+
+  exitTargetId = id;
+  document.getElementById('exit-modal').style.display = 'flex';
+  document.getElementById('exit-info').innerHTML =
+    `<strong>${escapeHtml(trade.name)}</strong> (${trade.ticker.replace('.T','')})<br>` +
+    `取得 ¥${trade.entry_price.toLocaleString()} × ${trade.shares}株`;
+
+  document.getElementById('x-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('x-price').value = '';
+  document.getElementById('x-reason').value = '+10%利確';
+  document.getElementById('x-notes').value = '';
+  document.getElementById('exit-preview').style.display = 'none';
+
+  // リアルタイム計算
+  const updatePreview = () => {
+    const exitPrice = parseFloat(document.getElementById('x-price').value);
+    if (!exitPrice) {
+      document.getElementById('exit-preview').style.display = 'none';
+      return;
+    }
+    const pnl = (exitPrice - trade.entry_price) * trade.shares;
+    const pnlPct = (exitPrice - trade.entry_price) / trade.entry_price * 100;
+    const color = pnl > 0 ? '#56d364' : '#f85149';
+    const sign = pnl > 0 ? '🎉' : '😔';
+    document.getElementById('exit-preview').style.display = 'block';
+    document.getElementById('exit-preview').innerHTML =
+      `${sign} 損益プレビュー<br>` +
+      `<span style="font-size:18px;font-weight:700;color:${color}">¥${pnl.toLocaleString()} (${pnlPct.toFixed(2)}%)</span>`;
+  };
+  document.getElementById('x-price').oninput = updatePreview;
+}
+
+function closeExitModal() {
+  document.getElementById('exit-modal').style.display = 'none';
+  exitTargetId = null;
+}
+
+function saveExit() {
+  if (!exitTargetId) return;
+  const exitPrice = parseFloat(document.getElementById('x-price').value);
+  const exitDate = document.getElementById('x-date').value;
+  const exitReason = document.getElementById('x-reason').value;
+  const notes = document.getElementById('x-notes').value.trim();
+
+  if (!exitPrice || !exitDate) {
+    alert('決済日と決済単価は必須です');
+    return;
+  }
+
+  const trades = loadTrades();
+  const trade = trades.find(t => t.id === exitTargetId);
+  if (!trade) return;
+
+  const pnl = (exitPrice - trade.entry_price) * trade.shares;
+  const pnlPct = (exitPrice - trade.entry_price) / trade.entry_price * 100;
+  const days = Math.round((new Date(exitDate) - new Date(trade.entry_date)) / (1000*60*60*24));
+
+  trade.exit_date = exitDate;
+  trade.exit_price = exitPrice;
+  trade.exit_reason = exitReason;
+  trade.pnl = pnl;
+  trade.pnl_pct = pnlPct;
+  trade.holding_days = days;
+  trade.status = 'CLOSED';
+  if (notes) trade.notes = (trade.notes ? trade.notes + ' | ' : '') + notes;
+
+  saveTradesToStorage(trades);
+  closeExitModal();
+  renderTrades();
+}
+
+function deleteTrade(id) {
+  if (!confirm('このトレードを削除しますか?')) return;
+  const trades = loadTrades().filter(t => t.id !== id);
+  saveTradesToStorage(trades);
+  renderTrades();
+}
+
+function renderTrades() {
+  const trades = loadTrades();
+  const open = trades.filter(t => t.status === 'OPEN');
+  const closed = trades.filter(t => t.status === 'CLOSED')
+    .sort((a, b) => (b.exit_date || '').localeCompare(a.exit_date || ''));
+
+  // 統計
+  const wins = closed.filter(t => t.pnl > 0);
+  const losses = closed.filter(t => t.pnl <= 0);
+  const totalRealized = closed.reduce((s, t) => s + (t.pnl || 0), 0);
+  const totalUnrealized = open.reduce((s, t) => {
+    // 現在値は不明なので、エントリー価格(±0)として扱う
+    return s + 0;
+  }, 0);
+  const winRate = closed.length > 0 ? (wins.length / closed.length * 100) : 0;
+
+  document.getElementById('t-total').textContent = trades.length;
+  document.getElementById('t-winrate').textContent =
+    closed.length > 0 ? winRate.toFixed(0) + '%' : '--';
+  const pnlColor = totalRealized > 0 ? 'green' : (totalRealized < 0 ? 'red' : '');
+  const realizedEl = document.getElementById('t-realized');
+  realizedEl.textContent = (totalRealized >= 0 ? '+' : '') + '¥' + Math.round(totalRealized).toLocaleString();
+  realizedEl.className = 'stat-value ' + pnlColor;
+
+  document.getElementById('t-unrealized').textContent =
+    open.length > 0 ? open.length + '銘柄' : '--';
+
+  // 保有中
+  const openContainer = document.getElementById('open-trades-list');
+  if (open.length === 0) {
+    openContainer.innerHTML = `
+      <div class="no-signal-card">
+        <div class="icon">📭</div>
+        <div>保有中のポジションなし</div>
+        <div style="font-size:11px;margin-top:8px;color:#6e7681">
+          シグナルが出たら「新規エントリー記録」で記録しましょう
+        </div>
+      </div>`;
+  } else {
+    openContainer.innerHTML = open.map(t => renderOpenTrade(t)).join('');
+  }
+
+  // クローズ済み
+  const closedContainer = document.getElementById('closed-trades-list');
+  if (closed.length === 0) {
+    closedContainer.innerHTML = `
+      <div class="no-signal-card" style="padding:16px;">
+        <div style="color:#7d8590">クローズ済みトレードなし</div>
+      </div>`;
+  } else {
+    closedContainer.innerHTML = closed.map(t => renderClosedTrade(t)).join('');
+  }
+}
+
+function renderOpenTrade(t) {
+  const ticker = t.ticker.replace('.T', '');
+  const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+  const stratColor = colors[t.strategy] || '#6e7681';
+  const cost = t.entry_price * t.shares;
+  return `
+    <div class="trade-card open">
+      <div class="trade-header">
+        <div>
+          <span class="trade-title">${escapeHtml(t.name)}</span>
+          <span class="trade-ticker">(${ticker})</span>
+          <div><span class="trade-strategy" style="background:${stratColor};color:#fff">${t.strategy}</span></div>
+        </div>
+        <div style="font-size:11px;color:#7d8590;text-align:right">
+          ${t.entry_date}<br>${t.shares}株
+        </div>
+      </div>
+      <div class="trade-numbers">
+        <div>
+          <div class="trade-num-label">取得</div>
+          <div class="trade-num-value" style="color:#58a6ff">¥${t.entry_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">損切り</div>
+          <div class="trade-num-value" style="color:#f85149">¥${t.stop_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">目標</div>
+          <div class="trade-num-value" style="color:#56d364">¥${t.target_price.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#7d8590;margin-top:8px;">
+        必要資金: ¥${cost.toLocaleString()}
+      </div>
+      <div class="trade-actions">
+        <button class="trade-action-btn primary" onclick="openExitModal(${t.id})">💰 決済</button>
+        <button class="trade-action-btn danger" onclick="deleteTrade(${t.id})">🗑 削除</button>
+      </div>
+    </div>`;
+}
+
+function renderClosedTrade(t) {
+  const ticker = t.ticker.replace('.T', '');
+  const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+  const stratColor = colors[t.strategy] || '#6e7681';
+  const isWin = t.pnl > 0;
+  const cardClass = isWin ? 'win' : 'loss';
+  const bannerClass = isWin ? 'profit' : 'loss';
+  const sign = isWin ? '🎉' : '😔';
+  const pnlSign = t.pnl >= 0 ? '+' : '';
+  return `
+    <div class="trade-card ${cardClass}">
+      <div class="trade-header">
+        <div>
+          <span class="trade-title">${escapeHtml(t.name)}</span>
+          <span class="trade-ticker">(${ticker})</span>
+          <div><span class="trade-strategy" style="background:${stratColor};color:#fff">${t.strategy}</span></div>
+        </div>
+        <div style="font-size:11px;color:#7d8590;text-align:right">
+          ${t.entry_date}<br>↓ ${t.holding_days}日<br>${t.exit_date}
+        </div>
+      </div>
+      <div class="trade-numbers">
+        <div>
+          <div class="trade-num-label">取得</div>
+          <div class="trade-num-value">¥${t.entry_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">決済</div>
+          <div class="trade-num-value">¥${t.exit_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">株数</div>
+          <div class="trade-num-value">${t.shares}</div>
+        </div>
+      </div>
+      <div class="trade-pnl-banner ${bannerClass}">
+        ${sign} ${pnlSign}¥${Math.round(t.pnl).toLocaleString()} (${pnlSign}${t.pnl_pct.toFixed(2)}%)
+      </div>
+      <div style="font-size:11px;color:#7d8590;margin-top:6px;">
+        理由: ${escapeHtml(t.exit_reason || '-')}
+      </div>
+      <div class="trade-actions">
+        <button class="trade-action-btn danger" onclick="deleteTrade(${t.id})">🗑 削除</button>
+      </div>
+    </div>`;
+}
+
+// JSON エクスポート/インポート
+function exportTrades() {
+  const trades = loadTrades();
+  const blob = new Blob([JSON.stringify(trades, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trades_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importTrades(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Invalid format');
+      if (confirm(`${data.length}件のトレードをインポートしますか?(現在のデータは置き換えられます)`)) {
+        saveTradesToStorage(data);
+        renderTrades();
+        alert('インポート完了');
+      }
+    } catch (err) {
+      alert('インポート失敗: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// シグナルカードに「記録」ボタンを追加するため、renderSignalCard を上書き
+const originalRenderSignalCard = renderSignalCard;
+window.recordSignalAsTrade = function(idx) {
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+  const latest = sorted[0];
+  if (!latest) return;
+  const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)');
+  const s = realSignals[idx];
+  if (!s) return;
+
+  const capital = parseInt(localStorage.getItem('capital') || '1000000');
+  const entry = Number(s.entry_price);
+  const stop = Number(s.stop_price);
+  const target = Number(s.target_price);
+  const riskPerShare = entry - stop;
+  const shares = riskPerShare > 0 ? Math.floor((capital * 0.01) / riskPerShare / 100) * 100 : 100;
+
+  // タブ切り替えてからモーダル開く
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-trades').classList.add('active');
+  document.querySelectorAll('.tab')[3].classList.add('active'); // 4番目(0-indexed=3)が💼
+
+  setTimeout(() => {
+    openEntryModal({
+      ticker: s.ticker,
+      name: s.name,
+      strategy: s.strategy,
+      entry_price: entry,
+      stop_price: stop,
+      target_price: target,
+      shares,
+    });
+  }, 100);
+};
+
+// renderSignalCard を上書きして「記録」ボタンを追加
+window.renderSignalCard = function(s, idx) {
+  const baseHTML = originalRenderSignalCard(s, idx);
+  // 「📋 コピー」ボタンの隣に「📝 記録」ボタンを追加
+  return baseHTML.replace(
+    /(<button class="copy-btn"[^>]*>.*?<\/button>)/,
+    `$1 <button class="copy-btn" style="background:#1a4d2e;color:#56d364;border-color:#2ea043;margin-left:4px;" onclick="event.stopPropagation();recordSignalAsTrade(${idx})">📝 記録</button>`
+  );
+};
+
+// 初期描画
+renderTrades();
 
 // ============================================
 // 起動
