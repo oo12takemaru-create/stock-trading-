@@ -53,13 +53,27 @@ jobs:
             signal.md
             signal.json
       - run: python signal_logger.py signal.json signals_log.csv
-      - run: |
+      - name: Commit and push signals_log.csv (with retry)
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add signals_log.csv
           if git diff --staged --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Update signals_log.csv"
-            git push
+            echo "No changes to commit"
+            exit 0
           fi
+          git commit -m "Update signals_log.csv"
+
+          # リトライ付き push (remote が変わってる場合は pull --rebase)
+          for i in 1 2 3 4 5; do
+            if git push origin main; then
+              echo "✓ Push succeeded on attempt $i"
+              exit 0
+            fi
+            echo "Push failed, attempt $i. Pulling and retrying..."
+            git pull --rebase origin main || true
+            sleep 2
+          done
+
+          echo "❌ Push failed after 5 attempts"
+          exit 1
