@@ -147,11 +147,14 @@ def main():
             "signal_id": sid,
         })
 
-    # 重複していなくてもシグナル0件のスキャンは記録(履歴として)
-    if not new_rows and not signals:
-        # シグナル0件でもスキャンの存在を記録
-        sid = f"{scan_date}_{slot}_NOSIGNAL"
+    # ★修正: スキャン1回ごとに必ず1行記録(手動再実行も毎回カウント)
+    # シグナル0件のスキャンも、シグナルが全て重複だった場合も、必ず記録
+    if not new_rows:
+        # タイムスタンプベースのユニーク ID(毎回必ず新規)
+        sid = f"{timestamp}_SCAN_RECORD"
         if sid not in existing_ids:
+            scan_strategy = "(no signal)" if not signals else "(all duplicate)"
+            scan_info = "シグナルなし" if not signals else f"既存シグナル {len(signals)} 件"
             new_rows.append({
                 "scan_timestamp": timestamp,
                 "scan_date": scan_date,
@@ -161,7 +164,7 @@ def main():
                 "halt_reason": halt_reason,
                 "vix": vix,
                 "n225": n225,
-                "strategy": "(no signal)",
+                "strategy": scan_strategy,
                 "ticker": "",
                 "name": "",
                 "sector": "",
@@ -171,7 +174,7 @@ def main():
                 "shares": "",
                 "cost": "",
                 "hold_days": "",
-                "info": "シグナルなし",
+                "info": scan_info,
                 "signal_id": sid,
             })
 
