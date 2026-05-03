@@ -6,15 +6,6 @@ on:
     - cron: '0 3 * * 1-5'
     - cron: '0 9 * * 1-5'
   workflow_dispatch:
-    inputs:
-      capital:
-        description: '運用資金(円)'
-        required: false
-        default: '1000000'
-      risk:
-        description: '1トレードリスク(%)'
-        required: false
-        default: '1.0'
 
 permissions:
   contents: write
@@ -24,96 +15,51 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Determine time slot
-        id: slot
+      - id: slot
         run: |
           JST_HOUR=$(TZ='Asia/Tokyo' date +%H)
           if [ "$JST_HOUR" -lt "10" ]; then
-            echo "slot=🌅 朝" >> $GITHUB_OUTPUT
+            echo "slot=Morning" >> $GITHUB_OUTPUT
             echo "slot_en=morning" >> $GITHUB_OUTPUT
           elif [ "$JST_HOUR" -lt "15" ]; then
-            echo "slot=☀️ 昼" >> $GITHUB_OUTPUT
+            echo "slot=Midday" >> $GITHUB_OUTPUT
             echo "slot_en=midday" >> $GITHUB_OUTPUT
           else
-            echo "slot=🌙 夕" >> $GITHUB_OUTPUT
+            echo "slot=Evening" >> $GITHUB_OUTPUT
             echo "slot_en=evening" >> $GITHUB_OUTPUT
           fi
           echo "date_jst=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
-          echo "time_jst=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
-
-      - name: Run Daily Scanner v2.7.4
-        env:
-          CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
-          RISK:    ${{ github.event.inputs.risk || '1.0' }}
-        run: |
-          python daily_scanner_v2_7_4.py \
-            --capital "$CAPITAL" \
-            --risk "$RISK" \
-            --output signal.md \
-            --json-output signal.json
-
-      - name: Add timestamp header
-        run: |
-          cat > signal_final.md <<HEADER
-          > ⏰ 自動実行: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
-          > 📦 v2.7.4 | Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-          HEADER
-          cat signal.md >> signal_final.md
-
-      - name: Create signal issue
-        uses: peter-evans/create-issue-from-file@v5
+      - run: |
+          python daily_scanner_v2_7_4.py --capital 1000000 --output signal.md --json-output signal.json
+      - uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "📊 シグナル ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
-          content-filepath: signal_final.md
+          title: "Signal ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
+          content-filepath: signal.md
           labels: |
             auto-signal
             ${{ steps.slot.outputs.slot_en }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: signal-${{ steps.slot.outputs.date_jst }}-${{ steps.slot.outputs.slot_en }}
           path: |
             signal.md
             signal.json
-          retention-days: 30
-
-      - name: Append to signals_log.csv
-        run: |
-          python signal_logger.py signal.json signals_log.csv
-
-      - name: Commit signals_log.csv
-        run: |
+      - run: python signal_logger.py signal.json signals_log.csv
+      - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add signals_log.csv
           if git diff --staged --quiet; then
-            echo "変更なし(全て既存シグナル)"
+            echo "No changes"
           else
-            git commit -m "📊 Update signals_log.csv (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
+            git commit -m "Update signals_log.csv"
             git push
-            echo "✓ signals_log.csv を更新しました"
           fi
-
-      - name: Write summary
-        run: |
-          echo "## 📊 v2.7.4 実行完了" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          cat signal.md >> $GITHUB_STEP_SUMMARY
