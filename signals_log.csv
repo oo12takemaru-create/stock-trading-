@@ -1,2 +1,3 @@
 ﻿scan_timestamp,scan_date,scan_slot,regime,is_halt,halt_reason,vix,n225,strategy,ticker,name,sector,entry_price,stop_price,target_price,shares,cost,hold_days,info,signal_id
 2026-05-03T11:11:53.385740,2026-05-03,昼,BULLISH,N,,16.989999771118164,59513.12109375,(no signal),,,,,,,,,,シグナルなし,2026-05-03_昼_NOSIGNAL
+2026-05-04T08:09:10.651642,2026-05-04,朝,BULLISH,N,,17.420000076293945,59513.12109375,(no signal),,,,,,,,,,シグナルなし,2026-05-04T08:09:10.651642_SCAN_RECORD
