@@ -1,4 +1,4 @@
-name: Daily Trading Signal (v2.7.4)
+name: Daily Trading Signal (v2.7.5)
 
 on:
   schedule:
@@ -6,6 +6,15 @@ on:
     - cron: '0 3 * * 1-5'
     - cron: '0 9 * * 1-5'
   workflow_dispatch:
+    inputs:
+      capital:
+        description: 'Capital (yen)'
+        required: false
+        default: '1000000'
+      risk:
+        description: 'Risk per trade (%)'
+        required: false
+        default: '1.0'
 
 permissions:
   contents: write
@@ -15,20 +24,24 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - run: |
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - id: slot
+      - name: Determine time slot
+        id: slot
         run: |
           JST_HOUR=$(TZ='Asia/Tokyo' date +%H)
           if [ "$JST_HOUR" -lt "10" ]; then
@@ -42,45 +55,65 @@ jobs:
             echo "slot_en=evening" >> $GITHUB_OUTPUT
           fi
           echo "date_jst=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "time_jst=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
 
-      - run: |
-          python daily_scanner_v2_7_4.py --capital 1000000 --output signal.md --json-output signal.json
+      - name: Run Daily Scanner v2.7.5
+        env:
+          CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
+          RISK:    ${{ github.event.inputs.risk || '1.0' }}
+        run: |
+          python daily_scanner_v2_7_5.py \
+            --capital "$CAPITAL" \
+            --risk "$RISK" \
+            --output signal.md \
+            --json-output signal.json
 
-      - uses: peter-evans/create-issue-from-file@v5
+      - name: Add timestamp header
+        run: |
+          cat > signal_final.md <<HEADER
+          > Auto run: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
+          > v2.7.5 (200銘柄) | Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          HEADER
+          cat signal.md >> signal_final.md
+
+      - name: Create signal issue
+        uses: peter-evans/create-issue-from-file@v5
         with:
           title: "Signal ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
-          content-filepath: signal.md
+          content-filepath: signal_final.md
           labels: |
             auto-signal
             ${{ steps.slot.outputs.slot_en }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: signal-${{ steps.slot.outputs.date_jst }}-${{ steps.slot.outputs.slot_en }}
           path: |
             signal.md
             signal.json
+          retention-days: 30
 
-      - run: python signal_logger.py signal.json signals_log.csv
+      - name: Append to signals_log.csv
+        run: |
+          python signal_logger.py signal.json signals_log.csv
 
-      - name: Commit and push signals_log.csv (with retry)
+      - name: Commit signals_log.csv
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add signals_log.csv
           if git diff --staged --quiet; then
             echo "No changes"
-            exit 0
+          else
+            git commit -m "Update signals_log.csv (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
+            git push
+            echo "Updated signals_log.csv"
           fi
-          git commit -m "Update signals_log.csv [skip ci]"
-          for i in 1 2 3 4 5; do
-            git fetch origin main
-            git pull --rebase --autostash origin main || git rebase --abort
-            if git push origin main; then
-              echo "Push success on attempt $i"
-              exit 0
-            fi
-            sleep $((i * 3))
-          done
-          echo "Push failed after 5 attempts" >&2
-          exit 1
+
+      - name: Write summary
+        run: |
+          echo "## v2.7.5 execution complete (200 stocks)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat signal.md >> $GITHUB_STEP_SUMMARY
