@@ -262,7 +262,7 @@ body {
 <div class="container">
   <div class="header">
     <h1>📊 BNF × Minervini</h1>
-    <div class="subtitle">Trading Signal Dashboard v2.7.4</div>
+    <div class="subtitle">Trading Signal Dashboard v2.7.5(200銘柄)</div>
     <div class="updated" id="last-updated">読み込み中...</div>
   </div>
 
@@ -270,6 +270,24 @@ body {
   <!-- TAB 1: TODAY -->
   <!-- ========================================= -->
   <div class="section active" id="section-today">
+
+    <!-- ▼ 今すぐスキャンボタン(GitHub Actionsをブラウザからキック) -->
+    <div class="card" id="scan-btn-card" style="background:#1a3d5c;border-color:#388bfd;">
+      <div class="card-title">⚡ 今すぐスキャン(GitHub Actions実行)</div>
+      <p style="font-size:11px;color:#a8c5e0;margin-bottom:10px;line-height:1.5;">
+        押すと最新データで200銘柄をスキャン。完了まで2〜3分。<br>
+        初回のみ Personal Access Token (PAT) の入力が必要(localStorageに保存)。
+      </p>
+      <div class="action-buttons" style="grid-template-columns: 1fr 1fr;">
+        <button class="btn btn-primary" id="scan-btn" onclick="triggerScan()">
+          🔄 今すぐスキャン実行
+        </button>
+        <button class="btn" onclick="resetPAT()" style="font-size:12px;">
+          🔑 PAT 設定/リセット
+        </button>
+      </div>
+      <div id="scan-status" style="display:none;margin-top:12px;padding:10px;background:#0d1117;border-radius:6px;font-size:12px;line-height:1.5;"></div>
+    </div>
 
     <!-- マーケット環境 -->
     <div class="card regime-card" id="regime-card">
@@ -433,6 +451,24 @@ body {
       </p>
     </div>
 
+    <!-- 🆕 v2.7.5: 環境別勝率分析 -->
+    <div class="card" id="regime-analysis-card" style="display:none;">
+      <div class="card-title">🎯 環境別の自分の成績</div>
+      <div id="regime-winrate-breakdown"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        どの市場環境で勝てているか/負けているかが見えます
+      </p>
+    </div>
+
+    <!-- 🆕 v2.7.5: 戦略×環境マトリクス -->
+    <div class="card" id="strategy-regime-matrix-card" style="display:none;">
+      <div class="card-title">⚔ 戦略 × 環境 マトリクス</div>
+      <div id="strategy-regime-matrix" style="overflow-x:auto;"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        どの戦略がどの環境で機能したか、自身の実績ベースで可視化
+      </p>
+    </div>
+
     <!-- 保有中のポジション -->
     <div class="card-title" style="margin-top: 24px;">📂 保有中のポジション</div>
     <div id="open-trades-list"></div>
@@ -441,12 +477,30 @@ body {
     <div class="card-title" style="margin-top: 24px;">📜 クローズ済みトレード</div>
     <div id="closed-trades-list"></div>
 
+    <!-- 🆕 デバイス間同期 -->
+    <div class="card" style="margin-top: 16px;background:#1a4d2e;border-color:#2ea043;">
+      <div class="card-title">🔄 スマホ ↔ PC 同期</div>
+      <p style="font-size:12px;line-height:1.6;margin-bottom:10px;">
+        <strong>スマホ→PC への同期方法:</strong><br>
+        1. スマホで <strong>「📤 共有URL生成」</strong>をタップ<br>
+        2. URL がクリップボードにコピーされる<br>
+        3. メール/LINE 等で PC に送信<br>
+        4. PC でその URL を開く → 自動で同期完了!
+      </p>
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="generateShareURL()">📤 共有URL生成(クリップボードにコピー)</button>
+      </div>
+      <p style="font-size:11px;color:#a5d6a7;margin-top:8px;">
+        💡 URLにトレードデータが暗号化されて含まれます
+      </p>
+    </div>
+
     <!-- データ管理 -->
     <div class="card" style="margin-top: 16px;">
-      <div class="card-title">⚙️ データ管理</div>
+      <div class="card-title">⚙️ バックアップ</div>
       <div class="action-buttons">
-        <button class="btn" onclick="exportTrades()">📤 エクスポート(JSON)</button>
-        <button class="btn" onclick="document.getElementById('import-input').click()">📥 インポート</button>
+        <button class="btn" onclick="exportTrades()">📤 JSONエクスポート</button>
+        <button class="btn" onclick="document.getElementById('import-input').click()">📥 JSONインポート</button>
       </div>
       <input type="file" id="import-input" accept=".json" style="display:none" onchange="importTrades(event)">
       <p style="font-size:11px;color:#7d8590;margin-top:8px;">
@@ -570,6 +624,14 @@ body {
       <div class="form-group">
         <label>メモ(任意)</label>
         <textarea id="m-notes" rows="2" placeholder="任意"></textarea>
+      </div>
+      <!-- 🆕 v2.7.5: エントリー時の市場環境を自動付与(編集可) -->
+      <div class="form-group" style="background:#0d1117;padding:10px;border-radius:6px;border:1px solid #30363d;">
+        <label style="color:#7d8590;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">📈 エントリー時の市場環境(自動取得)</label>
+        <div id="m-context-display" style="font-size:13px;line-height:1.7;margin-top:6px;color:#a8c5e0;"></div>
+        <input type="hidden" id="m-entry-regime" value="">
+        <input type="hidden" id="m-entry-vix" value="">
+        <input type="hidden" id="m-entry-n225" value="">
       </div>
     </div>
     <div class="modal-footer">
@@ -1042,6 +1104,24 @@ function nextTradeId(trades) {
   return trades.length === 0 ? 1 : Math.max(...trades.map(t => t.id || 0)) + 1;
 }
 
+// 🆕 v2.7.5: 最新スキャンから現在の市場環境を取得
+function getCurrentMarketContext() {
+  if (!allSignals || allSignals.length === 0) {
+    return { regime: 'UNKNOWN', vix: null, n225: null, scanDate: null };
+  }
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || '')
+  );
+  const latest = sorted[0];
+  return {
+    regime: latest.regime || 'UNKNOWN',
+    vix: latest.vix ? parseFloat(latest.vix) : null,
+    n225: latest.n225_close ? parseFloat(latest.n225_close) : null,
+    scanDate: latest.scan_date || null,
+    isHalt: latest.is_halt === 'Y',
+  };
+}
+
 // 新規エントリーモーダル
 function openEntryModal(prefill = null) {
   document.getElementById('entry-modal').style.display = 'flex';
@@ -1067,6 +1147,20 @@ function openEntryModal(prefill = null) {
     document.getElementById('m-shares').value = '';
     document.getElementById('m-notes').value = '';
   }
+
+  // 🆕 v2.7.5: 現在の市場環境を自動セット
+  const ctx = getCurrentMarketContext();
+  const regimeJaName = regimeJa(ctx.regime);
+  const regimeEmoji = ({ BULLISH:'🚀', NEUTRAL:'⚖️', BEARISH:'⚠️', PANIC:'🚨' })[ctx.regime] || '❓';
+  const haltStr = ctx.isHalt ? ' / 🛡 HALT中' : '';
+  document.getElementById('m-context-display').innerHTML =
+    `<strong style="font-size:15px;">${regimeEmoji} ${regimeJaName}</strong>${haltStr}<br>` +
+    `VIX: <strong>${ctx.vix !== null ? ctx.vix.toFixed(1) : '--'}</strong> / ` +
+    `日経225: <strong>${ctx.n225 !== null ? ctx.n225.toLocaleString() : '--'}</strong><br>` +
+    `<span style="color:#7d8590;font-size:11px;">最終スキャン: ${ctx.scanDate || '不明'}</span>`;
+  document.getElementById('m-entry-regime').value = ctx.regime;
+  document.getElementById('m-entry-vix').value = ctx.vix !== null ? ctx.vix : '';
+  document.getElementById('m-entry-n225').value = ctx.n225 !== null ? ctx.n225 : '';
 }
 
 function closeEntryModal() {
@@ -1089,6 +1183,13 @@ function saveEntry() {
     return;
   }
 
+  // 🆕 v2.7.5: 現在の市場環境を取得して保存
+  const entryRegime = document.getElementById('m-entry-regime').value || 'UNKNOWN';
+  const entryVixRaw = document.getElementById('m-entry-vix').value;
+  const entryN225Raw = document.getElementById('m-entry-n225').value;
+  const entryVix = entryVixRaw ? parseFloat(entryVixRaw) : null;
+  const entryN225 = entryN225Raw ? parseFloat(entryN225Raw) : null;
+
   const trades = loadTrades();
   const newTrade = {
     id: nextTradeId(trades),
@@ -1108,6 +1209,10 @@ function saveEntry() {
     holding_days: null,
     status: 'OPEN',
     notes,
+    // 🆕 v2.7.5: エントリー時の市場環境
+    entry_regime: entryRegime,
+    entry_vix: entryVix,
+    entry_n225: entryN225,
     created_at: new Date().toISOString(),
   };
   trades.push(newTrade);
@@ -1253,6 +1358,105 @@ function renderTrades() {
   } else {
     closedContainer.innerHTML = closed.map(t => renderClosedTrade(t)).join('');
   }
+
+  // 🆕 v2.7.5: 環境別勝率 & 戦略×環境マトリクス
+  renderRegimeAnalysis(closed);
+}
+
+// 🆕 v2.7.5: 環境別の自分の成績を描画
+function renderRegimeAnalysis(closed) {
+  const regimeCard = document.getElementById('regime-analysis-card');
+  const matrixCard = document.getElementById('strategy-regime-matrix-card');
+
+  // 環境情報を持つクローズ済みトレードのみ対象
+  const withRegime = closed.filter(t => t.entry_regime && t.entry_regime !== 'UNKNOWN');
+  if (withRegime.length === 0) {
+    regimeCard.style.display = 'none';
+    matrixCard.style.display = 'none';
+    return;
+  }
+  regimeCard.style.display = 'block';
+  matrixCard.style.display = 'block';
+
+  // 環境別集計
+  const regimes = ['BULLISH', 'NEUTRAL', 'BEARISH', 'PANIC'];
+  const regimeColors = {
+    BULLISH: '#238636', NEUTRAL: '#b8a200', BEARISH: '#8b2828', PANIC: '#da3633',
+  };
+  const regimeEmojis = { BULLISH: '🚀', NEUTRAL: '⚖️', BEARISH: '⚠️', PANIC: '🚨' };
+
+  let breakdown = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">';
+  regimes.forEach(r => {
+    const trades = withRegime.filter(t => t.entry_regime === r);
+    if (trades.length === 0) return;
+    const wins = trades.filter(t => t.pnl > 0).length;
+    const wr = trades.length > 0 ? (wins / trades.length * 100) : 0;
+    const totalPnl = trades.reduce((s, t) => s + (t.pnl || 0), 0);
+    const pnlColor = totalPnl > 0 ? '#56d364' : (totalPnl < 0 ? '#f85149' : '#e6edf3');
+    const pnlSign = totalPnl >= 0 ? '+' : '';
+    breakdown += `
+      <div style="background:${regimeColors[r]}22;border-left:3px solid ${regimeColors[r]};padding:10px;border-radius:6px;">
+        <div style="font-size:13px;font-weight:600;">${regimeEmojis[r]} ${regimeJa(r)}</div>
+        <div style="font-size:20px;font-weight:800;margin:4px 0;">${wr.toFixed(0)}%</div>
+        <div style="font-size:11px;color:#7d8590;">${trades.length}件 / 勝${wins}・負${trades.length - wins}</div>
+        <div style="font-size:12px;font-weight:600;color:${pnlColor};margin-top:4px;">
+          ${pnlSign}¥${Math.round(totalPnl).toLocaleString()}
+        </div>
+      </div>`;
+  });
+  breakdown += '</div>';
+  document.getElementById('regime-winrate-breakdown').innerHTML = breakdown;
+
+  // 戦略 × 環境 マトリクス
+  const strategies = ['MOMENTUM', 'BNF-LITE', 'MINERVINI', 'OTHER'];
+  const stratColors = {
+    MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043', OTHER: '#6e7681',
+  };
+
+  let matrix = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  matrix += '<thead><tr><th style="text-align:left;padding:6px;color:#7d8590;font-weight:600;">戦略</th>';
+  regimes.forEach(r => {
+    matrix += `<th style="padding:6px;color:${regimeColors[r]};font-weight:600;text-align:center;">${regimeEmojis[r]}<br>${regimeJa(r)}</th>`;
+  });
+  matrix += '<th style="padding:6px;color:#7d8590;font-weight:600;text-align:center;">合計</th></tr></thead><tbody>';
+
+  strategies.forEach(s => {
+    const stratTrades = withRegime.filter(t => t.strategy === s);
+    if (stratTrades.length === 0) return;
+    matrix += `<tr><td style="padding:8px 6px;border-top:1px solid #30363d;"><span style="display:inline-block;background:${stratColors[s]};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${s}</span></td>`;
+    regimes.forEach(r => {
+      const cell = stratTrades.filter(t => t.entry_regime === r);
+      if (cell.length === 0) {
+        matrix += '<td style="padding:8px 6px;border-top:1px solid #30363d;text-align:center;color:#444;">-</td>';
+      } else {
+        const wins = cell.filter(t => t.pnl > 0).length;
+        const wr = wins / cell.length * 100;
+        const totalPnl = cell.reduce((sum, t) => sum + (t.pnl || 0), 0);
+        const wrColor = wr >= 60 ? '#56d364' : (wr >= 40 ? '#e6edf3' : '#f85149');
+        matrix += `<td style="padding:8px 6px;border-top:1px solid #30363d;text-align:center;">
+          <div style="color:${wrColor};font-weight:700;font-size:14px;">${wr.toFixed(0)}%</div>
+          <div style="color:#7d8590;font-size:10px;">${cell.length}件</div>
+          <div style="color:${totalPnl >= 0 ? '#56d364' : '#f85149'};font-size:10px;">
+            ${totalPnl >= 0 ? '+' : ''}¥${Math.round(totalPnl/1000)}k
+          </div>
+        </td>`;
+      }
+    });
+    // 戦略合計
+    const totalWins = stratTrades.filter(t => t.pnl > 0).length;
+    const totalWr = totalWins / stratTrades.length * 100;
+    const totalPnl = stratTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const wrColor = totalWr >= 60 ? '#56d364' : (totalWr >= 40 ? '#e6edf3' : '#f85149');
+    matrix += `<td style="padding:8px 6px;border-top:1px solid #30363d;text-align:center;background:#0d1117;">
+      <div style="color:${wrColor};font-weight:700;font-size:14px;">${totalWr.toFixed(0)}%</div>
+      <div style="color:#7d8590;font-size:10px;">${stratTrades.length}件</div>
+      <div style="color:${totalPnl >= 0 ? '#56d364' : '#f85149'};font-size:10px;">
+        ${totalPnl >= 0 ? '+' : ''}¥${Math.round(totalPnl/1000)}k
+      </div>
+    </td></tr>`;
+  });
+  matrix += '</tbody></table>';
+  document.getElementById('strategy-regime-matrix').innerHTML = matrix;
 }
 
 function renderOpenTrade(t) {
@@ -1287,13 +1491,28 @@ function renderOpenTrade(t) {
         </div>
       </div>
       <div style="font-size:11px;color:#7d8590;margin-top:8px;">
-        必要資金: ¥${cost.toLocaleString()}
+        必要資金: ¥${cost.toLocaleString()}${renderRegimeChip(t)}
       </div>
       <div class="trade-actions">
         <button class="trade-action-btn primary" onclick="openExitModal(${t.id})">💰 決済</button>
         <button class="trade-action-btn danger" onclick="deleteTrade(${t.id})">🗑 削除</button>
       </div>
     </div>`;
+}
+
+// 🆕 v2.7.5: トレードカードに環境チップを描画
+function renderRegimeChip(t) {
+  if (!t.entry_regime || t.entry_regime === 'UNKNOWN') return '';
+  const colors = {
+    BULLISH: '#238636', NEUTRAL: '#b8a200', BEARISH: '#8b2828', PANIC: '#da3633',
+  };
+  const emojis = {
+    BULLISH: '🚀', NEUTRAL: '⚖️', BEARISH: '⚠️', PANIC: '🚨',
+  };
+  const c = colors[t.entry_regime] || '#6e7681';
+  const e = emojis[t.entry_regime] || '❓';
+  const vix = t.entry_vix ? ` / VIX ${Number(t.entry_vix).toFixed(1)}` : '';
+  return ` &nbsp;<span style="display:inline-block;background:${c};color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">${e} ${regimeJa(t.entry_regime)}${vix}</span>`;
 }
 
 function renderClosedTrade(t) {
@@ -1335,7 +1554,7 @@ function renderClosedTrade(t) {
         ${sign} ${pnlSign}¥${Math.round(t.pnl).toLocaleString()} (${pnlSign}${t.pnl_pct.toFixed(2)}%)
       </div>
       <div style="font-size:11px;color:#7d8590;margin-top:6px;">
-        理由: ${escapeHtml(t.exit_reason || '-')}
+        理由: ${escapeHtml(t.exit_reason || '-')}${renderRegimeChip(t)}
       </div>
       <div class="trade-actions">
         <button class="trade-action-btn danger" onclick="deleteTrade(${t.id})">🗑 削除</button>
@@ -1375,6 +1594,108 @@ function importTrades(event) {
   reader.readAsText(file);
   event.target.value = '';
 }
+
+// ============================================
+// 🔄 デバイス間同期(URL方式)
+// ============================================
+
+// 共有URL生成
+function generateShareURL() {
+  const trades = loadTrades();
+  if (trades.length === 0) {
+    alert('共有するトレードがありません。まず記録してください。');
+    return;
+  }
+
+  // JSON → Base64 (URL safe)
+  const json = JSON.stringify(trades);
+  const compressed = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  const baseURL = location.origin + location.pathname;
+  const shareURL = `${baseURL}?import=${compressed}`;
+
+  // クリップボードにコピー
+  navigator.clipboard.writeText(shareURL).then(() => {
+    alert(
+      `✅ 共有URL をクリップボードにコピーしました!\n\n` +
+      `${trades.length} 件のトレード(${(shareURL.length/1024).toFixed(1)}KB)\n\n` +
+      `次にやること:\n` +
+      `1. メール/LINE/メモアプリで PC に送る\n` +
+      `2. PC でその URL を開く\n` +
+      `3. 「インポートしますか?」が出たら OK\n\n` +
+      `URL の長さ: ${shareURL.length} 文字`
+    );
+  }).catch(() => {
+    // クリップボードAPI失敗時の代替
+    const textarea = document.createElement('textarea');
+    textarea.value = shareURL;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      alert('✅ クリップボードにコピーしました');
+    } catch (e) {
+      prompt('以下の URL をコピーしてください:', shareURL);
+    }
+    document.body.removeChild(textarea);
+  });
+}
+
+// URLパラメータからインポート
+function checkURLImport() {
+  const params = new URLSearchParams(location.search);
+  const importData = params.get('import');
+  if (!importData) return;
+
+  try {
+    // Base64 → JSON
+    const restored = importData.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = restored + '==='.slice(0, (4 - restored.length % 4) % 4);
+    const json = decodeURIComponent(escape(atob(padded)));
+    const data = JSON.parse(json);
+
+    if (!Array.isArray(data)) throw new Error('Invalid format');
+
+    const existing = loadTrades();
+    let message;
+    if (existing.length === 0) {
+      message = `共有URL から ${data.length} 件のトレードをインポートしますか?`;
+    } else {
+      message = `共有URL から ${data.length} 件のトレードをインポートしますか?\n\n` +
+                `⚠️ 既存の ${existing.length} 件は置き換えられます\n` +
+                `(キャンセルすれば現在のデータは保持されます)`;
+    }
+
+    if (confirm(message)) {
+      saveTradesToStorage(data);
+      // URL からパラメータを削除(リロード時の再確認を防ぐ)
+      history.replaceState({}, '', location.pathname);
+      renderTrades();
+
+      // 成功メッセージ
+      setTimeout(() => {
+        alert(`✅ インポート完了!\n${data.length} 件のトレードが反映されました。`);
+        // トレードタブに切り替え
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('section-trades').classList.add('active');
+        document.querySelectorAll('.tab')[3].classList.add('active');
+      }, 200);
+    } else {
+      // ユーザーがキャンセル → URLから消す
+      history.replaceState({}, '', location.pathname);
+    }
+  } catch (err) {
+    alert('共有URL の解析に失敗しました: ' + err.message);
+    history.replaceState({}, '', location.pathname);
+  }
+}
+
+// ページ読み込み時に URL パラメータをチェック
+checkURLImport();
 
 // シグナルカードに「記録」ボタンを追加するため、renderSignalCard を上書き
 const originalRenderSignalCard = renderSignalCard;
@@ -1564,11 +1885,11 @@ function renderAllSignalsSim() {
     return;
   }
 
-  // バックテスト期待値(v2.7.4 実証値)
+  // バックテスト期待値(v2.7.5 実証値・200銘柄・10年バックテスト)
   const EXPECTED = {
-    MOMENTUM:   { winRate: 0.612, avgWin: 0.10, avgLoss: -0.05 },
-    'BNF-LITE': { winRate: 0.531, avgWin: 0.08, avgLoss: -0.05 },
-    MINERVINI:  { winRate: 0.562, avgWin: 0.15, avgLoss: -0.09 },
+    MOMENTUM:   { winRate: 0.607, avgWin: 0.10, avgLoss: -0.05 },
+    'BNF-LITE': { winRate: 0.521, avgWin: 0.08, avgLoss: -0.05 },
+    MINERVINI:  { winRate: 0.554, avgWin: 0.15, avgLoss: -0.09 },
   };
 
   // 戦略別期待値計算
@@ -1832,6 +2153,138 @@ renderTrades = function() {
 
 // 初期描画
 renderTrades();
+
+// ============================================
+// 🆕 スキャンボタン (GitHub Actions workflow_dispatch)
+// ============================================
+const PAT_KEY = 'github_pat_v2_7_5';
+const WORKFLOW_FILE = 'daily-signal.yml';
+
+function getPAT() {
+  let pat = localStorage.getItem(PAT_KEY);
+  if (!pat) {
+    pat = prompt('GitHub Personal Access Token (ghp_xxx...) を入力してください\n' +
+                 '(scope: repo + workflow / 30日期限推奨)\n' +
+                 '※ ブラウザの localStorage に保存され、共有PCでは使わないでください');
+    if (pat) {
+      pat = pat.trim();
+      if (!pat.startsWith('ghp_') && !pat.startsWith('github_pat_')) {
+        if (!confirm('PAT の形式が一般的でないようです。続行しますか?')) return null;
+      }
+      localStorage.setItem(PAT_KEY, pat);
+    }
+  }
+  return pat;
+}
+
+function resetPAT() {
+  if (confirm('保存されている PAT を削除しますか?\n次回のスキャン実行時に再入力が必要になります。')) {
+    localStorage.removeItem(PAT_KEY);
+    alert('PAT を削除しました');
+  }
+}
+
+async function triggerScan() {
+  const btn = document.getElementById('scan-btn');
+  const status = document.getElementById('scan-status');
+  const pat = getPAT();
+  if (!pat) {
+    status.style.display = 'block';
+    status.innerHTML = '⚠ PAT が未設定です';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 実行リクエスト送信中...';
+  status.style.display = 'block';
+  status.innerHTML = '📤 GitHub Actions に実行リクエストを送信中...';
+
+  try {
+    const dispatchRes = await fetch(
+      `https://api.github.com/repos/${user}/${repo}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${pat}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        body: JSON.stringify({ ref: 'main' }),
+      }
+    );
+
+    if (!dispatchRes.ok) {
+      const err = await dispatchRes.text();
+      throw new Error(`HTTP ${dispatchRes.status}: ${err.slice(0, 200)}`);
+    }
+
+    status.innerHTML = '✅ 実行開始リクエスト完了。GitHub Actions が起動するまで5〜10秒待機...';
+    await new Promise(r => setTimeout(r, 8000));
+
+    let elapsed = 0;
+    const maxWait = 240; // 4分
+    const interval = 10;
+    let lastRunId = null;
+
+    while (elapsed < maxWait) {
+      const runsRes = await fetch(
+        `https://api.github.com/repos/${user}/${repo}/actions/runs?per_page=1`,
+        {
+          headers: {
+            'Authorization': `Bearer ${pat}`,
+            'Accept': 'application/vnd.github+json',
+          },
+        }
+      );
+      if (runsRes.ok) {
+        const data = await runsRes.json();
+        const run = data.workflow_runs && data.workflow_runs[0];
+        if (run) {
+          lastRunId = run.id;
+          if (run.status === 'completed') {
+            if (run.conclusion === 'success') {
+              btn.disabled = false;
+              btn.textContent = '🔄 今すぐスキャン実行';
+              status.innerHTML = `🎉 スキャン完了!Run #${run.run_number}<br>` +
+                `<a href="${run.html_url}" target="_blank" style="color:#58a6ff">GitHub で確認</a><br>` +
+                `データを再読み込みしています...`;
+              setTimeout(() => {
+                loadSignals();
+                status.innerHTML += '<br>✅ ダッシュボード更新完了';
+              }, 5000);
+              return;
+            } else {
+              btn.disabled = false;
+              btn.textContent = '🔄 今すぐスキャン実行';
+              status.innerHTML = `❌ スキャン失敗 (${run.conclusion})<br>` +
+                `<a href="${run.html_url}" target="_blank" style="color:#58a6ff">ログを確認</a>`;
+              return;
+            }
+          } else {
+            status.innerHTML = `🔄 実行中... (${elapsed}秒経過 / ステータス: ${run.status})<br>` +
+              `<a href="${run.html_url}" target="_blank" style="color:#58a6ff">Actions タブを開く</a>`;
+          }
+        }
+      }
+      await new Promise(r => setTimeout(r, interval * 1000));
+      elapsed += interval;
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🔄 今すぐスキャン実行';
+    status.innerHTML = `⚠ ${maxWait}秒以内に完了しませんでした。<br>` +
+      `<a href="https://github.com/${user}/${repo}/actions" target="_blank" style="color:#58a6ff">Actions タブで確認</a>`;
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '🔄 今すぐスキャン実行';
+    status.innerHTML = `❌ エラー: ${escapeHtml(e.message)}<br>` +
+      `PAT が正しいか・scope が repo+workflow か確認してください`;
+    if (e.message.includes('401') || e.message.includes('403')) {
+      localStorage.removeItem(PAT_KEY);
+      status.innerHTML += '<br>(PAT を削除しました。再度実行で再入力してください)';
+    }
+  }
+}
 
 // ============================================
 // 起動
