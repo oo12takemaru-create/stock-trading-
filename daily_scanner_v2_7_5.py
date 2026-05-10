@@ -844,11 +844,14 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
     n225_now = None
     try:
         vix = global_data.get("^VIX")
-        if vix is not None:
-            vix_now = float(vix["Close"].iloc[-1])
+        if vix is not None and len(vix) > 0:
+            v = float(vix["Close"].iloc[-1])
+            # 🛡 v2.7.5: NaN を None に変換(CSVに "nan" 文字列を残さない)
+            vix_now = v if not (v != v) else None  # NaN check: NaN != NaN is True
         n225 = global_data.get("^N225")
-        if n225 is not None:
-            n225_now = float(n225["Close"].iloc[-1])
+        if n225 is not None and len(n225) > 0:
+            n = float(n225["Close"].iloc[-1])
+            n225_now = n if not (n != n) else None
     except Exception:
         pass
 
