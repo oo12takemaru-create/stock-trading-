@@ -118,11 +118,52 @@ body {
   display: grid; grid-template-columns: 50px 1fr 70px 60px;
   gap: 8px; padding: 10px; background: #21262d; border-radius: 6px;
   font-size: 12px; align-items: center;
+  cursor: pointer; transition: background 0.15s ease;
 }
+.history-row:hover { background: #2d333b; }
+.history-row.expanded { background: #2d333b; border-radius: 6px 6px 0 0; }
 .history-date { color: #7d8590; font-size: 10px; }
 .history-name { font-weight: 600; font-size: 13px; }
 .history-strategy { font-size: 10px; padding: 2px 6px; border-radius: 3px; text-align: center; }
 .history-price { color: #58a6ff; font-weight: 600; text-align: right; }
+
+/* 🆕 v2.7.5: 展開詳細 */
+.history-detail {
+  display: none;
+  padding: 14px; background: #1a1f26; border-radius: 0 0 6px 6px;
+  border: 1px solid #30363d; border-top: none;
+  font-size: 12px; line-height: 1.7;
+  margin-top: -1px;
+}
+.history-detail.show { display: block; }
+.history-detail .detail-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 10px;
+}
+.history-detail .detail-item {
+  background: #0d1117; padding: 8px; border-radius: 4px;
+}
+.history-detail .detail-label {
+  color: #7d8590; font-size: 10px; text-transform: uppercase; margin-bottom: 2px;
+}
+.history-detail .detail-value {
+  font-weight: 600; font-size: 13px;
+}
+.history-detail .detail-info {
+  color: #a8c5e0; font-size: 11px; padding: 6px 8px; background: #0d1117;
+  border-radius: 4px; margin-top: 6px;
+}
+.history-detail .detail-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.history-detail .detail-btn {
+  flex: 1; padding: 8px; border-radius: 4px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  background: #238636; color: #fff;
+}
+.history-detail .detail-btn:hover { background: #2ea043; }
+.history-detail .detail-btn.secondary { background: #30363d; color: #e6edf3; }
+.history-detail .detail-btn.secondary:hover { background: #424a53; }
 
 .action-buttons {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px;
@@ -811,9 +852,13 @@ function renderToday() {
   }[regime] || '❓';
 
   document.getElementById('regime-name').textContent = `${regimeEmoji} ${regimeJa(regime)}`;
-  document.getElementById('regime-vix').textContent = latest.vix ? Number(latest.vix).toFixed(1) : '-';
+  // 🛡 v2.7.5: "nan" 文字列や NaN を防御的に処理
+  const vixVal = parseFloat(latest.vix);
+  document.getElementById('regime-vix').textContent =
+    (latest.vix && !isNaN(vixVal)) ? vixVal.toFixed(1) : '-';
+  const n225Val = parseFloat(latest.n225);
   document.getElementById('regime-n225').textContent =
-    latest.n225 ? '¥' + Math.round(Number(latest.n225)).toLocaleString() : '-';
+    (latest.n225 && !isNaN(n225Val)) ? '¥' + Math.round(n225Val).toLocaleString() : '-';
 
   const scanDate = latest.scan_date || '-';
   const scanSlot = latest.scan_slot || '-';
@@ -951,26 +996,190 @@ function renderHistory() {
   }
 
   const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+  const regimeEmojis = { BULLISH:'🚀', NEUTRAL:'⚖️', BEARISH:'⚠️', PANIC:'🚨' };
 
-  document.getElementById('history-list').innerHTML = sorted.map(s => {
+  // 🆕 v2.7.5: 履歴を「サマリ行+展開詳細」のペアで描画。クリックで詳細展開
+  window.__historyData = {}; // 詳細追加(prefill用)
+
+  document.getElementById('history-list').innerHTML = sorted.map((s, idx) => {
     const ticker = (s.ticker || '').replace('.T', '');
     const date = s.scan_date ? s.scan_date.slice(5) : '-'; // MM-DD
+    const fullDate = s.scan_date || '-';
     const slot = s.scan_slot || '';
     const color = colors[s.strategy] || '#6e7681';
+    const rowId = `hist-${idx}`;
+    const detailId = `hist-detail-${idx}`;
+
+    // prefill 用にデータ保存
+    window.__historyData[idx] = {
+      ticker: s.ticker || '',
+      name: s.name || '',
+      strategy: s.strategy || '',
+      entry_price: s.entry_price || '',
+      stop_price: s.stop_price || '',
+      target_price: s.target_price || '',
+      shares: s.shares || '',
+    };
+
+    // 数値フォーマット
+    const fmt = (v) => {
+      if (!v || isNaN(parseFloat(v))) return '-';
+      const n = parseFloat(v);
+      return '¥' + (n >= 1000 ? Math.round(n).toLocaleString() : n.toFixed(1));
+    };
+    const fmtInt = (v) => {
+      if (!v || isNaN(parseFloat(v))) return '-';
+      return parseInt(v).toLocaleString();
+    };
+
+    // 環境バッジ
+    const regimeChip = s.regime
+      ? `<span style="display:inline-block;background:#30363d;padding:2px 8px;border-radius:10px;font-size:10px;">${regimeEmojis[s.regime]||'❓'} ${regimeJa(s.regime)}</span>`
+      : '';
+    const haltChip = s.is_halt === 'Y'
+      ? '<span style="display:inline-block;background:#5a1f1f;color:#ff8888;padding:2px 8px;border-radius:10px;font-size:10px;margin-left:4px;">🛡 HALT中</span>'
+      : '';
+
+    // 損益試算(目標到達時 / 損切り時)
+    const entryNum = parseFloat(s.entry_price);
+    const stopNum = parseFloat(s.stop_price);
+    const targetNum = parseFloat(s.target_price);
+    const sharesNum = parseInt(s.shares);
+    let profitText = '-', lossText = '-';
+    if (!isNaN(entryNum) && !isNaN(targetNum) && !isNaN(sharesNum)) {
+      const profit = (targetNum - entryNum) * sharesNum;
+      const profitPct = (targetNum - entryNum) / entryNum * 100;
+      profitText = `+¥${Math.round(profit).toLocaleString()} (+${profitPct.toFixed(1)}%)`;
+    }
+    if (!isNaN(entryNum) && !isNaN(stopNum) && !isNaN(sharesNum)) {
+      const loss = (stopNum - entryNum) * sharesNum;
+      const lossPct = (stopNum - entryNum) / entryNum * 100;
+      lossText = `-¥${Math.abs(Math.round(loss)).toLocaleString()} (${lossPct.toFixed(1)}%)`;
+    }
+
     return `
-      <div class="history-row">
-        <div>
-          <div class="history-date">${date}</div>
-          <div class="history-date">${slot}</div>
+      <div>
+        <div class="history-row" id="${rowId}" onclick="toggleHistoryDetail(${idx})">
+          <div>
+            <div class="history-date">${date}</div>
+            <div class="history-date">${slot}</div>
+          </div>
+          <div>
+            <div class="history-name">${escapeHtml(s.name || '')}</div>
+            <div class="history-date">${ticker}</div>
+          </div>
+          <div class="history-strategy" style="background:${color};color:#fff">${s.strategy}</div>
+          <div class="history-price">${fmt(s.entry_price)}</div>
         </div>
-        <div>
-          <div class="history-name">${escapeHtml(s.name || '')}</div>
-          <div class="history-date">${ticker}</div>
+        <div class="history-detail" id="${detailId}">
+          <div style="margin-bottom:10px;font-size:11px;color:#7d8590;">
+            📅 ${fullDate} ${slot}スキャン &nbsp; ${regimeChip}${haltChip}
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">買値</div>
+              <div class="detail-value" style="color:#58a6ff;">${fmt(s.entry_price)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">損切り</div>
+              <div class="detail-value" style="color:#f85149;">${fmt(s.stop_price)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">目標</div>
+              <div class="detail-value" style="color:#56d364;">${fmt(s.target_price)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">推奨株数</div>
+              <div class="detail-value">${fmtInt(s.shares)} 株</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">必要資金</div>
+              <div class="detail-value">${fmt(s.cost)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">保有期限</div>
+              <div class="detail-value">${s.hold_days || '-'} 日</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">セクター</div>
+              <div class="detail-value" style="font-size:11px;">${escapeHtml(s.sector || '-')}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">VIX(エントリー時)</div>
+              <div class="detail-value" style="font-size:11px;">${s.vix && !isNaN(parseFloat(s.vix)) ? parseFloat(s.vix).toFixed(1) : '-'}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">日経225</div>
+              <div class="detail-value" style="font-size:11px;">${s.n225 && !isNaN(parseFloat(s.n225)) ? '¥' + Math.round(parseFloat(s.n225)).toLocaleString() : '-'}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div class="detail-item" style="background:#0a3217;">
+              <div class="detail-label">目標到達時の利益</div>
+              <div class="detail-value" style="color:#56d364;font-size:13px;">${profitText}</div>
+            </div>
+            <div class="detail-item" style="background:#3d1717;">
+              <div class="detail-label">損切り時の損失</div>
+              <div class="detail-value" style="color:#f85149;font-size:13px;">${lossText}</div>
+            </div>
+          </div>
+          ${s.info ? `<div class="detail-info">💡 ${escapeHtml(s.info)}</div>` : ''}
+          <div class="detail-actions">
+            <button class="detail-btn" onclick="event.stopPropagation();prefillFromHistory(${idx})">
+              📝 トレード記録に追加
+            </button>
+            <button class="detail-btn secondary" onclick="event.stopPropagation();copyHistoryToClipboard(${idx})">
+              📋 コピー
+            </button>
+          </div>
         </div>
-        <div class="history-strategy" style="background:${color};color:#fff">${s.strategy}</div>
-        <div class="history-price">¥${Number(s.entry_price).toLocaleString()}</div>
       </div>`;
   }).join('');
+}
+
+// 🆕 v2.7.5: 履歴行クリックで詳細展開トグル
+function toggleHistoryDetail(idx) {
+  const row = document.getElementById(`hist-${idx}`);
+  const detail = document.getElementById(`hist-detail-${idx}`);
+  if (!row || !detail) return;
+  const isOpen = detail.classList.contains('show');
+  if (isOpen) {
+    detail.classList.remove('show');
+    row.classList.remove('expanded');
+  } else {
+    detail.classList.add('show');
+    row.classList.add('expanded');
+  }
+}
+
+// 🆕 v2.7.5: 履歴からトレード記録モーダルにプリフィル
+function prefillFromHistory(idx) {
+  const data = window.__historyData && window.__historyData[idx];
+  if (!data) return;
+  // トレードタブに切替
+  showSection('trades');
+  setTimeout(() => openEntryModal(data), 100);
+}
+
+// 🆕 v2.7.5: 履歴情報をクリップボードにコピー(SBI証券への発注用)
+function copyHistoryToClipboard(idx) {
+  const data = window.__historyData && window.__historyData[idx];
+  if (!data) return;
+  const text = `${data.name} (${data.ticker.replace('.T','')})
+戦略: ${data.strategy}
+買値: ¥${Number(data.entry_price).toLocaleString()}
+損切り: ¥${Number(data.stop_price).toLocaleString()}
+目標: ¥${Number(data.target_price).toLocaleString()}
+株数: ${Number(data.shares).toLocaleString()} 株`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('クリップボードにコピーしました!\nSBI証券アプリ等に貼り付けて使えます。');
+    }).catch(() => {
+      alert('コピーに失敗しました');
+    });
+  } else {
+    alert('このブラウザはクリップボード機能に対応していません');
+  }
 }
 
 function renderStats() {
@@ -1105,6 +1314,7 @@ function nextTradeId(trades) {
 }
 
 // 🆕 v2.7.5: 最新スキャンから現在の市場環境を取得
+// 🛡 "nan" 文字列や NaN は null として扱う(取得失敗データ防御)
 function getCurrentMarketContext() {
   if (!allSignals || allSignals.length === 0) {
     return { regime: 'UNKNOWN', vix: null, n225: null, scanDate: null };
@@ -1113,10 +1323,12 @@ function getCurrentMarketContext() {
     (b.scan_timestamp || '').localeCompare(a.scan_timestamp || '')
   );
   const latest = sorted[0];
+  const vixNum = latest.vix ? parseFloat(latest.vix) : NaN;
+  const n225Num = latest.n225 ? parseFloat(latest.n225) : NaN;
   return {
     regime: latest.regime || 'UNKNOWN',
-    vix: latest.vix ? parseFloat(latest.vix) : null,
-    n225: latest.n225_close ? parseFloat(latest.n225_close) : null,
+    vix: isNaN(vixNum) ? null : vixNum,
+    n225: isNaN(n225Num) ? null : n225Num,
     scanDate: latest.scan_date || null,
     isHalt: latest.is_halt === 'Y',
   };
