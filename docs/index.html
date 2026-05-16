@@ -307,6 +307,24 @@ body {
     <div class="updated" id="last-updated">読み込み中...</div>
   </div>
 
+  <!-- 🆕 v2.7.5: 口座残高 常時表示カード(全タブ共通) -->
+  <div class="card" id="account-balance-card" style="background: linear-gradient(135deg, #1a3d2a 0%, #1d4d2e 100%); border-color: #2ea043;">
+    <div style="display:grid;grid-template-columns: 1fr 1fr;gap:10px;align-items:center;">
+      <div>
+        <div style="font-size:10px;color:#7d8590;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">💰 推定口座残高</div>
+        <div id="account-balance" style="font-size:24px;font-weight:800;line-height:1.1;">¥1,000,000</div>
+        <div id="account-balance-change" style="font-size:11px;color:#7d8590;margin-top:2px;">--</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:#7d8590;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">確定損益</div>
+        <div id="account-pnl" style="font-size:18px;font-weight:700;line-height:1.1;">¥0</div>
+        <div style="font-size:10px;color:#a8d8b0;margin-top:2px;">
+          <a href="#" onclick="event.preventDefault();showSection('help');setTimeout(()=>document.getElementById('capital-input').focus(),200);" style="color:#a8d8b0;text-decoration:underline;">⚙️ 設定で残高変更</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ========================================= -->
   <!-- TAB 1: TODAY -->
   <!-- ========================================= -->
@@ -372,7 +390,8 @@ body {
   <!-- TAB 2: HISTORY -->
   <!-- ========================================= -->
   <div class="section" id="section-history">
-    <div class="card-title">📜 シグナル履歴(直近30件)</div>
+    <div class="card-title">📜 シグナル履歴(直近30件・重複抑制)</div>
+    <div id="history-dedup-note" style="font-size:11px;color:#7d8590;margin-bottom:8px;display:none;"></div>
     <div class="history-list" id="history-list"></div>
   </div>
 
@@ -579,11 +598,40 @@ body {
       </div>
     </div>
 
+    <!-- 🆕 v2.7.5: サラリーマン運用ガイド -->
+    <div class="card" style="background:#1a3d5c;border-color:#388bfd;">
+      <div class="card-title">👔 サラリーマン運用ガイド</div>
+      <div style="font-size:12px;line-height:1.7;">
+        <p style="margin-bottom:8px;"><strong>📋 1日のルーティン(合計15〜20分)</strong></p>
+        <p style="margin-bottom:4px;">🌅 <strong>朝7:30〜8:30</strong>: 朝スキャン確認→<strong>逆指値</strong>仕込む</p>
+        <p style="margin-bottom:4px;">☀️ <strong>昼12:30</strong>: 約定通知の確認のみ</p>
+        <p style="margin-bottom:4px;">🌙 <strong>17:30〜18:30</strong>: 夕スキャン→翌朝の候補メモ</p>
+        <p style="margin-bottom:12px;">📝 <strong>21:00〜22:00</strong>: トレード記録の整理</p>
+
+        <p style="margin-bottom:8px;"><strong>⚠️ MOMENTUMの注意</strong></p>
+        <p style="margin-bottom:4px;">✅ <span style="color:#56d364">朝スキャン</span>=寄付き前の逆指値で発注 → OK</p>
+        <p style="margin-bottom:4px;">⚠️ <span style="color:#f0883e">昼/夕スキャン</span>=既に価格が動いた後 → <strong>翌朝発注候補</strong>として保留</p>
+        <p style="margin-bottom:12px;color:#7d8590;font-size:11px;">理由: MOMENTUMは20日高値ブレイク。日中に出たシグナルはヒゲ天買いリスクが高い</p>
+
+        <p style="margin-bottom:8px;"><strong>🎯 サラリーマン運用の原則</strong></p>
+        <p style="margin-bottom:4px;">❌ 昼休みに成行注文しない(感情的判断になる)</p>
+        <p style="margin-bottom:4px;">✅ 朝に逆指値で仕込んだら<strong>市場を見ない</strong></p>
+        <p style="margin-bottom:4px;">✅ 損切りも逆指値で<strong>自動執行</strong>に</p>
+        <p style="margin-bottom:4px;color:#a8c5e0;">💡 リアルタイムで張り付ける必要のあるシステムは個人投資家向きじゃない</p>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-title">⚙️ 設定</div>
       <div style="font-size: 13px; line-height: 1.7;">
-        <p style="margin-bottom: 8px;"><strong>運用資金 (1トレードあたり計算用)</strong></p>
+        <p style="margin-bottom: 8px;"><strong>💰 初期資金(口座残高基準)</strong></p>
         <input type="number" id="capital-input" placeholder="1000000" style="width:100%;padding:10px;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:6px;font-size:14px;font-family:inherit;">
+        <p style="font-size:11px;color:#7d8590;margin:4px 0 8px;">この金額をベースに口座残高・推奨株数を計算します</p>
+
+        <p style="margin-top:14px;margin-bottom: 8px;"><strong>🎯 1トレードのリスク%</strong></p>
+        <input type="number" id="risk-pct-input" placeholder="1.0" step="0.1" min="0.1" max="5" style="width:100%;padding:10px;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:6px;font-size:14px;font-family:inherit;">
+        <p style="font-size:11px;color:#7d8590;margin:4px 0 8px;">推奨 1.0%(口座残高の何%まで1トレードで失っても良いか)</p>
+
         <button class="btn" onclick="saveCapital()" style="margin-top:8px;">💾 保存</button>
         <p id="capital-saved" style="font-size:11px;color:#56d364;margin-top:8px;display:none;">✓ 保存しました</p>
       </div>
@@ -666,6 +714,9 @@ body {
         <label>メモ(任意)</label>
         <textarea id="m-notes" rows="2" placeholder="任意"></textarea>
       </div>
+      <!-- 🆕 v2.7.5: 自動再計算の差分表示 -->
+      <div id="m-recalc-note" style="margin-bottom:10px;padding:8px;background:#0d1117;border-radius:6px;border-left:3px solid #388bfd;display:block;min-height:1px;"></div>
+
       <!-- 🆕 v2.7.5: エントリー時の市場環境を自動付与(編集可) -->
       <div class="form-group" style="background:#0d1117;padding:10px;border-radius:6px;border:1px solid #30363d;">
         <label style="color:#7d8590;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">📈 エントリー時の市場環境(自動取得)</label>
@@ -673,6 +724,11 @@ body {
         <input type="hidden" id="m-entry-regime" value="">
         <input type="hidden" id="m-entry-vix" value="">
         <input type="hidden" id="m-entry-n225" value="">
+        <!-- 🆕 v2.7.5: 元シグナル値(差分表示用) -->
+        <input type="hidden" id="m-orig-entry" value="">
+        <input type="hidden" id="m-orig-stop" value="">
+        <input type="hidden" id="m-orig-target" value="">
+        <input type="hidden" id="m-orig-shares" value="">
       </div>
     </div>
     <div class="modal-footer">
@@ -821,6 +877,7 @@ function render() {
   renderToday();
   renderHistory();
   renderStats();
+  renderAccountBalance();  // 🆕 v2.7.5
 }
 
 // 日本語化ヘルパー
@@ -932,11 +989,30 @@ function renderSignalCard(s, idx) {
       </div>
       <div class="signal-meta">
         <span>${sharesIdeal}株 / ¥${cost.toLocaleString()}</span>
-        <button class="copy-btn" id="copy-btn-${idx}" onclick="event.stopPropagation();copySignal(${idx})">
-          📋 コピー
-        </button>
+        <div style="display:flex;gap:6px;">
+          <button class="copy-btn" onclick="event.stopPropagation();toggleTodayChart(${idx}, '${ticker}')" style="background:#1f6feb;color:#fff;">
+            📊 チャート
+          </button>
+          <button class="copy-btn" id="copy-btn-${idx}" onclick="event.stopPropagation();copySignal(${idx})">
+            📋 コピー
+          </button>
+        </div>
       </div>
+      <!-- 🆕 v2.7.5: TradingView チャート(クリックで展開) -->
+      <div id="tv-today-${idx}" style="display:none;margin-top:10px;background:#0d1117;border-radius:6px;min-height:350px;"></div>
     </div>`;
+}
+
+// 🆕 v2.7.5: 今日のシグナルのチャート展開
+function toggleTodayChart(idx, ticker) {
+  const el = document.getElementById(`tv-today-${idx}`);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    setTimeout(() => embedTradingViewChart(`tv-today-${idx}`, ticker + '.T', { height: 350 }), 100);
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function copySignal(idx) {
@@ -984,15 +1060,42 @@ function copySignal(idx) {
 }
 
 function renderHistory() {
-  const sorted = [...allSignals]
+  // 🆕 v2.7.5: 同銘柄×同戦略の重複抑制(最新のみ残す)
+  // ただし、間に別シグナルが入って再度同じシグナルが出た場合は別物扱い
+  const allFiltered = [...allSignals]
     .filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)')
-    .sort((a, b) => (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''))
-    .slice(0, 30);
+    .sort((a, b) => (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+
+  // 同じticker+strategyのうち、もっとも新しいタイムスタンプの1件のみ残す
+  const seen = new Set();
+  const sorted = [];
+  let dupCount = 0;
+  for (const s of allFiltered) {
+    const key = `${s.ticker}__${s.strategy}`;
+    if (seen.has(key)) {
+      dupCount++;
+      continue;
+    }
+    seen.add(key);
+    sorted.push(s);
+    if (sorted.length >= 30) break;
+  }
 
   if (sorted.length === 0) {
     document.getElementById('history-list').innerHTML =
       '<div class="no-signal-card"><div>履歴がまだありません</div></div>';
     return;
+  }
+
+  // 🆕 v2.7.5: 重複抑制カウント表示
+  const dedupNote = document.getElementById('history-dedup-note');
+  if (dedupNote) {
+    if (dupCount > 0) {
+      dedupNote.style.display = 'block';
+      dedupNote.innerHTML = `💡 同じ銘柄×戦略の重複 ${dupCount}件 を抑制中(最新のみ表示)`;
+    } else {
+      dedupNote.style.display = 'none';
+    }
   }
 
   const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
@@ -1040,6 +1143,21 @@ function renderHistory() {
       ? '<span style="display:inline-block;background:#5a1f1f;color:#ff8888;padding:2px 8px;border-radius:10px;font-size:10px;margin-left:4px;">🛡 HALT中</span>'
       : '';
 
+    // 🆕 v2.7.5: MOMENTUM 後追いリスク警告 / 朝シグナルOK表示
+    let timingWarning = '';
+    if (s.strategy === 'MOMENTUM') {
+      if (slot === '朝') {
+        timingWarning = `<div style="margin-bottom:10px;padding:8px 10px;background:#0a3217;border-left:3px solid #2ea043;border-radius:4px;font-size:11px;color:#a8d8b0;">
+          ✅ <strong>朝スキャン</strong> = 寄付き前の逆指値で発注向き(後追いリスク低)
+        </div>`;
+      } else {
+        timingWarning = `<div style="margin-bottom:10px;padding:8px 10px;background:#3d2e0a;border-left:3px solid #d29922;border-radius:4px;font-size:11px;color:#f0d77a;">
+          ⚠️ <strong>${slot}スキャン MOMENTUM</strong>: 価格が既に動いた後の可能性大。<br>
+          このシグナルは「<strong>翌朝の発注候補</strong>」として記録し、明朝に再評価が安全です。
+        </div>`;
+      }
+    }
+
     // 損益試算(目標到達時 / 損切り時)
     const entryNum = parseFloat(s.entry_price);
     const stopNum = parseFloat(s.stop_price);
@@ -1075,6 +1193,7 @@ function renderHistory() {
           <div style="margin-bottom:10px;font-size:11px;color:#7d8590;">
             📅 ${fullDate} ${slot}スキャン &nbsp; ${regimeChip}${haltChip}
           </div>
+          ${timingWarning}
           <div class="detail-grid">
             <div class="detail-item">
               <div class="detail-label">買値</div>
@@ -1124,6 +1243,11 @@ function renderHistory() {
             </div>
           </div>
           ${s.info ? `<div class="detail-info">💡 ${escapeHtml(s.info)}</div>` : ''}
+          <!-- 🆕 v2.7.5: TradingView チャート(展開時に遅延ロード) -->
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:#7d8590;margin-bottom:4px;">📊 チャート(TradingView・15分遅延)</div>
+            <div id="tv-hist-${idx}" style="background:#0d1117;border-radius:6px;min-height:350px;"></div>
+          </div>
           <div class="detail-actions">
             <button class="detail-btn" onclick="event.stopPropagation();prefillFromHistory(${idx})">
               📝 トレード記録に追加
@@ -1137,7 +1261,7 @@ function renderHistory() {
   }).join('');
 }
 
-// 🆕 v2.7.5: 履歴行クリックで詳細展開トグル
+// 🆕 v2.7.5: 履歴行クリックで詳細展開トグル + TradingViewロード
 function toggleHistoryDetail(idx) {
   const row = document.getElementById(`hist-${idx}`);
   const detail = document.getElementById(`hist-detail-${idx}`);
@@ -1149,6 +1273,11 @@ function toggleHistoryDetail(idx) {
   } else {
     detail.classList.add('show');
     row.classList.add('expanded');
+    // 初回展開時に TradingView チャートをロード(遅延読み込み)
+    const data = window.__historyData && window.__historyData[idx];
+    if (data && data.ticker) {
+      setTimeout(() => embedTradingViewChart(`tv-hist-${idx}`, data.ticker, { height: 350 }), 100);
+    }
   }
 }
 
@@ -1278,18 +1407,46 @@ function showSection(name) {
 function saveCapital() {
   const v = document.getElementById('capital-input').value;
   const n = parseInt(v);
+  const r = parseFloat(document.getElementById('risk-pct-input').value);
   if (n && n > 0) {
     localStorage.setItem('capital', n);
+    if (r && r > 0 && r <= 5) {
+      localStorage.setItem('risk_pct', r);
+    }
     document.getElementById('capital-saved').style.display = 'block';
     setTimeout(() => {
       document.getElementById('capital-saved').style.display = 'none';
     }, 2000);
     render();
+    renderAccountBalance();  // 🆕 v2.7.5: 残高カードも更新
   }
 }
 
 // 初期値読み込み
 document.getElementById('capital-input').value = localStorage.getItem('capital') || '1000000';
+document.getElementById('risk-pct-input').value = localStorage.getItem('risk_pct') || '1.0';
+
+// 🆕 v2.7.5: 口座残高カードの更新(初期資金 + 累計確定損益)
+function renderAccountBalance() {
+  const initialCapital = parseInt(localStorage.getItem('capital') || '1000000');
+  const trades = loadTrades();
+  const closed = trades.filter(t => t.status === 'CLOSED');
+  const totalPnl = closed.reduce((s, t) => s + (t.pnl || 0), 0);
+  const currentBalance = initialCapital + totalPnl;
+  const changePct = initialCapital > 0 ? (totalPnl / initialCapital * 100) : 0;
+
+  const balanceEl = document.getElementById('account-balance');
+  const pnlEl = document.getElementById('account-pnl');
+  const changeEl = document.getElementById('account-balance-change');
+  if (!balanceEl) return;
+
+  balanceEl.textContent = '¥' + Math.round(currentBalance).toLocaleString();
+  const pnlSign = totalPnl >= 0 ? '+' : '';
+  const pnlColor = totalPnl >= 0 ? '#56d364' : '#f85149';
+  pnlEl.textContent = pnlSign + '¥' + Math.round(totalPnl).toLocaleString();
+  pnlEl.style.color = pnlColor;
+  changeEl.innerHTML = `初期¥${initialCapital.toLocaleString()} → <span style="color:${pnlColor};">${pnlSign}${changePct.toFixed(2)}%</span> / クローズ${closed.length}件`;
+}
 
 // ============================================
 // 💼 TRADE TRACKING (LocalStorage)
@@ -1334,6 +1491,86 @@ function getCurrentMarketContext() {
   };
 }
 
+// 🆕 v2.7.5: 戦略別の損切り・目標を自動計算
+function calcStopTarget(strategy, entry, originalTarget = null) {
+  if (!entry || isNaN(entry)) return { stop: null, target: null };
+  switch (strategy) {
+    case 'MOMENTUM':
+      return { stop: entry * 0.95, target: entry * 1.10 }; // -5% / +10%
+    case 'BNF-LITE':
+      // BNF は25日MA戻りが目標なので元のtargetを維持(変更時のみ)
+      return { stop: entry * 0.95, target: originalTarget || entry * 1.05 };
+    case 'MINERVINI':
+      return { stop: entry * 0.91, target: entry * 1.25 }; // -9% / +25%
+    default:
+      return { stop: entry * 0.95, target: entry * 1.10 };
+  }
+}
+
+// 🆕 v2.7.5: 口座残高 × リスク% で株数を逆算
+function calcShares(entry, stop) {
+  if (!entry || !stop || isNaN(entry) || isNaN(stop) || entry <= stop) return null;
+  const capital = parseInt(localStorage.getItem('capital') || '1000000');
+  const trades = loadTrades();
+  const closedPnl = trades.filter(t => t.status === 'CLOSED').reduce((s, t) => s + (t.pnl || 0), 0);
+  const currentBalance = capital + closedPnl;
+  const riskPct = parseFloat(localStorage.getItem('risk_pct') || '1.0');
+  const riskAmount = currentBalance * (riskPct / 100);
+  const riskPerShare = entry - stop;
+  let shares = Math.floor(riskAmount / riskPerShare);
+  shares = Math.floor(shares / 100) * 100; // 100株単位に丸め
+  return Math.max(0, shares);
+}
+
+// 🆕 v2.7.5: モーダルの再計算(取得単価・戦略変更時に呼ばれる)
+function recalcModalValues() {
+  const strategy = document.getElementById('m-strategy').value;
+  const entry = parseFloat(document.getElementById('m-entry').value);
+  if (!entry || isNaN(entry)) {
+    document.getElementById('m-recalc-note').innerHTML = '';
+    return;
+  }
+
+  // 元シグナル値
+  const origEntry = parseFloat(document.getElementById('m-orig-entry').value) || null;
+  const origStop = parseFloat(document.getElementById('m-orig-stop').value) || null;
+  const origTarget = parseFloat(document.getElementById('m-orig-target').value) || null;
+  const origShares = parseInt(document.getElementById('m-orig-shares').value) || null;
+
+  // 自動計算
+  const { stop, target } = calcStopTarget(strategy, entry, origTarget);
+  const shares = calcShares(entry, stop);
+
+  // フィールドに反映
+  document.getElementById('m-stop').value = stop ? stop.toFixed(1) : '';
+  document.getElementById('m-target').value = target ? target.toFixed(1) : '';
+  document.getElementById('m-shares').value = shares || '';
+
+  // 元値との差分表示
+  let note = '<div style="font-size:11px;line-height:1.5;color:#a8c5e0;">⚙️ 自動再計算:</div>';
+  if (origEntry !== null && Math.abs(entry - origEntry) >= 0.5) {
+    const diff = entry - origEntry;
+    const diffPct = (diff / origEntry) * 100;
+    const color = diff > 0 ? '#f0883e' : (diff < 0 ? '#56d364' : '#7d8590');
+    note += `<div style="font-size:11px;color:${color};">↕ 元シグナル¥${origEntry.toLocaleString()} → 実取得¥${entry.toLocaleString()} (${diff >= 0 ? '+' : ''}${diffPct.toFixed(2)}%)</div>`;
+  }
+  if (origStop && stop) {
+    note += `<div style="font-size:11px;color:#7d8590;">損切: 元¥${origStop.toLocaleString()} → ¥${stop.toFixed(1)}</div>`;
+  }
+  if (origTarget && target) {
+    note += `<div style="font-size:11px;color:#7d8590;">目標: 元¥${origTarget.toLocaleString()} → ¥${target.toFixed(1)}</div>`;
+  }
+  if (origShares && shares) {
+    note += `<div style="font-size:11px;color:#7d8590;">株数: 元${origShares}株 → ${shares}株 (口座残高 × ${parseFloat(localStorage.getItem('risk_pct') || '1.0')}%)</div>`;
+  }
+  // リスクリワード比
+  if (entry && stop && target) {
+    const rr = (target - entry) / (entry - stop);
+    note += `<div style="font-size:11px;color:#a8c5e0;margin-top:4px;">📊 リスクリワード比 1:${rr.toFixed(2)}</div>`;
+  }
+  document.getElementById('m-recalc-note').innerHTML = note;
+}
+
 // 新規エントリーモーダル
 function openEntryModal(prefill = null) {
   document.getElementById('entry-modal').style.display = 'flex';
@@ -1349,6 +1586,11 @@ function openEntryModal(prefill = null) {
     document.getElementById('m-stop').value = prefill.stop_price || '';
     document.getElementById('m-target').value = prefill.target_price || '';
     document.getElementById('m-shares').value = prefill.shares || '';
+    // 🆕 v2.7.5: 元シグナル値を hidden に保持(差分表示用)
+    document.getElementById('m-orig-entry').value = prefill.entry_price || '';
+    document.getElementById('m-orig-stop').value = prefill.stop_price || '';
+    document.getElementById('m-orig-target').value = prefill.target_price || '';
+    document.getElementById('m-orig-shares').value = prefill.shares || '';
   } else {
     document.getElementById('m-ticker').value = '';
     document.getElementById('m-name').value = '';
@@ -1358,6 +1600,10 @@ function openEntryModal(prefill = null) {
     document.getElementById('m-target').value = '';
     document.getElementById('m-shares').value = '';
     document.getElementById('m-notes').value = '';
+    document.getElementById('m-orig-entry').value = '';
+    document.getElementById('m-orig-stop').value = '';
+    document.getElementById('m-orig-target').value = '';
+    document.getElementById('m-orig-shares').value = '';
   }
 
   // 🆕 v2.7.5: 現在の市場環境を自動セット
@@ -1373,6 +1619,14 @@ function openEntryModal(prefill = null) {
   document.getElementById('m-entry-regime').value = ctx.regime;
   document.getElementById('m-entry-vix').value = ctx.vix !== null ? ctx.vix : '';
   document.getElementById('m-entry-n225').value = ctx.n225 !== null ? ctx.n225 : '';
+
+  // 🆕 v2.7.5: 取得単価変更時に再計算するイベントリスナーを設置
+  const entryInput = document.getElementById('m-entry');
+  const strategyInput = document.getElementById('m-strategy');
+  entryInput.oninput = recalcModalValues;
+  strategyInput.onchange = recalcModalValues;
+  // 初回呼び出し
+  if (prefill && prefill.entry_price) recalcModalValues();
 }
 
 function closeEntryModal() {
@@ -1519,6 +1773,7 @@ function deleteTrade(id) {
 }
 
 function renderTrades() {
+  renderAccountBalance();  // 🆕 v2.7.5: トレード変更時に残高カード更新
   const trades = loadTrades();
   const open = trades.filter(t => t.status === 'OPEN');
   const closed = trades.filter(t => t.status === 'CLOSED')
@@ -1573,6 +1828,13 @@ function renderTrades() {
 
   // 🆕 v2.7.5: 環境別勝率 & 戦略×環境マトリクス
   renderRegimeAnalysis(closed);
+
+  // 🆕 v2.7.5: 保有中ポジションのTradingViewチャートをロード
+  setTimeout(() => {
+    open.forEach(t => {
+      embedTradingViewChart(`tv-open-${t.id}`, t.ticker, { height: 300 });
+    });
+  }, 100);
 }
 
 // 🆕 v2.7.5: 環境別の自分の成績を描画
@@ -1704,6 +1966,11 @@ function renderOpenTrade(t) {
       </div>
       <div style="font-size:11px;color:#7d8590;margin-top:8px;">
         必要資金: ¥${cost.toLocaleString()}${renderRegimeChip(t)}
+      </div>
+      <!-- 🆕 v2.7.5: TradingView チャート(保有ポジション) -->
+      <div style="margin-top:10px;">
+        <div style="font-size:11px;color:#7d8590;margin-bottom:4px;">📊 ${ticker} 現在チャート</div>
+        <div id="tv-open-${t.id}" style="background:#0d1117;border-radius:6px;min-height:300px;"></div>
       </div>
       <div class="trade-actions">
         <button class="trade-action-btn primary" onclick="openExitModal(${t.id})">💰 決済</button>
@@ -2365,6 +2632,53 @@ renderTrades = function() {
 
 // 初期描画
 renderTrades();
+
+// ============================================
+// 🆕 v2.7.5: TradingView Advanced Chart 埋め込み
+// ============================================
+const TRADINGVIEW_LOADED = { current: false };
+
+function loadTradingViewScript(cb) {
+  if (TRADINGVIEW_LOADED.current) { cb(); return; }
+  if (window.TradingView) { TRADINGVIEW_LOADED.current = true; cb(); return; }
+  const script = document.createElement('script');
+  script.src = 'https://s3.tradingview.com/tv.js';
+  script.async = true;
+  script.onload = () => { TRADINGVIEW_LOADED.current = true; cb(); };
+  document.head.appendChild(script);
+}
+
+function embedTradingViewChart(containerId, ticker, options = {}) {
+  if (!ticker) return;
+  // .T を除去して TYO: プレフィックス追加
+  const symbol = ticker.replace('.T', '');
+  const tvSymbol = `TYO:${symbol}`;
+  loadTradingViewScript(() => {
+    if (!document.getElementById(containerId)) return;
+    // 既存のウィジェットがあればスキップ
+    if (document.getElementById(containerId).hasChildNodes()) return;
+    new TradingView.widget({
+      autosize: false,
+      width: '100%',
+      height: options.height || 350,
+      symbol: tvSymbol,
+      interval: options.interval || 'D',
+      timezone: 'Asia/Tokyo',
+      theme: 'dark',
+      style: '1', // ローソク足
+      locale: 'ja',
+      toolbar_bg: '#161b22',
+      enable_publishing: false,
+      allow_symbol_change: false,
+      hide_top_toolbar: options.compact || false,
+      hide_legend: options.compact || false,
+      save_image: false,
+      container_id: containerId,
+      studies: options.studies || ['MAExp@tv-basicstudies'], // 25日EMA
+      backgroundColor: '#0d1117',
+    });
+  });
+}
 
 // ============================================
 // 🆕 スキャンボタン (GitHub Actions workflow_dispatch)
