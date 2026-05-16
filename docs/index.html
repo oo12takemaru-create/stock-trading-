@@ -989,7 +989,10 @@ function renderSignalCard(s, idx) {
       </div>
       <div class="signal-meta">
         <span>${sharesIdeal}株 / ¥${cost.toLocaleString()}</span>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="copy-btn" onclick="event.stopPropagation();recordFromTodaySignal(${idx})" style="background:#238636;color:#fff;">
+            📝 記録
+          </button>
           <button class="copy-btn" onclick="event.stopPropagation();toggleTodayChart(${idx}, '${ticker}')" style="background:#1f6feb;color:#fff;">
             📊 チャート
           </button>
@@ -1013,6 +1016,33 @@ function toggleTodayChart(idx, ticker) {
   } else {
     el.style.display = 'none';
   }
+}
+
+// 🆕 v2.7.5: 今日のシグナルからトレード記録モーダルにプリフィル
+function recordFromTodaySignal(idx) {
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+  const latest = sorted[0];
+  if (!latest) return;
+  const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
+  const s = realSignals[idx];
+  if (!s) {
+    alert('シグナルデータが見つかりません');
+    return;
+  }
+  const prefill = {
+    ticker: s.ticker || '',
+    name: s.name || '',
+    strategy: s.strategy || 'MOMENTUM',
+    entry_price: s.entry_price || '',
+    stop_price: s.stop_price || '',
+    target_price: s.target_price || '',
+    shares: s.shares || '',
+  };
+  // トレードタブに切替してモーダル開く
+  showSection('trades');
+  setTimeout(() => openEntryModal(prefill), 100);
 }
 
 function copySignal(idx) {
@@ -2650,33 +2680,63 @@ function loadTradingViewScript(cb) {
 
 function embedTradingViewChart(containerId, ticker, options = {}) {
   if (!ticker) return;
-  // .T を除去して TYO: プレフィックス追加
+  // .T を除去して TSE: プレフィックス(東証)
   const symbol = ticker.replace('.T', '');
-  const tvSymbol = `TYO:${symbol}`;
+  const tvSymbol = `TSE:${symbol}`;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  // 既存のウィジェットがあればスキップ
+  if (container.hasChildNodes()) return;
+
+  // フォールバックリンクを先に表示(チャート読み込み失敗時用)
+  container.innerHTML = `
+    <div style="padding:20px;text-align:center;color:#7d8590;font-size:12px;">
+      <div style="margin-bottom:8px;">📊 チャート読み込み中...</div>
+      <a href="https://www.tradingview.com/symbols/TSE-${symbol}/" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:underline;font-size:11px;">
+        🔗 TradingViewで開く(別タブ)
+      </a>
+    </div>`;
+
   loadTradingViewScript(() => {
     if (!document.getElementById(containerId)) return;
-    // 既存のウィジェットがあればスキップ
-    if (document.getElementById(containerId).hasChildNodes()) return;
-    new TradingView.widget({
-      autosize: false,
-      width: '100%',
-      height: options.height || 350,
-      symbol: tvSymbol,
-      interval: options.interval || 'D',
-      timezone: 'Asia/Tokyo',
-      theme: 'dark',
-      style: '1', // ローソク足
-      locale: 'ja',
-      toolbar_bg: '#161b22',
-      enable_publishing: false,
-      allow_symbol_change: false,
-      hide_top_toolbar: options.compact || false,
-      hide_legend: options.compact || false,
-      save_image: false,
-      container_id: containerId,
-      studies: options.studies || ['MAExp@tv-basicstudies'], // 25日EMA
-      backgroundColor: '#0d1117',
-    });
+    // 内側にウィジェット用divを作成
+    const widgetDiv = document.createElement('div');
+    widgetDiv.id = containerId + '-widget';
+    widgetDiv.style.cssText = 'width:100%;height:' + (options.height || 350) + 'px;';
+    container.innerHTML = '';
+    container.appendChild(widgetDiv);
+
+    try {
+      new TradingView.widget({
+        autosize: false,
+        width: '100%',
+        height: options.height || 350,
+        symbol: tvSymbol,
+        interval: options.interval || 'D',
+        timezone: 'Asia/Tokyo',
+        theme: 'dark',
+        style: '1',
+        locale: 'ja',
+        toolbar_bg: '#161b22',
+        enable_publishing: false,
+        allow_symbol_change: false,
+        hide_top_toolbar: options.compact || false,
+        hide_legend: options.compact || false,
+        save_image: false,
+        container_id: widgetDiv.id,
+        studies: options.studies || ['MAExp@tv-basicstudies'],
+        backgroundColor: '#0d1117',
+      });
+    } catch (e) {
+      // 失敗時はフォールバックリンク表示
+      container.innerHTML = `
+        <div style="padding:20px;text-align:center;background:#1a1f26;border-radius:6px;">
+          <div style="color:#f0883e;font-size:12px;margin-bottom:8px;">⚠️ チャート読み込み失敗</div>
+          <a href="https://www.tradingview.com/symbols/TSE-${symbol}/" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:underline;">
+            🔗 TradingViewで直接開く
+          </a>
+        </div>`;
+    }
   });
 }
 
