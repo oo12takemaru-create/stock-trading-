@@ -221,6 +221,7 @@ body {
 .trade-card.win { border-left-color: #2ea043; }
 .trade-card.loss { border-left-color: #f85149; }
 .trade-card.open { border-left-color: #d29922; }
+.trade-card.pending { border-left-color: #58a6ff; background: #0d2235; }
 .trade-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   margin-bottom: 8px;
@@ -529,6 +530,10 @@ body {
       </p>
     </div>
 
+    <!-- 🆕 v2.7.5: 発注予定(PENDING) -->
+    <div class="card-title" style="margin-top: 24px;">📋 発注予定(約定待ち)</div>
+    <div id="pending-trades-list"></div>
+
     <!-- 保有中のポジション -->
     <div class="card-title" style="margin-top: 24px;">📂 保有中のポジション</div>
     <div id="open-trades-list"></div>
@@ -553,6 +558,32 @@ body {
       <p style="font-size:11px;color:#a5d6a7;margin-top:8px;">
         💡 URLにトレードデータが暗号化されて含まれます
       </p>
+    </div>
+
+    <!-- 🆕 v2.7.5: SBI CSV インポート -->
+    <div class="card" style="margin-top: 16px;background:#3d2e0a;border-color:#d29922;">
+      <div class="card-title">📊 SBI証券 取引履歴 CSV インポート</div>
+      <p style="font-size:12px;color:#f0d77a;margin-bottom:10px;line-height:1.6;">
+        SBI証券の<strong>「実現損益詳細」</strong>からダウンロードしたCSVを取り込み、過去トレードを一括登録できます。<br>
+        ※ 同じ約定日・銘柄・損益のレコードは自動的にスキップされます(重複防止)
+      </p>
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="document.getElementById('sbi-csv-input').click()" style="background:#d29922;">
+          📥 SBI CSV をインポート
+        </button>
+      </div>
+      <input type="file" id="sbi-csv-input" accept=".csv,.tsv,.txt" style="display:none" onchange="importSBICSV(event)">
+      <div id="sbi-import-result" style="font-size:12px;color:#a8d8b0;margin-top:10px;display:none;padding:10px;background:#0d1117;border-radius:6px;"></div>
+      <details style="margin-top:10px;font-size:11px;color:#7d8590;">
+        <summary style="cursor:pointer;color:#f0d77a;">📋 SBI CSV の取得方法</summary>
+        <ol style="margin-top:6px;padding-left:20px;line-height:1.7;">
+          <li>SBI証券にログイン</li>
+          <li>「口座管理」→「My資産」→「実現損益詳細」</li>
+          <li>期間を指定 → 「検索」</li>
+          <li>右上の「CSVダウンロード」をクリック</li>
+          <li>ダウンロードした CSV(SHIFT-JIS / UTF-8 両対応)をこのボタンから取り込む</li>
+        </ol>
+      </details>
     </div>
 
     <!-- データ管理 -->
@@ -783,6 +814,41 @@ body {
   </div>
 </div>
 
+<!-- 🆕 v2.7.5: 約定確定モーダル(PENDING→OPEN) -->
+<div class="modal-overlay" id="confirm-pending-modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>✅ 約定確定(PENDING → OPEN)</h2>
+      <button class="modal-close" onclick="closeConfirmPendingModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="cp-info" style="margin-bottom:12px;font-size:13px;color:#7d8590;padding:10px;background:#0d1117;border-radius:6px;"></div>
+      <div class="form-group">
+        <label>約定日</label>
+        <input type="date" id="cp-date">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>実際の約定単価(円)</label>
+          <input type="number" id="cp-price" step="0.5" oninput="cpRecalcPreview()">
+        </div>
+        <div class="form-group">
+          <label>実際の株数</label>
+          <input type="number" id="cp-shares" oninput="cpRecalcPreview()">
+        </div>
+      </div>
+      <div id="cp-preview" style="padding:10px;background:#0d1117;border-radius:6px;border-left:3px solid #2ea043;min-height:1px;"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">
+        💡 損切り・目標は約定単価に応じて<strong>自動再計算</strong>されます
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeConfirmPendingModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="confirmPending()" style="background:#2ea043;">✅ 約定確定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================
 // 設定: GitHubリポジトリ情報を自動検出
@@ -990,6 +1056,9 @@ function renderSignalCard(s, idx) {
       <div class="signal-meta">
         <span>${sharesIdeal}株 / ¥${cost.toLocaleString()}</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="copy-btn" onclick="event.stopPropagation();addToPending(${idx})" style="background:#58a6ff;color:#fff;font-weight:600;">
+            📋 発注予定
+          </button>
           <button class="copy-btn" onclick="event.stopPropagation();recordFromTodaySignal(${idx})" style="background:#238636;color:#fff;">
             📝 記録
           </button>
@@ -1016,6 +1085,144 @@ function toggleTodayChart(idx, ticker) {
   } else {
     el.style.display = 'none';
   }
+}
+
+// 🆕 v2.7.5: 今日のシグナルを「発注予定」に1クリック追加(PENDING状態で仮登録)
+function addToPending(idx) {
+  const sorted = [...allSignals].sort((a, b) =>
+    (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
+  const latest = sorted[0];
+  if (!latest) return;
+  const latestScan = sorted.filter(s => s.scan_timestamp === latest.scan_timestamp);
+  const realSignals = latestScan.filter(s => s.ticker && s.strategy !== '(no signal)' && s.strategy !== '(all duplicate)');
+  const s = realSignals[idx];
+  if (!s) { alert('シグナルデータが見つかりません'); return; }
+
+  // 既存PENDINGと重複チェック(同銘柄×同戦略×同日のシグナルは1回のみ)
+  const trades = loadTrades();
+  const today = new Date().toISOString().slice(0, 10);
+  const dupKey = `${s.ticker}__${s.strategy}__${today}`;
+  const existing = trades.find(t => t.status === 'PENDING' &&
+    `${t.ticker}__${t.strategy}__${t.signal_date || ''}` === dupKey);
+  if (existing) {
+    alert('この銘柄(同じ戦略・同日)は既に発注予定リストにあります');
+    showSection('trades');
+    return;
+  }
+
+  // 現在の市場環境を取得
+  const ctx = getCurrentMarketContext();
+
+  const newTrade = {
+    id: nextTradeId(trades),
+    ticker: s.ticker,
+    name: s.name,
+    strategy: s.strategy,
+    signal_date: today,
+    signal_price: parseFloat(s.entry_price) || 0,  // シグナル時の指値
+    entry_date: null,
+    entry_price: null,
+    shares: parseInt(s.shares) || 0,
+    stop_price: parseFloat(s.stop_price) || 0,
+    target_price: parseFloat(s.target_price) || 0,
+    exit_date: null,
+    exit_price: null,
+    exit_reason: null,
+    pnl: null,
+    pnl_pct: null,
+    holding_days: null,
+    status: 'PENDING',
+    notes: `シグナル時の想定: 買¥${s.entry_price} / 損切¥${s.stop_price} / 目標¥${s.target_price}`,
+    entry_regime: ctx.regime,
+    entry_vix: ctx.vix,
+    entry_n225: ctx.n225,
+    created_at: new Date().toISOString(),
+  };
+  trades.push(newTrade);
+  saveTradesToStorage(trades);
+  alert(`📋 ${s.name} を発注予定に追加しました\nトレードタブで確認 → 約定したら「✅ 約定確定」で価格入力`);
+}
+
+// 🆕 v2.7.5: PENDING → OPEN への変換(約定確定モーダル)
+let pendingConfirmId = null;
+function openConfirmPendingModal(id) {
+  const trades = loadTrades();
+  const trade = trades.find(t => t.id === id);
+  if (!trade) return;
+  pendingConfirmId = id;
+  const modal = document.getElementById('confirm-pending-modal');
+  modal.style.display = 'flex';
+  document.getElementById('cp-info').innerHTML =
+    `<strong>${escapeHtml(trade.name)}</strong> (${trade.ticker.replace('.T','')})<br>` +
+    `戦略: ${trade.strategy} / シグナル価格: ¥${trade.signal_price.toLocaleString()}<br>` +
+    `想定株数: ${trade.shares} 株 / 想定損切り: ¥${trade.stop_price}`;
+  document.getElementById('cp-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('cp-price').value = trade.signal_price || '';
+  document.getElementById('cp-shares').value = trade.shares || '';
+  // 自動再計算プレビュー
+  cpRecalcPreview();
+}
+
+function closeConfirmPendingModal() {
+  document.getElementById('confirm-pending-modal').style.display = 'none';
+  pendingConfirmId = null;
+}
+
+function cpRecalcPreview() {
+  const trades = loadTrades();
+  const trade = trades.find(t => t.id === pendingConfirmId);
+  if (!trade) return;
+  const entry = parseFloat(document.getElementById('cp-price').value);
+  const shares = parseInt(document.getElementById('cp-shares').value);
+  if (!entry || isNaN(entry)) {
+    document.getElementById('cp-preview').innerHTML = '';
+    return;
+  }
+  const { stop, target } = calcStopTarget(trade.strategy, entry, trade.target_price);
+  const cost = entry * (shares || 0);
+  const sigDiff = entry - trade.signal_price;
+  const sigDiffPct = trade.signal_price > 0 ? (sigDiff / trade.signal_price * 100) : 0;
+  const diffColor = sigDiff > 0 ? '#f0883e' : (sigDiff < 0 ? '#56d364' : '#7d8590');
+  document.getElementById('cp-preview').innerHTML = `
+    <div style="font-size:11px;line-height:1.6;color:#a8c5e0;">
+      <div>必要資金: <strong>¥${Math.round(cost).toLocaleString()}</strong></div>
+      <div>自動計算 損切り: <strong style="color:#f85149;">¥${stop ? stop.toFixed(1) : '-'}</strong> / 目標: <strong style="color:#56d364;">¥${target ? target.toFixed(1) : '-'}</strong></div>
+      <div style="color:${diffColor};">↕ シグナル¥${trade.signal_price} → 実約定¥${entry} (${sigDiff >= 0 ? '+' : ''}${sigDiffPct.toFixed(2)}%)</div>
+    </div>`;
+}
+
+function confirmPending() {
+  if (!pendingConfirmId) return;
+  const entry = parseFloat(document.getElementById('cp-price').value);
+  const shares = parseInt(document.getElementById('cp-shares').value);
+  const date = document.getElementById('cp-date').value;
+  if (!entry || !shares || !date) {
+    alert('約定単価・株数・約定日 すべて必須です');
+    return;
+  }
+  const trades = loadTrades();
+  const trade = trades.find(t => t.id === pendingConfirmId);
+  if (!trade) return;
+  // 自動計算された stop/target を採用
+  const { stop, target } = calcStopTarget(trade.strategy, entry, trade.target_price);
+  trade.entry_date = date;
+  trade.entry_price = entry;
+  trade.shares = shares;
+  trade.stop_price = stop;
+  trade.target_price = target;
+  trade.status = 'OPEN';
+  saveTradesToStorage(trades);
+  closeConfirmPendingModal();
+  renderTrades();
+  alert(`✅ ${trade.name} 約定確定 → 保有中ポジションに移動しました`);
+}
+
+// 🆕 v2.7.5: PENDING の取消
+function cancelPending(id) {
+  if (!confirm('発注予定を取り消しますか?(レコードは削除されます)')) return;
+  const trades = loadTrades().filter(t => t.id !== id);
+  saveTradesToStorage(trades);
+  renderTrades();
 }
 
 // 🆕 v2.7.5: 今日のシグナルからトレード記録モーダルにプリフィル
@@ -1805,9 +2012,25 @@ function deleteTrade(id) {
 function renderTrades() {
   renderAccountBalance();  // 🆕 v2.7.5: トレード変更時に残高カード更新
   const trades = loadTrades();
+  const pending = trades.filter(t => t.status === 'PENDING')
+    .sort((a, b) => (b.signal_date || '').localeCompare(a.signal_date || ''));
   const open = trades.filter(t => t.status === 'OPEN');
   const closed = trades.filter(t => t.status === 'CLOSED')
     .sort((a, b) => (b.exit_date || '').localeCompare(a.exit_date || ''));
+
+  // 🆕 v2.7.5: 発注予定リストの描画
+  const pendingContainer = document.getElementById('pending-trades-list');
+  if (pendingContainer) {
+    if (pending.length === 0) {
+      pendingContainer.innerHTML = `
+        <div class="no-signal-card" style="padding:16px;">
+          <div style="color:#7d8590;font-size:12px;">発注予定なし</div>
+          <div style="color:#6e7681;font-size:11px;margin-top:6px;">今日のシグナルで「📋 発注予定」ボタンを押すとここに追加されます</div>
+        </div>`;
+    } else {
+      pendingContainer.innerHTML = pending.map(t => renderPendingTrade(t)).join('');
+    }
+  }
 
   // 統計
   const wins = closed.filter(t => t.pnl > 0);
@@ -1963,6 +2186,49 @@ function renderRegimeAnalysis(closed) {
   document.getElementById('strategy-regime-matrix').innerHTML = matrix;
 }
 
+// 🆕 v2.7.5: PENDING(発注予定)カード描画
+function renderPendingTrade(t) {
+  const ticker = t.ticker.replace('.T', '');
+  const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
+  const stratColor = colors[t.strategy] || '#6e7681';
+  return `
+    <div class="trade-card pending">
+      <div class="trade-header">
+        <div>
+          <span class="trade-title">${escapeHtml(t.name)}</span>
+          <span class="trade-ticker">(${ticker})</span>
+          <div><span class="trade-strategy" style="background:${stratColor};color:#fff">${t.strategy}</span>
+          &nbsp;<span style="display:inline-block;background:#58a6ff;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">📋 PENDING</span></div>
+        </div>
+        <div style="font-size:11px;color:#7d8590;text-align:right">
+          ${t.signal_date}<br>シグナル
+        </div>
+      </div>
+      <div class="trade-numbers">
+        <div>
+          <div class="trade-num-label">指値(想定)</div>
+          <div class="trade-num-value" style="color:#58a6ff">¥${t.signal_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">損切り</div>
+          <div class="trade-num-value" style="color:#f85149">¥${t.stop_price.toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="trade-num-label">目標</div>
+          <div class="trade-num-value" style="color:#56d364">¥${t.target_price.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#a8c5e0;margin-top:8px;padding:6px 8px;background:#0d1117;border-radius:4px;">
+        💡 SBI証券で <strong>逆指値 ¥${t.signal_price.toLocaleString()} 以上で買い</strong> を仕込んでください<br>
+        約定したら下の「✅ 約定確定」を押す
+      </div>
+      <div class="trade-actions">
+        <button class="trade-action-btn primary" onclick="openConfirmPendingModal(${t.id})" style="background:#2ea043;">✅ 約定確定</button>
+        <button class="trade-action-btn danger" onclick="cancelPending(${t.id})">🗑 取消</button>
+      </div>
+    </div>`;
+}
+
 function renderOpenTrade(t) {
   const ticker = t.ticker.replace('.T', '');
   const colors = { MOMENTUM: '#1f6feb', 'BNF-LITE': '#8957e5', MINERVINI: '#2ea043' };
@@ -2102,6 +2368,204 @@ function importTrades(event) {
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+// 🆕 v2.7.5: SBI証券 取引履歴CSV インポート
+async function importSBICSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('sbi-import-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '📂 ファイル読み込み中...';
+
+  try {
+    // SBI CSV は SHIFT-JIS が多い。両対応のため2回試す
+    let text;
+    try {
+      const buffer = await file.arrayBuffer();
+      // まず UTF-8 で試す
+      const utf8 = new TextDecoder('utf-8').decode(buffer);
+      // 文字化けチェック(SBIは「銘柄コード」「実現損益」などのキーワードがあるはず)
+      if (utf8.includes('銘柄') || utf8.includes('実現損益') || utf8.includes('約定')) {
+        text = utf8;
+      } else {
+        // SHIFT-JIS で再試行
+        text = new TextDecoder('shift-jis').decode(buffer);
+      }
+    } catch (e) {
+      text = await file.text();
+    }
+
+    const parsed = parseSBICSV(text);
+    if (parsed.length === 0) {
+      resultEl.style.color = '#f0883e';
+      resultEl.innerHTML = '⚠️ 取引データが見つかりませんでした。<br>SBIの「実現損益詳細」からダウンロードしたCSVですか?';
+      event.target.value = '';
+      return;
+    }
+
+    // 既存と重複チェック(同じ約定日 × 銘柄 × 損益 はスキップ)
+    const existing = loadTrades();
+    const existingKeys = new Set(
+      existing.filter(t => t.status === 'CLOSED').map(t =>
+        `${t.exit_date}__${t.ticker}__${Math.round(t.pnl || 0)}`)
+    );
+
+    let added = 0, skipped = 0;
+    const newTrades = [...existing];
+    let nextId = nextTradeId(existing);
+
+    for (const row of parsed) {
+      const key = `${row.exit_date}__${row.ticker}__${Math.round(row.pnl)}`;
+      if (existingKeys.has(key)) {
+        skipped++;
+        continue;
+      }
+      newTrades.push({
+        id: nextId++,
+        ticker: row.ticker,
+        name: row.name,
+        strategy: 'SBI-IMPORT',  // インポート由来として区別
+        entry_date: row.exit_date, // SBI CSV は売却日のみなのでentry_dateも同日に
+        entry_price: row.entry_price || 0,
+        shares: row.shares || 0,
+        stop_price: 0,
+        target_price: 0,
+        exit_date: row.exit_date,
+        exit_price: row.exit_price || 0,
+        exit_reason: 'SBIインポート',
+        pnl: row.pnl,
+        pnl_pct: row.pnl_pct || 0,
+        holding_days: 0,
+        status: 'CLOSED',
+        notes: `SBI CSVから自動インポート(${new Date().toISOString().slice(0,10)})`,
+        entry_regime: 'UNKNOWN',
+        entry_vix: null,
+        entry_n225: null,
+        created_at: new Date().toISOString(),
+      });
+      added++;
+    }
+
+    if (added > 0) {
+      saveTradesToStorage(newTrades);
+      renderTrades();
+    }
+
+    resultEl.style.color = '#a8d8b0';
+    resultEl.innerHTML = `
+      ✅ <strong>インポート完了</strong><br>
+      新規追加: <strong>${added}件</strong> / 重複スキップ: ${skipped}件 / 検出: ${parsed.length}件<br>
+      <span style="font-size:11px;color:#7d8590;">※ SBIインポートのレコードは戦略「SBI-IMPORT」で記録されます。後から個別編集も可能</span>
+    `;
+  } catch (err) {
+    resultEl.style.color = '#f85149';
+    resultEl.innerHTML = `❌ エラー: ${escapeHtml(err.message)}<br>CSVの形式を確認してください`;
+  }
+  event.target.value = '';
+}
+
+// 🆕 v2.7.5: SBI CSV のパース(複数のフォーマット対応)
+function parseSBICSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const results = [];
+
+  // SBI CSV の典型フォーマットを解析
+  // パターン1: 「約定日,銘柄コード,銘柄,売買区分,数量,単価,実現損益」
+  // パターン2: 「取引日,銘柄,数量,単価,損益」
+  // 柔軟に列名を検出
+
+  // ヘッダ行を探す(複数行のメタ情報がある場合スキップ)
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const line = lines[i];
+    if (line.includes('銘柄') && (line.includes('損益') || line.includes('数量') || line.includes('単価'))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) {
+    // ヘッダ無しの場合はパターンマッチで強引にパース
+    return parseSBIRowsRaw(lines);
+  }
+
+  const headers = parseCSVLine(lines[headerIdx]).map(h => h.trim());
+  const colIdx = {
+    date: headers.findIndex(h => h.match(/約定日|取引日|売却日|決済日/)),
+    code: headers.findIndex(h => h.match(/銘柄コード|コード|^Code/i)),
+    name: headers.findIndex(h => h.match(/銘柄名|^銘柄$/)),
+    qty: headers.findIndex(h => h.match(/数量|株数/)),
+    price: headers.findIndex(h => h.match(/単価|約定単価|売却単価/)),
+    pnl: headers.findIndex(h => h.match(/実現損益|損益|損益金額/)),
+  };
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cells = parseCSVLine(lines[i]).map(c => c.replace(/,/g, '').replace(/円|株/g, '').trim());
+    if (cells.length < 3) continue;
+
+    const dateStr = colIdx.date >= 0 ? cells[colIdx.date] : '';
+    const code = colIdx.code >= 0 ? cells[colIdx.code] : '';
+    const name = colIdx.name >= 0 ? cells[colIdx.name] : '';
+    const qty = colIdx.qty >= 0 ? parseInt(cells[colIdx.qty]) : 0;
+    const price = colIdx.price >= 0 ? parseFloat(cells[colIdx.price]) : 0;
+    const pnl = colIdx.pnl >= 0 ? parseFloat(cells[colIdx.pnl]) : 0;
+
+    if (!dateStr || !code || isNaN(pnl)) continue;
+
+    // 日付正規化(YYYY/MM/DD → YYYY-MM-DD)
+    const exit_date = dateStr.replace(/\//g, '-').slice(0, 10);
+    // ticker に .T 付与
+    const ticker = code.includes('.') ? code : code + '.T';
+
+    // 取得価格を逆算(売却単価 - 損益/数量 = 取得単価)
+    let entry_price = 0;
+    if (price > 0 && qty > 0 && !isNaN(pnl)) {
+      entry_price = Math.round((price - pnl / qty) * 10) / 10;
+    }
+    const pnl_pct = entry_price > 0 ? (pnl / (entry_price * qty)) * 100 : 0;
+
+    results.push({
+      exit_date,
+      ticker,
+      name: name || code,
+      shares: qty,
+      exit_price: price,
+      entry_price,
+      pnl,
+      pnl_pct,
+    });
+  }
+  return results;
+}
+
+// 🆕 v2.7.5: ヘッダ無しSBI CSV のフォールバックパース
+function parseSBIRowsRaw(lines) {
+  const results = [];
+  for (const line of lines) {
+    const cells = parseCSVLine(line);
+    if (cells.length < 4) continue;
+    // 数値が複数あるパターンを探す
+    const dateMatch = line.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
+    const codeMatch = line.match(/\b(\d{4})\b/);
+    if (!dateMatch || !codeMatch) continue;
+    const pnlMatch = line.match(/([\-+]?\d{1,3}(?:,\d{3})*)\s*円?/g);
+    if (!pnlMatch || pnlMatch.length === 0) continue;
+    const pnl = parseFloat(pnlMatch[pnlMatch.length - 1].replace(/[,円]/g, ''));
+    if (isNaN(pnl)) continue;
+    results.push({
+      exit_date: dateMatch[1].replace(/\//g, '-'),
+      ticker: codeMatch[1] + '.T',
+      name: codeMatch[1],
+      shares: 0,
+      exit_price: 0,
+      entry_price: 0,
+      pnl,
+      pnl_pct: 0,
+    });
+  }
+  return results;
 }
 
 // ============================================
@@ -2678,66 +3142,44 @@ function loadTradingViewScript(cb) {
   document.head.appendChild(script);
 }
 
+// 🆕 v2.7.5: TradingView の無料埋め込みは東証データ不可のため、
+// 日本株トレーダー定番サイトへの外部リンクパネルに変更
 function embedTradingViewChart(containerId, ticker, options = {}) {
   if (!ticker) return;
-  // .T を除去して TSE: プレフィックス(東証)
   const symbol = ticker.replace('.T', '');
-  const tvSymbol = `TSE:${symbol}`;
   const container = document.getElementById(containerId);
   if (!container) return;
-  // 既存のウィジェットがあればスキップ
   if (container.hasChildNodes()) return;
 
-  // フォールバックリンクを先に表示(チャート読み込み失敗時用)
   container.innerHTML = `
-    <div style="padding:20px;text-align:center;color:#7d8590;font-size:12px;">
-      <div style="margin-bottom:8px;">📊 チャート読み込み中...</div>
-      <a href="https://www.tradingview.com/symbols/TSE-${symbol}/" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:underline;font-size:11px;">
-        🔗 TradingViewで開く(別タブ)
-      </a>
+    <div style="padding:16px;background:#0d1117;border-radius:6px;">
+      <div style="font-size:11px;color:#7d8590;margin-bottom:10px;text-align:center;">
+        📊 ${symbol} のチャート・指標を外部サイトで開く<br>
+        <span style="font-size:10px;">(無料の埋め込みは東証データ非対応のため外部リンクで提供)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+        <a href="https://kabutan.jp/stock/?code=${symbol}" target="_blank" rel="noopener"
+           style="display:block;padding:12px;background:#1a4d2e;color:#a8d8b0;text-decoration:none;border-radius:6px;text-align:center;font-size:12px;font-weight:600;border:1px solid #2ea043;">
+          🌟 株探(おすすめ)<br>
+          <span style="font-size:10px;font-weight:400;opacity:0.8;">日本株定番・指標豊富</span>
+        </a>
+        <a href="https://finance.yahoo.co.jp/quote/${symbol}.T" target="_blank" rel="noopener"
+           style="display:block;padding:12px;background:#3d2e0a;color:#f0d77a;text-decoration:none;border-radius:6px;text-align:center;font-size:12px;font-weight:600;border:1px solid #d29922;">
+          📰 Yahoo!ファイナンス<br>
+          <span style="font-size:10px;font-weight:400;opacity:0.8;">決算情報・ニュース</span>
+        </a>
+        <a href="https://www.tradingview.com/symbols/TSE-${symbol}/" target="_blank" rel="noopener"
+           style="display:block;padding:12px;background:#1a3d5c;color:#a8c5e0;text-decoration:none;border-radius:6px;text-align:center;font-size:12px;font-weight:600;border:1px solid #388bfd;">
+          📈 TradingView<br>
+          <span style="font-size:10px;font-weight:400;opacity:0.8;">テクニカル分析</span>
+        </a>
+        <a href="https://minkabu.jp/stock/${symbol}" target="_blank" rel="noopener"
+           style="display:block;padding:12px;background:#3d1a4d;color:#d4b3e6;text-decoration:none;border-radius:6px;text-align:center;font-size:12px;font-weight:600;border:1px solid #8957e5;">
+          💬 みんかぶ<br>
+          <span style="font-size:10px;font-weight:400;opacity:0.8;">個人投資家の声</span>
+        </a>
+      </div>
     </div>`;
-
-  loadTradingViewScript(() => {
-    if (!document.getElementById(containerId)) return;
-    // 内側にウィジェット用divを作成
-    const widgetDiv = document.createElement('div');
-    widgetDiv.id = containerId + '-widget';
-    widgetDiv.style.cssText = 'width:100%;height:' + (options.height || 350) + 'px;';
-    container.innerHTML = '';
-    container.appendChild(widgetDiv);
-
-    try {
-      new TradingView.widget({
-        autosize: false,
-        width: '100%',
-        height: options.height || 350,
-        symbol: tvSymbol,
-        interval: options.interval || 'D',
-        timezone: 'Asia/Tokyo',
-        theme: 'dark',
-        style: '1',
-        locale: 'ja',
-        toolbar_bg: '#161b22',
-        enable_publishing: false,
-        allow_symbol_change: false,
-        hide_top_toolbar: options.compact || false,
-        hide_legend: options.compact || false,
-        save_image: false,
-        container_id: widgetDiv.id,
-        studies: options.studies || ['MAExp@tv-basicstudies'],
-        backgroundColor: '#0d1117',
-      });
-    } catch (e) {
-      // 失敗時はフォールバックリンク表示
-      container.innerHTML = `
-        <div style="padding:20px;text-align:center;background:#1a1f26;border-radius:6px;">
-          <div style="color:#f0883e;font-size:12px;margin-bottom:8px;">⚠️ チャート読み込み失敗</div>
-          <a href="https://www.tradingview.com/symbols/TSE-${symbol}/" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:underline;">
-            🔗 TradingViewで直接開く
-          </a>
-        </div>`;
-    }
-  });
 }
 
 // ============================================
