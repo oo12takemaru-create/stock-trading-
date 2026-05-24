@@ -1,4 +1,4 @@
-name: Daily Trading Signal (v2.7.5)
+name: Daily Trading Signal (v2.8.0)
 
 on:
   schedule:
@@ -57,12 +57,12 @@ jobs:
           echo "date_jst=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
           echo "time_jst=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
 
-      - name: Run Daily Scanner v2.7.5
+      - name: Run Daily Scanner v2.8.0
         env:
           CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
           RISK:    ${{ github.event.inputs.risk || '1.0' }}
         run: |
-          python daily_scanner_v2_7_5.py \
+          python daily_scanner_v2_8_0.py \
             --capital "$CAPITAL" \
             --risk "$RISK" \
             --output signal.md \
@@ -72,7 +72,7 @@ jobs:
         run: |
           cat > signal_final.md <<HEADER
           > Auto run: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
-          > v2.7.5 (200銘柄) | Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          > v2.8.0 (200銘柄) | Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           HEADER
           cat signal.md >> signal_final.md
@@ -114,6 +114,6 @@ jobs:
 
       - name: Write summary
         run: |
-          echo "## v2.7.5 execution complete (200 stocks)" >> $GITHUB_STEP_SUMMARY
+          echo "## v2.8.0 execution complete (200 stocks)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           cat signal.md >> $GITHUB_STEP_SUMMARY
