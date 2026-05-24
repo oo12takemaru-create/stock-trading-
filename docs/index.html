@@ -304,7 +304,7 @@ body {
 <div class="container">
   <div class="header">
     <h1>📊 BNF × Minervini</h1>
-    <div class="subtitle">Trading Signal Dashboard v2.7.5(200銘柄)</div>
+    <div class="subtitle">Trading Signal Dashboard v2.8.0(239銘柄)</div>
     <div class="updated" id="last-updated">読み込み中...</div>
   </div>
 
@@ -2858,11 +2858,11 @@ function renderAllSignalsSim() {
     return;
   }
 
-  // バックテスト期待値(v2.7.5 実証値・200銘柄・10年バックテスト)
+  // バックテスト期待値(v2.8.0 実証値・239銘柄・現実的な翌日寄付き約定モード)
   const EXPECTED = {
-    MOMENTUM:   { winRate: 0.607, avgWin: 0.10, avgLoss: -0.05 },
+    MOMENTUM:   { winRate: 0.507, avgWin: 0.08, avgLoss: -0.05 },
     'BNF-LITE': { winRate: 0.521, avgWin: 0.08, avgLoss: -0.05 },
-    MINERVINI:  { winRate: 0.554, avgWin: 0.15, avgLoss: -0.09 },
+    MINERVINI:  { winRate: 0.579, avgWin: 0.12, avgLoss: -0.09 },
   };
 
   // 戦略別期待値計算
