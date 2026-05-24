@@ -1226,6 +1226,7 @@ function cancelPending(id) {
 }
 
 // 🆕 v2.7.5: 今日のシグナルからトレード記録モーダルにプリフィル
+// ★ v2.8.0 修正: showSection 失敗時もモーダルは確実に開く
 function recordFromTodaySignal(idx) {
   const sorted = [...allSignals].sort((a, b) =>
     (b.scan_timestamp || '').localeCompare(a.scan_timestamp || ''));
@@ -1247,9 +1248,11 @@ function recordFromTodaySignal(idx) {
     target_price: s.target_price || '',
     shares: s.shares || '',
   };
-  // トレードタブに切替してモーダル開く
-  showSection('trades');
-  setTimeout(() => openEntryModal(prefill), 100);
+  try { showSection('trades'); } catch (e) { console.warn(e); }
+  setTimeout(() => {
+    try { openEntryModal(prefill); }
+    catch (e) { alert('モーダルを開けませんでした: ' + e.message); }
+  }, 100);
 }
 
 function copySignal(idx) {
@@ -1519,12 +1522,27 @@ function toggleHistoryDetail(idx) {
 }
 
 // 🆕 v2.7.5: 履歴からトレード記録モーダルにプリフィル
+// ★ v2.8.0 修正: showSection が失敗してもモーダルは確実に開く
 function prefillFromHistory(idx) {
   const data = window.__historyData && window.__historyData[idx];
-  if (!data) return;
-  // トレードタブに切替
-  showSection('trades');
-  setTimeout(() => openEntryModal(data), 100);
+  if (!data) {
+    console.warn('prefillFromHistory: idx=' + idx + ' のデータが見つかりません');
+    return;
+  }
+  // トレードタブに切替(失敗してもモーダルは開く)
+  try {
+    showSection('trades');
+  } catch (e) {
+    console.warn('showSection error:', e);
+  }
+  setTimeout(() => {
+    try {
+      openEntryModal(data);
+    } catch (e) {
+      console.error('openEntryModal error:', e);
+      alert('モーダルを開けませんでした: ' + e.message);
+    }
+  }, 100);
 }
 
 // 🆕 v2.7.5: 履歴情報をクリップボードにコピー(SBI証券への発注用)
@@ -1634,8 +1652,15 @@ function escapeHtml(text) {
 function showSection(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('section-' + name).classList.add('active');
-  event.target.closest('.tab').classList.add('active');
+  const section = document.getElementById('section-' + name);
+  if (section) section.classList.add('active');
+  // ★ v2.8.0 修正: event.target 依存をやめて name で tab を識別(プログラム呼出対応)
+  document.querySelectorAll('.tab').forEach(t => {
+    const onclickStr = t.getAttribute('onclick') || '';
+    if (onclickStr.includes(`'${name}'`)) {
+      t.classList.add('active');
+    }
+  });
 }
 
 // ============================================
