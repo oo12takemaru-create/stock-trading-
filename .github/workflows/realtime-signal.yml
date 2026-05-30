@@ -1,0 +1,100 @@
+name: Realtime Signal Notifier (ザラ場通知)
+
+# ザラ場中(平日9:00〜15:30 JST)に15分間隔でスキャンし、
+# 新規買いシグナルをメール + Discord に即時通知する軽量ワークフロー。
+#
+# ★既存の daily-signal.yml(朝昼夕)とは別系統。Issue作成・artifact保存はしない。
+#   signals_log.csv は「本物の新規シグナルが出た時だけ」コミット = ゴミを溜めない。
+#
+# cron は UTC 基準:
+#   JST 09:00〜15:45 = UTC 00:00〜06:45
+#   '*/15 0-6 * * 1-5' → 15分間隔(月〜金)。15:30以降は実行されてもゲートでスキップ。
+#
+# 無料枠の目安: 1日約28回 × 約1〜2分 ≒ 月1200分前後(プライベートRepoの無料枠2000分内)。
+#   枠を節約したい場合は cron を '*/30 0-6 * * 1-5' に変更(半減)。
+
+on:
+  schedule:
+    - cron: '*/15 0-6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '実行モード'
+        required: false
+        default: 'scan'
+        type: choice
+        options:
+          - scan   # 通常スキャン(市場時間内のみ通知)
+          - test   # 通知テスト(メール+Discordにテスト送信・市場時間無視)
+      capital:
+        description: '運用資金(円)'
+        required: false
+        default: '1000000'
+      risk:
+        description: '1トレードリスク(%)'
+        required: false
+        default: '1.0'
+
+permissions:
+  contents: write
+
+# 同時実行を抑止(前のスキャンが終わるまで次を待たせる=重複コミット防止)
+concurrency:
+  group: realtime-signal
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Tokyo   # ← Python の datetime.now() を JST にして市場時間ゲートを正しく動かす
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run realtime notifier
+        env:
+          GMAIL_USER:          ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO:           ${{ secrets.NOTIFY_TO }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
+          RISK:    ${{ github.event.inputs.risk || '1.0' }}
+          MODE:    ${{ github.event.inputs.mode || 'scan' }}
+        run: |
+          if [ "$MODE" = "test" ]; then
+            echo "🔔 通知テストモード(メール+Discordにテスト送信)"
+            python realtime_notifier.py --test
+          else
+            python realtime_notifier.py --once \
+              --log-csv signals_log.csv \
+              --capital "$CAPITAL" \
+              --risk "$RISK"
+          fi
+
+      - name: Commit signals_log.csv (新規シグナル時のみ)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add signals_log.csv
+          if git diff --staged --quiet; then
+            echo "新規シグナルなし → コミットなし(ゴミを溜めない)"
+          else
+            git pull --rebase --autostash origin ${{ github.ref_name }} || true
+            git commit -m "🔔 ザラ場シグナル追記 ($(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M') JST)"
+            git push
+            echo "✓ signals_log.csv を更新(ダッシュボードに反映)"
+          fi
