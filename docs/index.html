@@ -595,10 +595,12 @@ body {
 
     <!-- 🆕 v2.7.5: SBI CSV インポート -->
     <div class="card" style="margin-top: 16px;background:#3d2e0a;border-color:#d29922;">
-      <div class="card-title">📊 SBI証券 取引履歴 CSV インポート</div>
+      <div class="card-title">📊 SBI証券 CSV インポート(履歴 / 保有)</div>
       <p style="font-size:12px;color:#f0d77a;margin-bottom:10px;line-height:1.6;">
-        SBI証券の<strong>「実現損益詳細」</strong>からダウンロードしたCSVを取り込み、過去トレードを一括登録できます。<br>
-        ※ 同じ約定日・銘柄・損益のレコードは自動的にスキップされます(重複防止)
+        SBI証券のCSVを自動判別して取り込みます:<br>
+        ・<strong>「実現損益詳細」</strong>→ 過去トレード(クローズ済)を一括登録<br>
+        ・<strong>「保有証券一覧」</strong>→ 現在の保有を<strong>OPENポジション</strong>として登録<br>
+        ※ 重複(同じ銘柄/約定)は自動スキップ。保有の損切り/目標は仮値(取得−5%/+10%)で登録され、後から編集できます。
       </p>
       <div class="action-buttons">
         <button class="btn btn-primary" onclick="document.getElementById('sbi-csv-input').click()" style="background:#d29922;">
@@ -2473,10 +2475,45 @@ async function importSBICSV(event) {
       text = await file.text();
     }
 
+    // 🆕 保有証券一覧(OPENポジション)形式を先に判定
+    const holdings = parseSBIHoldings(text);
+    if (holdings.length > 0) {
+      const existingH = loadTrades();
+      const openTickers = new Set(existingH.filter(t => t.status === 'OPEN').map(t => t.ticker));
+      let addedH = 0, skippedH = 0;
+      const newH = [...existingH];
+      let idH = nextTradeId(existingH);
+      const todayH = new Date().toISOString().slice(0, 10);
+      for (const h of holdings) {
+        if (openTickers.has(h.ticker)) { skippedH++; continue; }
+        newH.push({
+          id: idH++, ticker: h.ticker, name: h.name, strategy: 'SBI-IMPORT',
+          entry_date: '', entry_price: h.entry_price, shares: h.shares,
+          stop_price: Math.round(h.entry_price * 0.95 * 10) / 10,
+          target_price: Math.round(h.entry_price * 1.10 * 10) / 10,
+          exit_date: '', exit_price: 0, exit_reason: '',
+          pnl: 0, pnl_pct: 0, holding_days: 0, status: 'OPEN',
+          import_price: h.current_price || 0,
+          notes: `SBI保有CSVから取込(${todayH})。損切り/目標は仮値(取得−5%/+10%)。要編集`,
+          entry_regime: 'UNKNOWN', entry_vix: null, entry_n225: null,
+          created_at: new Date().toISOString(),
+        });
+        addedH++;
+      }
+      if (addedH > 0) { saveTradesToStorage(newH); renderTrades(); }
+      resultEl.style.color = '#a8d8b0';
+      resultEl.innerHTML = `
+        ✅ <strong>保有ポジションを取込みました</strong><br>
+        新規追加: <strong>${addedH}件</strong> / 既存スキップ: ${skippedH}件 / 検出: ${holdings.length}件<br>
+        <span style="font-size:11px;color:#7d8590;">※ OPENポジションとして登録。損切り/目標は仮値(取得−5%/+10%)です。各カードで編集できます。</span>`;
+      event.target.value = '';
+      return;
+    }
+
     const parsed = parseSBICSV(text);
     if (parsed.length === 0) {
       resultEl.style.color = '#f0883e';
-      resultEl.innerHTML = '⚠️ 取引データが見つかりませんでした。<br>SBIの「実現損益詳細」からダウンロードしたCSVですか?';
+      resultEl.innerHTML = '⚠️ 取引データが見つかりませんでした。<br>SBIの「実現損益詳細」または「保有証券一覧」からダウンロードしたCSVですか?';
       event.target.value = '';
       return;
     }
@@ -2540,6 +2577,44 @@ async function importSBICSV(event) {
     resultEl.innerHTML = `❌ エラー: ${escapeHtml(err.message)}<br>CSVの形式を確認してください`;
   }
   event.target.value = '';
+}
+
+// 🆕 SBI「保有証券一覧」CSV のパース(OPENポジション取込用)
+function parseSBIHoldings(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 25); i++) {
+    if (lines[i].includes('保有株数') && lines[i].includes('取得単価')) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) return [];
+  const headers = parseCSVLine(lines[headerIdx]).map(h => h.trim());
+  const col = {
+    code: headers.findIndex(h => h.match(/銘柄コード|コード/)),
+    name: headers.findIndex(h => h.match(/銘柄名|^銘柄$/)),
+    qty: headers.findIndex(h => h.match(/保有株数|株数|数量/)),
+    entry: headers.findIndex(h => h.match(/取得単価/)),
+    cur: headers.findIndex(h => h.match(/現在値|時価/)),
+  };
+  if (col.code < 0 || col.qty < 0 || col.entry < 0) return [];
+  const results = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cells = parseCSVLine(lines[i]).map(c => c.replace(/,/g, '').trim());
+    if (cells.length < 5) continue;
+    const code = (cells[col.code] || '').replace(/[^0-9A-Za-z.]/g, '');
+    if (!/^\d{3,4}/.test(code)) continue;
+    const qty = parseInt(cells[col.qty]);
+    const entry = parseFloat(cells[col.entry]);
+    const cur = col.cur >= 0 ? parseFloat(cells[col.cur]) : 0;
+    if (!qty || !entry || isNaN(qty) || isNaN(entry)) continue;
+    results.push({
+      ticker: code.includes('.') ? code : code + '.T',
+      name: cells[col.name] || code,
+      shares: qty,
+      entry_price: entry,
+      current_price: (cur && !isNaN(cur)) ? cur : 0,
+    });
+  }
+  return results;
 }
 
 // 🆕 v2.7.5: SBI CSV のパース(複数のフォーマット対応)
@@ -3508,7 +3583,9 @@ function renderPositionMeters() {
 
 // ---- D: 含み損益 + 損切り接近 + 地合い急変(現在値) ----
 function openTradeExtras(t) {
-  const cur = priceOf(t.ticker);
+  let cur = priceOf(t.ticker);
+  let live = true;
+  if (cur == null && t.import_price) { cur = t.import_price; live = false; }  // 238銘柄外は取込時価格で代替
   if (cur == null) {
     return `<div style="margin-top:8px;font-size:11px;color:#6e7681;">現在値データ取得待ち(prices.json 生成後に表示)</div>`;
   }
@@ -3532,7 +3609,7 @@ function openTradeExtras(t) {
   }
   return `<div style="margin-top:8px;padding:8px;background:#0d1117;border-radius:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-        <span style="color:#7d8590;">現在 ¥${cur.toLocaleString()}</span>
+        <span style="color:#7d8590;">現在 ¥${cur.toLocaleString()}${live ? '' : ' <span style="color:#6e7681;font-size:10px;">(取込時)</span>'}</span>
         <strong style="color:${col};">${sign}¥${Math.round(upnl).toLocaleString()} (${sign}${upct.toFixed(1)}%)</strong>
       </div>${alert}${regimeAlert}</div>`;
 }
