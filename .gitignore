@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# バックテスト出力
+*_result.csv
+*_chart.png
+*.json
+!signal.json
+!prices.json
+cost_tax_analysis_result.csv
+stop_loss_simulator_result.csv
+sector_threshold_analysis.csv
+
+# トレード実行ログ(機密)
+trade_history.csv
+positions.csv
+
+# 一時ファイル
+*.tmp
+*.log
+tmp/
+signal.md
+signal_final.md
+signal.json
+
+# 環境変数
+.env
+*.env
+
+# OS
+Thumbs.db
