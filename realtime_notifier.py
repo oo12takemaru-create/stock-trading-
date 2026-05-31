@@ -284,12 +284,51 @@ def market_open_now(force=False):
 
 
 # ============================================================================
-# ⑤ 1サイクル(スキャン → 新規シグナルだけ通知)
+# ⑤ 現在値の書き出し(ダッシュボードの prices.json 用)
 # ============================================================================
-def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None):
+def dump_prices(path):
+    """全銘柄の最新値を一括取得して prices.json に書き出す(ダッシュボードの現在値表示用)"""
+    tickers = list(ds.STOCKS.keys())
+    prices = {}
+    try:
+        data = ds.yf.download(tickers, period="2d", interval="1d",
+                              auto_adjust=False, progress=False,
+                              group_by="ticker", threads=True)
+    except Exception as e:
+        log(f"⚠ prices一括取得失敗: {e}")
+        return
+    multi = isinstance(getattr(data, "columns", None), pd.MultiIndex)
+    for tk in tickers:
+        try:
+            sub = data[tk] if multi else data
+            close = sub["Close"].dropna()
+            if len(close):
+                prices[tk] = round(float(close.iloc[-1]), 1)
+        except Exception:
+            pass
+    payload = {
+        "updated": datetime.now().isoformat(timespec="seconds"),
+        "count": len(prices),
+        "prices": prices,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        log(f"💹 prices.json 書き出し: {len(prices)}銘柄")
+    except Exception as e:
+        log(f"⚠ prices.json 保存失敗: {e}")
+
+
+# ============================================================================
+# ⑥ 1サイクル(スキャン → 新規シグナルだけ通知)
+# ============================================================================
+def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None, prices_json=None):
     if not market_open_now(force=force):
         log("市場時間外のためスキップ(--force で強制実行可)")
         return
+
+    if prices_json and not dry_run:
+        dump_prices(prices_json)
 
     use_csv = bool(log_csv)
     seen = load_seen_csv(log_csv) if use_csv else load_seen_json()
@@ -345,11 +384,12 @@ def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None):
 # ============================================================================
 # ⑥ 常駐ループ
 # ============================================================================
-def run_loop(capital, risk_pct, interval_min, dry_run=False, force=False, log_csv=None):
+def run_loop(capital, risk_pct, interval_min, dry_run=False, force=False, log_csv=None, prices_json=None):
     log(f"常駐監視を開始(間隔{interval_min}分 / 平日9:00〜15:30)。Ctrl+Cで停止。")
     while True:
         try:
-            run_once(capital, risk_pct, dry_run=dry_run, force=force, log_csv=log_csv)
+            run_once(capital, risk_pct, dry_run=dry_run, force=force,
+                     log_csv=log_csv, prices_json=prices_json)
         except KeyboardInterrupt:
             log("停止しました。")
             break
@@ -367,6 +407,8 @@ def parse_args():
     p.add_argument("--risk", type=float, default=1.0, help="1トレードリスク(%)")
     p.add_argument("--log-csv", default=None,
                    help="signals_log.csv で重複排除&追記(GitHub Actions向け)")
+    p.add_argument("--prices-json", default=None,
+                   help="全銘柄の最新値を prices.json に書き出す(ダッシュボードの現在値表示用)")
     p.add_argument("--dry-run", action="store_true", help="通知せず判定のみ表示")
     p.add_argument("--force", action="store_true", help="市場時間ゲートを無視")
     p.add_argument("--test", action="store_true", help="全チャネルにテスト通知")
@@ -386,10 +428,11 @@ def main():
 
     if args.once:
         run_once(args.capital, args.risk, dry_run=args.dry_run,
-                 force=args.force, log_csv=args.log_csv)
+                 force=args.force, log_csv=args.log_csv, prices_json=args.prices_json)
     else:
         run_loop(args.capital, args.risk, args.interval,
-                 dry_run=args.dry_run, force=args.force, log_csv=args.log_csv)
+                 dry_run=args.dry_run, force=args.force,
+                 log_csv=args.log_csv, prices_json=args.prices_json)
 
 
 if __name__ == "__main__":
