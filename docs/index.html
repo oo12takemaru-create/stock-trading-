@@ -298,6 +298,7 @@ body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -372,6 +373,9 @@ body {
       <div class="halt-detail" id="halt-detail">--</div>
     </div>
 
+    <!-- 🆕 D: 地合い急変バナー(BEARISH/PANIC時のみ) -->
+    <div id="regime-alert-banner" style="display:none;background:#3a2a10;border:1px solid #d29922;color:#e3b341;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.5;"></div>
+
     <!-- 今日のシグナル -->
     <div class="card-title">🎯 今日のシグナル</div>
     <div id="today-signals"></div>
@@ -420,6 +424,20 @@ body {
           <div class="stat-value" id="stat-halt-rate">--</div>
         </div>
       </div>
+    </div>
+
+    <!-- 🆕 C: エクイティカーブ(資産推移) -->
+    <div class="card" id="equity-curve-card" style="display:none;">
+      <div class="card-title">📈 資産推移(エクイティカーブ)</div>
+      <div style="position:relative;height:220px;"><canvas id="equity-canvas"></canvas></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">確定したトレードの損益を積み上げた実績ベースの資産推移</p>
+    </div>
+
+    <!-- 🆕 C: 月次成績テーブル -->
+    <div class="card">
+      <div class="card-title">🗓 月次成績</div>
+      <div id="monthly-stats"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:8px;">クローズ済みトレードを決済月で集計(X投稿にも使えます)</p>
     </div>
 
     <!-- 🆕 カレンダー表示 -->
@@ -494,6 +512,21 @@ body {
           <div class="stat-value" id="t-unrealized">¥0</div>
         </div>
       </div>
+    </div>
+
+    <!-- 🆕 B/D: 同時保有・連敗メーター -->
+    <div class="card" id="position-meter-card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;">
+        <div>
+          <div style="font-size:10px;color:#7d8590;text-transform:uppercase;letter-spacing:0.05em;">同時保有(上限3)</div>
+          <div id="m-positions" style="font-size:22px;font-weight:800;">0 / 3</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#7d8590;text-transform:uppercase;letter-spacing:0.05em;">現在の連敗数</div>
+          <div id="m-streak" style="font-size:22px;font-weight:800;">0</div>
+        </div>
+      </div>
+      <div id="streak-warn" style="font-size:11px;color:#e3b341;margin-top:8px;text-align:center;"></div>
     </div>
 
     <!-- 新規エントリー追加ボタン -->
@@ -944,6 +977,7 @@ function render() {
   renderHistory();
   renderStats();
   renderAccountBalance();  // 🆕 v2.7.5
+  if (typeof renderImprovements === 'function') renderImprovements();  // 🆕 改善A〜D
 }
 
 // 日本語化ヘルパー
@@ -1053,6 +1087,7 @@ function renderSignalCard(s, idx) {
           <div class="signal-num-value num-target">¥${target.toLocaleString()}</div>
         </div>
       </div>
+      ${deviationRow(s)}
       <div class="signal-meta">
         <span>${sharesIdeal}株 / ¥${cost.toLocaleString()}</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -1068,6 +1103,7 @@ function renderSignalCard(s, idx) {
           <button class="copy-btn" id="copy-btn-${idx}" onclick="event.stopPropagation();copySignal(${idx})">
             📋 コピー
           </button>
+          ${quoteLinkBtn(s.ticker)}
         </div>
       </div>
       <!-- 🆕 v2.7.5: TradingView チャート(クリックで展開) -->
@@ -2061,9 +2097,12 @@ function renderTrades() {
   const wins = closed.filter(t => t.pnl > 0);
   const losses = closed.filter(t => t.pnl <= 0);
   const totalRealized = closed.reduce((s, t) => s + (t.pnl || 0), 0);
+  let pricedCount = 0;
   const totalUnrealized = open.reduce((s, t) => {
-    // 現在値は不明なので、エントリー価格(±0)として扱う
-    return s + 0;
+    const cur = (typeof priceOf === 'function') ? priceOf(t.ticker) : null;
+    if (cur == null) return s;
+    pricedCount++;
+    return s + (cur - t.entry_price) * t.shares;
   }, 0);
   const winRate = closed.length > 0 ? (wins.length / closed.length * 100) : 0;
 
@@ -2075,8 +2114,17 @@ function renderTrades() {
   realizedEl.textContent = (totalRealized >= 0 ? '+' : '') + '¥' + Math.round(totalRealized).toLocaleString();
   realizedEl.className = 'stat-value ' + pnlColor;
 
-  document.getElementById('t-unrealized').textContent =
-    open.length > 0 ? open.length + '銘柄' : '--';
+  const unrealEl = document.getElementById('t-unrealized');
+  if (open.length === 0) {
+    unrealEl.textContent = '--';
+    unrealEl.className = 'stat-value';
+  } else if (pricedCount > 0) {
+    unrealEl.textContent = (totalUnrealized >= 0 ? '+' : '') + '¥' + Math.round(totalUnrealized).toLocaleString();
+    unrealEl.className = 'stat-value ' + (totalUnrealized > 0 ? 'green' : (totalUnrealized < 0 ? 'red' : ''));
+  } else {
+    unrealEl.textContent = open.length + '銘柄';
+    unrealEl.className = 'stat-value';
+  }
 
   // 保有中
   const openContainer = document.getElementById('open-trades-list');
@@ -2106,6 +2154,9 @@ function renderTrades() {
 
   // 🆕 v2.7.5: 環境別勝率 & 戦略×環境マトリクス
   renderRegimeAnalysis(closed);
+
+  // 🆕 改善A〜D: 同時保有/連敗メーター・エクイティカーブ・月次を更新
+  if (typeof renderImprovements === 'function') renderImprovements();
 
   // 🆕 v2.7.5: 保有中ポジションのTradingViewチャートをロード
   setTimeout(() => {
@@ -2288,6 +2339,7 @@ function renderOpenTrade(t) {
       <div style="font-size:11px;color:#7d8590;margin-top:8px;">
         必要資金: ¥${cost.toLocaleString()}${renderRegimeChip(t)}
       </div>
+      ${openTradeExtras(t)}
       <!-- 🆕 v2.7.5: TradingView チャート(保有ポジション) -->
       <div style="margin-top:10px;">
         <div style="font-size:11px;color:#7d8590;margin-bottom:4px;">📊 ${ticker} 現在チャート</div>
@@ -3340,12 +3392,245 @@ async function triggerScan() {
 }
 
 // ============================================
+// 🆕 改善A〜D: 現在値・鮮度・リスク表示
+// ============================================
+let currentPrices = {};      // { "7203.T": 2557, ... }
+let pricesUpdated = null;    // ISO文字列
+const PRICES_URL = `${RAW_BASE}/prices.json`;
+
+async function loadPrices() {
+  try {
+    const res = await fetch(`${PRICES_URL}?_=${Date.now()}`);
+    if (!res.ok) return;
+    const j = await res.json();
+    currentPrices = j.prices || {};
+    pricesUpdated = j.updated || null;
+  } catch (e) { /* prices.json 未生成時は静かに無視 */ }
+}
+
+function priceOf(ticker) {
+  if (!ticker) return null;
+  const t = ticker.includes('.') ? ticker : ticker + '.T';
+  const v = currentPrices[t];
+  return (typeof v === 'number' && isFinite(v)) ? v : null;
+}
+
+function latestRegime() {
+  let latest = null, lt = null;
+  for (const s of allSignals) {
+    if (s.scan_timestamp && (!lt || s.scan_timestamp > lt)) { lt = s.scan_timestamp; latest = s; }
+  }
+  return latest ? latest.regime : null;
+}
+
+// ---- A: データ鮮度「○分前」 ----
+function latestScanTime() {
+  let max = null;
+  for (const s of allSignals) {
+    const ts = s.scan_timestamp;
+    if (ts && (!max || ts > max)) max = ts;
+  }
+  return max;
+}
+function minutesAgo(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 60000));
+}
+function freshnessText(min) {
+  if (min == null) return '';
+  if (min < 60) return `${min}分前`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${h}時間${m}分前`;
+}
+function freshColor(min) {
+  return min < 20 ? '#3fb950' : (min < 60 ? '#d29922' : '#f85149');
+}
+function updateFreshness() {
+  const el = document.getElementById('last-updated');
+  if (!el) return;
+  const parts = [`更新 ${new Date().toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`];
+  const dMin = minutesAgo(latestScanTime());
+  if (dMin != null) parts.push(`<span style="color:${freshColor(dMin)}">データ ${freshnessText(dMin)}</span>`);
+  const pMin = minutesAgo(pricesUpdated);
+  if (pMin != null) parts.push(`<span style="color:${freshColor(pMin)}">株価 ${freshnessText(pMin)}</span>`);
+  el.innerHTML = parts.join(' / ');
+}
+
+// ---- B: 買値との乖離(現在値) ----
+function deviationRow(s) {
+  const cur = priceOf(s.ticker);
+  const entry = Number(s.entry_price);
+  if (cur == null || !(entry > 0)) return '';
+  const dev = (cur - entry) / entry * 100;
+  let judge, col;
+  if (cur <= entry) { judge = '🟢 エントリー圏内(指値以下)'; col = '#3fb950'; }
+  else if (dev <= 2) { judge = `🟡 ほぼ買値 (+${dev.toFixed(1)}%)`; col = '#d29922'; }
+  else { judge = `🔴 行き過ぎ (+${dev.toFixed(1)}%)`; col = '#f85149'; }
+  return `<div style="margin-top:6px;padding:6px 8px;background:#0d1117;border-radius:4px;font-size:11px;">
+    現在値 <strong style="color:${col}">¥${cur.toLocaleString()}</strong> &nbsp;${judge}</div>`;
+}
+
+// ---- B: 株価確認リンク(Yahoo!ファイナンス) ----
+function quoteLinkBtn(ticker) {
+  const code = (ticker || '').replace('.T', '');
+  if (!code) return '';
+  return `<button class="copy-btn" onclick="event.stopPropagation();window.open('https://finance.yahoo.co.jp/quote/${code}.T','_blank')" style="background:#6e40c9;color:#fff;">📈 株価</button>`;
+}
+
+// ---- B/D: 同時保有・連敗メーター ----
+function renderPositionMeters() {
+  const trades = loadTrades();
+  const open = trades.filter(t => t.status === 'OPEN');
+  const closed = trades.filter(t => t.status === 'CLOSED')
+    .sort((a, b) => (a.exit_date || '').localeCompare(b.exit_date || ''));
+  const posEl = document.getElementById('m-positions');
+  if (posEl) {
+    const n = open.length, cap = 3;
+    const col = n >= cap ? '#f85149' : (n === cap - 1 ? '#d29922' : '#3fb950');
+    posEl.innerHTML = `<span style="color:${col}">${n} / ${cap}</span>`;
+  }
+  let streak = 0;
+  for (let i = closed.length - 1; i >= 0; i--) { if ((closed[i].pnl || 0) <= 0) streak++; else break; }
+  const stEl = document.getElementById('m-streak');
+  if (stEl) {
+    const col = streak >= 3 ? '#f85149' : (streak >= 2 ? '#d29922' : '#7d8590');
+    stEl.innerHTML = `<span style="color:${col}">${streak}</span>`;
+  }
+  const warnEl = document.getElementById('streak-warn');
+  if (warnEl) {
+    warnEl.innerHTML = streak >= 3
+      ? `⚠️ ${streak}連敗中。BNFは5連敗で3日停止ルール。ロット縮小も検討を。`
+      : '';
+  }
+}
+
+// ---- D: 含み損益 + 損切り接近 + 地合い急変(現在値) ----
+function openTradeExtras(t) {
+  const cur = priceOf(t.ticker);
+  if (cur == null) {
+    return `<div style="margin-top:8px;font-size:11px;color:#6e7681;">現在値データ取得待ち(prices.json 生成後に表示)</div>`;
+  }
+  const upnl = (cur - t.entry_price) * t.shares;
+  const upct = (cur - t.entry_price) / t.entry_price * 100;
+  const col = upnl >= 0 ? '#3fb950' : '#f85149';
+  const sign = upnl >= 0 ? '+' : '';
+  let alert = '';
+  const denom = (t.entry_price - t.stop_price);
+  if (denom > 0) {
+    const distPct = (cur - t.stop_price) / denom * 100;
+    if (cur <= t.stop_price)
+      alert = `<div style="margin-top:6px;padding:6px 8px;background:#3d1518;border:1px solid #f85149;border-radius:4px;font-size:11px;color:#ff7b72;">🚨 損切りライン割れ!即対応を検討</div>`;
+    else if (distPct < 25)
+      alert = `<div style="margin-top:6px;padding:6px 8px;background:#3a2a10;border:1px solid #d29922;border-radius:4px;font-size:11px;color:#e3b341;">⚠️ 損切り接近(損切りまで残り${distPct.toFixed(0)}%)</div>`;
+  }
+  let regimeAlert = '';
+  const nowR = latestRegime() || '';
+  if (t.entry_regime && ['BULLISH', 'NEUTRAL'].includes(t.entry_regime) && ['BEARISH', 'PANIC'].includes(nowR)) {
+    regimeAlert = `<div style="margin-top:6px;padding:6px 8px;background:#3a2a10;border:1px solid #d29922;border-radius:4px;font-size:11px;color:#e3b341;">⚠️ 地合いが ${regimeJa(t.entry_regime)} → ${regimeJa(nowR)} に悪化。利確/撤退を検討</div>`;
+  }
+  return `<div style="margin-top:8px;padding:8px;background:#0d1117;border-radius:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+        <span style="color:#7d8590;">現在 ¥${cur.toLocaleString()}</span>
+        <strong style="color:${col};">${sign}¥${Math.round(upnl).toLocaleString()} (${sign}${upct.toFixed(1)}%)</strong>
+      </div>${alert}${regimeAlert}</div>`;
+}
+
+// ---- D: 今日の地合い急変バナー ----
+function renderRegimeAlertBanner() {
+  const el = document.getElementById('regime-alert-banner');
+  if (!el) return;
+  const r = latestRegime();
+  if (r === 'PANIC' || r === 'BEARISH') {
+    el.style.display = 'block';
+    el.innerHTML = `${r === 'PANIC' ? '🚨' : '⚠️'} 現在の地合いは <strong>${regimeJa(r)}</strong> です。新規エントリーは慎重に。保有銘柄の利確/撤退も検討してください。`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ---- C: エクイティカーブ(Chart.js) ----
+let equityChart = null;
+function renderEquityCurve() {
+  const canvas = document.getElementById('equity-canvas');
+  const wrap = document.getElementById('equity-curve-card');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const closed = loadTrades().filter(t => t.status === 'CLOSED')
+    .sort((a, b) => (a.exit_date || '').localeCompare(b.exit_date || ''));
+  if (closed.length === 0) { if (wrap) wrap.style.display = 'none'; return; }
+  if (wrap) wrap.style.display = 'block';
+  const initCap = parseInt(localStorage.getItem('capital') || '1000000');
+  const labels = ['開始'], data = [initCap];
+  let eq = initCap;
+  closed.forEach(t => { eq += (t.pnl || 0); labels.push(t.exit_date || ''); data.push(Math.round(eq)); });
+  if (equityChart) equityChart.destroy();
+  equityChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{ label: '資産推移', data, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.12)', fill: true, tension: 0.2, pointRadius: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: '#7d8590', callback: v => '¥' + (v / 10000).toFixed(0) + '万' }, grid: { color: '#21262d' } },
+        x: { ticks: { color: '#7d8590', maxTicksLimit: 6 }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ---- C: 月次成績テーブル ----
+function renderMonthlyStats() {
+  const el = document.getElementById('monthly-stats');
+  if (!el) return;
+  const closed = loadTrades().filter(t => t.status === 'CLOSED' && t.exit_date);
+  if (closed.length === 0) {
+    el.innerHTML = '<div style="color:#7d8590;text-align:center;padding:12px;">クローズ済みトレードなし</div>';
+    return;
+  }
+  const byMonth = {};
+  closed.forEach(t => { const m = (t.exit_date || '').slice(0, 7); if (m) (byMonth[m] = byMonth[m] || []).push(t); });
+  const rows = Object.keys(byMonth).sort().reverse().map(m => {
+    const ts = byMonth[m];
+    const w = ts.filter(t => t.pnl > 0).length;
+    const wr = (w / ts.length * 100).toFixed(0);
+    const pnl = ts.reduce((s, t) => s + (t.pnl || 0), 0);
+    const col = pnl > 0 ? '#3fb950' : (pnl < 0 ? '#f85149' : '#7d8590');
+    const sign = pnl >= 0 ? '+' : '';
+    return `<tr>
+      <td style="padding:6px 8px;">${m}</td>
+      <td style="padding:6px 8px;text-align:right;">${ts.length}件</td>
+      <td style="padding:6px 8px;text-align:right;">${wr}%</td>
+      <td style="padding:6px 8px;text-align:right;color:${col};font-weight:600;">${sign}¥${Math.round(pnl).toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="color:#7d8590;border-bottom:1px solid #30363d;">
+      <th style="padding:6px 8px;text-align:left;">月</th><th style="padding:6px 8px;text-align:right;">件数</th>
+      <th style="padding:6px 8px;text-align:right;">勝率</th><th style="padding:6px 8px;text-align:right;">損益</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---- 集約フック(render / renderTrades の末尾から呼ぶ) ----
+function renderImprovements() {
+  try { renderPositionMeters(); } catch (e) {}
+  try { renderRegimeAlertBanner(); } catch (e) {}
+  try { renderEquityCurve(); } catch (e) {}
+  try { renderMonthlyStats(); } catch (e) {}
+  try { updateFreshness(); } catch (e) {}
+}
+
+// ============================================
 // 起動
 // ============================================
-loadSignals();
-
-// 5分おきに自動更新
-setInterval(loadSignals, 5 * 60 * 1000);
+async function refreshAll() {
+  await loadPrices();    // 現在値を先に
+  await loadSignals();   // → render() が現在値を使って描画
+  renderImprovements();
+}
+refreshAll();
+setInterval(refreshAll, 5 * 60 * 1000);   // 5分ごとに自動更新
+setInterval(updateFreshness, 30 * 1000);  // 鮮度表示を30秒ごとに更新
 </script>
 
 </body>
