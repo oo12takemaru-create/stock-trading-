@@ -949,25 +949,33 @@ function parseCSVLine(line) {
 // ============================================
 let allSignals = [];
 
+let _signalRetry = 0;
 async function loadSignals() {
   try {
-    // キャッシュ回避のため timestamp を追加
+    // 8秒タイムアウト付き fetch(ハングを防ぐ)
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
     const url = `${SIGNALS_URL}?_=${Date.now()}`;
-    const res = await fetch(url);
+    let res;
+    try { res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' }); }
+    finally { clearTimeout(tid); }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     allSignals = parseCSV(text);
+    _signalRetry = 0;
     render();
-    document.getElementById('last-updated').textContent =
-      `更新: ${new Date().toLocaleString('ja-JP', {hour: '2-digit', minute: '2-digit'})}`;
   } catch (e) {
+    const msg = (e && e.name === 'AbortError') ? '読み込みタイムアウト(8秒)'
+              : (e && e.message ? e.message : '不明なエラー');
     document.getElementById('today-signals').innerHTML =
       `<div class="error-message">
-        <strong>signals_log.csv が見つかりません</strong><br>
-        GitHub Actions が初回実行されるまで、または<br>
-        リポジトリにファイルがアップロードされるまでお待ちください。<br>
-        <span style="font-size:11px;opacity:0.7">URL: ${SIGNALS_URL}</span>
+        <strong>⚠️ データ取得に失敗しました</strong><br>
+        ${escapeHtml(msg)}<br>
+        <span style="font-size:11px;opacity:0.7">${_signalRetry < 4 ? '数秒後に自動で再試行します…' : '自動再試行を停止しました'}</span><br>
+        <button class="btn" style="margin-top:8px;background:#1f6feb;" onclick="loadSignals()">🔄 今すぐ再読み込み</button>
+        <div style="font-size:10px;opacity:0.5;margin-top:6px;">URL: ${SIGNALS_URL}</div>
       </div>`;
+    if (_signalRetry < 4) { _signalRetry++; setTimeout(loadSignals, 3000); }
   }
 }
 
@@ -3475,12 +3483,16 @@ const PRICES_URL = `${RAW_BASE}/prices.json`;
 
 async function loadPrices() {
   try {
-    const res = await fetch(`${PRICES_URL}?_=${Date.now()}`);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    let res;
+    try { res = await fetch(`${PRICES_URL}?_=${Date.now()}`, { signal: ctrl.signal, cache: 'no-store' }); }
+    finally { clearTimeout(tid); }
     if (!res.ok) return;
     const j = await res.json();
     currentPrices = j.prices || {};
     pricesUpdated = j.updated || null;
-  } catch (e) { /* prices.json 未生成時は静かに無視 */ }
+  } catch (e) { /* prices.json 未生成 or タイムアウト時は静かに無視 */ }
 }
 
 function priceOf(ticker) {
@@ -3701,9 +3713,10 @@ function renderImprovements() {
 // 起動
 // ============================================
 async function refreshAll() {
-  await loadPrices();    // 現在値を先に
-  await loadSignals();   // → render() が現在値を使って描画
-  renderImprovements();
+  // 🔧 シグナル本体を最優先・独立で読む(現在値の取得失敗に巻き込まれない)
+  loadPrices().catch(() => {}).then(() => { try { renderImprovements(); } catch (e) {} });
+  await loadSignals();
+  try { renderImprovements(); } catch (e) {}
 }
 refreshAll();
 setInterval(refreshAll, 5 * 60 * 1000);   // 5分ごとに自動更新
