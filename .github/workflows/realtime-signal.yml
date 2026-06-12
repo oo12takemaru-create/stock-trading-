@@ -80,6 +80,7 @@ jobs:
           GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_TO:           ${{ secrets.NOTIFY_TO }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          NTFY_TOPIC:          ${{ secrets.NTFY_TOPIC }}
           CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
           RISK:    ${{ github.event.inputs.risk || '1.0' }}
           MODE:    ${{ github.event.inputs.mode || 'scan' }}
