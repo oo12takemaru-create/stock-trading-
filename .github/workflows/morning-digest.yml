@@ -62,12 +62,16 @@ jobs:
           GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_TO:           ${{ secrets.NOTIFY_TO }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          NTFY_TOPIC:          ${{ secrets.NTFY_TOPIC }}
         run: |
+          # 手動実行(workflow_dispatch)は意図的な再実行とみなし --force(同日ガード解除)
+          FORCE=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then FORCE="--force"; fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            python realtime_notifier.py --digest --dry-run \
+            python realtime_notifier.py --digest --dry-run $FORCE \
               --trades-json private/trades.json --stops-json private/stops.json
           else
-            python realtime_notifier.py --digest \
+            python realtime_notifier.py --digest $FORCE \
               --trades-json private/trades.json --stops-json private/stops.json
           fi
 
