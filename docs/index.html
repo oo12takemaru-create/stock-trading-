@@ -810,6 +810,41 @@ body {
 <!-- ============================================ -->
 <!-- 決済モーダル -->
 <!-- ============================================ -->
+<!-- 🆕 PAT入力モーダル(スマホで貼り付け可能) -->
+<div class="modal-overlay" id="pat-modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>🔑 PAT 設定</h2>
+      <button class="modal-close" onclick="closePATModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:#7d8590;line-height:1.6;margin-bottom:10px;">
+        GitHub Personal Access Token(<code>ghp_...</code>)を入力してください。<br>
+        スキャン実行・クラウド同期・今日の逆指値の表示に使います(この端末にのみ保存)。<br>
+        発行: <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=dashboard-sync" target="_blank" rel="noopener" style="color:#58a6ff;">github.com/settings/tokens/new(repo+workflowチェック済み)</a>
+      </p>
+      <div id="pat-modal-status" style="font-size:12px;color:#a5d6a7;margin-bottom:8px;"></div>
+      <div class="form-group">
+        <label>Personal Access Token</label>
+        <input type="text" id="pat-input" placeholder="ghp_xxxxxxxxxxxxxxxx"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+               style="font-family:monospace;">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="pastePATFromClipboard()">
+        📋 クリップボードから貼り付け
+      </button>
+      <p style="font-size:11px;color:#6e7681;">
+        ※ボタンが効かない端末は、入力欄を長押し→「ペースト」でもOK
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePATModal()" style="background:#238636;">💾 保存</button>
+      <button class="btn" onclick="deletePATModal()" style="color:#f85149;">🗑 削除</button>
+      <button class="btn" onclick="closePATModal()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="exit-modal" style="display:none;">
   <div class="modal-content">
     <div class="modal-header">
@@ -3355,27 +3390,74 @@ const PAT_KEY = 'github_pat_v2_7_5';
 const WORKFLOW_FILE = 'daily-signal.yml';
 
 function getPAT() {
-  let pat = localStorage.getItem(PAT_KEY);
+  // 🆕 prompt() はスマホで貼り付け不可の端末があるため、モーダル入力に変更
+  const pat = localStorage.getItem(PAT_KEY);
   if (!pat) {
-    pat = prompt('GitHub Personal Access Token (ghp_xxx...) を入力してください\n' +
-                 '(scope: repo + workflow / 30日期限推奨)\n' +
-                 '※ ブラウザの localStorage に保存され、共有PCでは使わないでください');
-    if (pat) {
-      pat = pat.trim();
-      if (!pat.startsWith('ghp_') && !pat.startsWith('github_pat_')) {
-        if (!confirm('PAT の形式が一般的でないようです。続行しますか?')) return null;
-      }
-      localStorage.setItem(PAT_KEY, pat);
-    }
+    openPATModal();
+    return null;
   }
   return pat;
 }
 
 function resetPAT() {
-  if (confirm('保存されている PAT を削除しますか?\n次回のスキャン実行時に再入力が必要になります。')) {
-    localStorage.removeItem(PAT_KEY);
-    alert('PAT を削除しました');
+  openPATModal();
+}
+
+// ---- 🆕 PAT入力モーダル(スマホ対応・貼り付けボタン付き) ----
+function openPATModal() {
+  const m = document.getElementById('pat-modal');
+  if (!m) return;
+  const cur = localStorage.getItem(PAT_KEY);
+  const st = document.getElementById('pat-modal-status');
+  if (st) {
+    st.innerHTML = cur
+      ? `✅ 設定済み(<code>${cur.slice(0, 7)}…${cur.slice(-4)}</code>)。変更する場合は新しいPATを入力して保存。`
+      : '⚠ 未設定。PATを入力して保存してください。';
   }
+  const inp = document.getElementById('pat-input');
+  if (inp) inp.value = '';
+  m.style.display = 'flex';
+}
+
+function closePATModal() {
+  const m = document.getElementById('pat-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function pastePATFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      document.getElementById('pat-input').value = text.trim();
+    } else {
+      alert('クリップボードが空です。GitHubでPATをコピーしてから再度押してください。');
+    }
+  } catch (e) {
+    alert('このブラウザでは自動貼り付けが許可されませんでした。\n入力欄を長押し→「ペースト」で貼り付けてください。');
+  }
+}
+
+function savePATModal() {
+  const inp = document.getElementById('pat-input');
+  const pat = (inp ? inp.value : '').trim();
+  if (!pat) { alert('PATが空です。貼り付けてから保存してください。'); return; }
+  if (!pat.startsWith('ghp_') && !pat.startsWith('github_pat_')) {
+    if (!confirm('PATの形式が一般的でないようです(ghp_/github_pat_で始まりません)。保存しますか?')) return;
+  }
+  localStorage.setItem(PAT_KEY, pat);
+  closePATModal();
+  // 保存後すぐにクラウド同期/復元を有効化
+  if (typeof cloudAutoRestore === 'function') cloudAutoRestore();
+  if (typeof loadStops === 'function') loadStops().then(() => { try { renderTrades(); } catch (e) {} });
+  alert('✅ PATを保存しました。クラウド同期が有効になりました。');
+}
+
+function deletePATModal() {
+  if (!confirm('保存されているPATを削除しますか?\nスキャン実行・クラウド同期が無効になります。')) return;
+  localStorage.removeItem(PAT_KEY);
+  closePATModal();
+  if (typeof setSyncStatus === 'function') setSyncStatus('🔒 PAT削除済み。同期は無効です。');
+  alert('PATを削除しました');
 }
 
 async function triggerScan() {
@@ -3731,8 +3813,8 @@ function scheduleCloudSync() {
 async function cloudSaveTrades(silent) {
   const pat = localStorage.getItem(PAT_KEY);
   if (!pat) {
-    setSyncStatus('⚠ PAT未設定のため自動保存オフ(この端末は閲覧/復元のみ)。スキャンボタンの「PAT設定」で登録すると有効化。');
-    if (!silent) alert('PAT が未設定です。「PAT 設定/リセット」から登録してください(スキャンボタンと共通)。');
+    setSyncStatus('🔒 PAT未設定のため同期オフ。「PAT 設定」で登録すると保存/復元が有効化。');
+    if (!silent && typeof openPATModal === 'function') openPATModal();
     return false;
   }
   if (_syncBusy) return false;
@@ -3805,8 +3887,9 @@ async function cloudAutoRestore() {
 // 手動復元(クラウド優先で置き換え)
 async function cloudRestoreTrades() {
   try {
+    if (!localStorage.getItem(PAT_KEY)) { openPATModal(); return; }
     const j = await fetchCloudTrades();
-    if (!j || !Array.isArray(j.trades)) { alert('クラウドに trades.json がありません'); return; }
+    if (!j || !Array.isArray(j.trades)) { alert('クラウドに trades.json がありません(PATの権限/期限も確認)'); return; }
     const local = loadTrades();
     const when = (j.updated_at || '').slice(0, 16).replace('T', ' ');
     if (!confirm(`クラウドの記録(${j.trades.length}件 / ${when})で、この端末の記録(${local.length}件)を置き換えますか?`)) return;
