@@ -577,20 +577,23 @@ body {
 
     <!-- 🆕 デバイス間同期 -->
     <div class="card" style="margin-top: 16px;background:#1a4d2e;border-color:#2ea043;">
-      <div class="card-title">🔄 スマホ ↔ PC 同期</div>
+      <div class="card-title">☁️ クラウド同期(自動・全端末共有・🔒非公開)</div>
       <p style="font-size:12px;line-height:1.6;margin-bottom:10px;">
-        <strong>スマホ→PC への同期方法:</strong><br>
-        1. スマホで <strong>「📤 共有URL生成」</strong>をタップ<br>
-        2. URL がクリップボードにコピーされる<br>
-        3. メール/LINE 等で PC に送信<br>
-        4. PC でその URL を開く → 自動で同期完了!
+        トレード記録は編集のたびに <strong>非公開リポジトリ(stock-trading-private)へ自動保存</strong>されます。<br>
+        スマホ・PCどちらで開いても同じ記録が見え、<strong>端末のデータが消えても自動復元</strong>されます。<br>
+        🔒 データは非公開。閲覧・保存とも <strong>PAT(スキャンボタンと同じもの)の設定が必須</strong>です。
       </p>
-      <div class="action-buttons">
-        <button class="btn btn-primary" onclick="generateShareURL()">📤 共有URL生成(クリップボードにコピー)</button>
+      <div id="cloud-sync-status" style="font-size:12px;color:#a5d6a7;margin-bottom:10px;padding:8px;background:#0d1117;border-radius:6px;">☁ 同期状態を確認中...</div>
+      <div class="action-buttons" style="grid-template-columns:1fr 1fr;">
+        <button class="btn btn-primary" onclick="cloudSaveTrades(false)">☁⬆ 今すぐ保存</button>
+        <button class="btn" onclick="cloudRestoreTrades()">☁⬇ クラウドから復元</button>
       </div>
-      <p style="font-size:11px;color:#a5d6a7;margin-top:8px;">
-        💡 URLにトレードデータが暗号化されて含まれます
-      </p>
+      <details style="margin-top:10px;font-size:11px;color:#7d8590;">
+        <summary style="cursor:pointer;color:#a5d6a7;">📤 予備: 共有URL方式(従来)</summary>
+        <div class="action-buttons" style="margin-top:8px;">
+          <button class="btn" onclick="generateShareURL()">📤 共有URL生成(クリップボードにコピー)</button>
+        </div>
+      </details>
     </div>
 
     <!-- 🆕 v2.7.5: SBI CSV インポート -->
@@ -1772,6 +1775,9 @@ function loadTrades() {
 
 function saveTradesToStorage(trades) {
   localStorage.setItem('trades', JSON.stringify(trades));
+  localStorage.setItem('trades_updated_at', new Date().toISOString());
+  // 🆕 クラウド自動同期(デバウンス。PAT未設定なら静かにスキップ)
+  if (typeof scheduleCloudSync === 'function') scheduleCloudSync();
 }
 
 function nextTradeId(trades) {
@@ -3599,7 +3605,7 @@ function openTradeExtras(t) {
   let live = true;
   if (cur == null && t.import_price) { cur = t.import_price; live = false; }  // 238銘柄外は取込時価格で代替
   if (cur == null) {
-    return `<div style="margin-top:8px;font-size:11px;color:#6e7681;">現在値データ取得待ち(prices.json 生成後に表示)</div>`;
+    return `<div style="margin-top:8px;font-size:11px;color:#6e7681;">現在値データ取得待ち(prices.json 生成後に表示)</div>` + todayStopRow(t);
   }
   const upnl = (cur - t.entry_price) * t.shares;
   const upct = (cur - t.entry_price) / t.entry_price * 100;
@@ -3623,7 +3629,7 @@ function openTradeExtras(t) {
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
         <span style="color:#7d8590;">現在 ¥${cur.toLocaleString()}${live ? '' : ' <span style="color:#6e7681;font-size:10px;">(取込時)</span>'}</span>
         <strong style="color:${col};">${sign}¥${Math.round(upnl).toLocaleString()} (${sign}${upct.toFixed(1)}%)</strong>
-      </div>${alert}${regimeAlert}</div>`;
+      </div>${alert}${regimeAlert}${todayStopRow(t)}</div>`;
 }
 
 // ---- D: 今日の地合い急変バナー ----
@@ -3700,6 +3706,151 @@ function renderMonthlyStats() {
     </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+// ============================================
+// 🆕 クラウド同期(trades.json ⇄ リポジトリ)+ 今日の逆指値(stops.json)
+// ============================================
+// 🔒 売買データは非公開リポジトリに保存(読み書きともPAT認証必須)
+const PRIV_REPO = 'stock-trading-private';
+const TRADES_API = `https://api.github.com/repos/${user}/${PRIV_REPO}/contents/trades.json`;
+const STOPS_API = `https://api.github.com/repos/${user}/${PRIV_REPO}/contents/stops.json`;
+let currentStops = {};
+let stopsUpdated = null;
+let _syncTimer = null;
+let _syncBusy = false;
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('cloud-sync-status');
+  if (el) el.innerHTML = msg;
+}
+
+function scheduleCloudSync() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => cloudSaveTrades(true), 4000);
+}
+
+async function cloudSaveTrades(silent) {
+  const pat = localStorage.getItem(PAT_KEY);
+  if (!pat) {
+    setSyncStatus('⚠ PAT未設定のため自動保存オフ(この端末は閲覧/復元のみ)。スキャンボタンの「PAT設定」で登録すると有効化。');
+    if (!silent) alert('PAT が未設定です。「PAT 設定/リセット」から登録してください(スキャンボタンと共通)。');
+    return false;
+  }
+  if (_syncBusy) return false;
+  _syncBusy = true;
+  try {
+    const payload = { updated_at: new Date().toISOString(), trades: loadTrades() };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const hdr = { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github+json' };
+    let sha = null;
+    try {
+      const r = await fetch(TRADES_API + '?_=' + Date.now(), { headers: hdr, cache: 'no-store' });
+      if (r.ok) sha = (await r.json()).sha;
+    } catch (e) {}
+    const body = { message: '📱 トレード記録 自動同期', content: content };
+    if (sha) body.sha = sha;
+    const res = await fetch(TRADES_API, { method: 'PUT', headers: hdr, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    localStorage.setItem('trades_updated_at', payload.updated_at);
+    setSyncStatus(`✅ クラウド保存済(${payload.trades.length}件 / ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })})`);
+    return true;
+  } catch (e) {
+    setSyncStatus('⚠ クラウド保存失敗: ' + escapeHtml(e.message) + '(PATの期限/scope=repoを確認)');
+    return false;
+  } finally {
+    _syncBusy = false;
+  }
+}
+
+async function fetchCloudTrades() {
+  const pat = localStorage.getItem(PAT_KEY);
+  if (!pat) return null;  // 非公開リポジトリのためPAT必須
+  const res = await fetch(TRADES_API + '?_=' + Date.now(), {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github.raw+json' }
+  });
+  if (!res.ok) return null;
+  return JSON.parse(await res.text());
+}
+
+// 起動時: ローカルが空ならクラウドから自動復元/クラウドが新しければ提案
+async function cloudAutoRestore() {
+  try {
+    if (!localStorage.getItem(PAT_KEY)) {
+      setSyncStatus('🔒 非公開データのため PAT 必須。「PAT 設定」で登録すると同期/復元が有効になります。');
+      return;
+    }
+    const j = await fetchCloudTrades();
+    if (!j || !Array.isArray(j.trades) || j.trades.length === 0) {
+      setSyncStatus('☁ クラウドに記録なし(初回保存待ち)');
+      return;
+    }
+    const local = loadTrades();
+    const cloudAt = j.updated_at || '';
+    const localAt = localStorage.getItem('trades_updated_at') || '';
+    if (local.length === 0) {
+      localStorage.setItem('trades', JSON.stringify(j.trades));
+      localStorage.setItem('trades_updated_at', cloudAt || new Date().toISOString());
+      renderTrades();
+      setSyncStatus(`☁⬇ クラウドから自動復元しました(${j.trades.length}件)`);
+    } else if (cloudAt && localAt && cloudAt > localAt) {
+      setSyncStatus(`☁ クラウドに新しい記録があります(${j.trades.length}件)→「☁⬇ クラウドから復元」で取込`);
+    } else {
+      setSyncStatus(`✅ 同期済(ローカル${local.length}件)`);
+    }
+  } catch (e) {
+    setSyncStatus('☁ クラウド確認失敗(オフライン?)');
+  }
+}
+
+// 手動復元(クラウド優先で置き換え)
+async function cloudRestoreTrades() {
+  try {
+    const j = await fetchCloudTrades();
+    if (!j || !Array.isArray(j.trades)) { alert('クラウドに trades.json がありません'); return; }
+    const local = loadTrades();
+    const when = (j.updated_at || '').slice(0, 16).replace('T', ' ');
+    if (!confirm(`クラウドの記録(${j.trades.length}件 / ${when})で、この端末の記録(${local.length}件)を置き換えますか?`)) return;
+    localStorage.setItem('trades', JSON.stringify(j.trades));
+    localStorage.setItem('trades_updated_at', j.updated_at || new Date().toISOString());
+    renderTrades();
+    setSyncStatus(`☁⬇ 復元完了(${j.trades.length}件)`);
+  } catch (e) {
+    alert('復元失敗: ' + e.message);
+  }
+}
+
+// ---- 今日の逆指値(朝ダイジェストが計算した stops.json) ----
+async function loadStops() {
+  try {
+    const pat = localStorage.getItem(PAT_KEY);
+    if (!pat) return;  // 非公開のためPATが無い端末では逆指値表示なし
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    let res;
+    try {
+      res = await fetch(STOPS_API + '?_=' + Date.now(), {
+        signal: ctrl.signal, cache: 'no-store',
+        headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github.raw+json' }
+      });
+    } finally { clearTimeout(tid); }
+    if (!res.ok) return;
+    const j = JSON.parse(await res.text());
+    currentStops = j.stops || {};
+    stopsUpdated = j.updated || null;
+  } catch (e) { /* stops.json 未生成時は静かに無視 */ }
+}
+
+function todayStopRow(t) {
+  const st = currentStops[String(t.id)] ||
+    Object.values(currentStops).find(s => s && s.ticker === t.ticker);
+  if (!st || !st.stop) return '';
+  const dateStr = stopsUpdated ? stopsUpdated.slice(5, 10).replace('-', '/') : '';
+  return `<div style="margin-top:6px;padding:6px 8px;background:#102a43;border:1px solid #1f6feb;border-radius:4px;font-size:11px;color:#a8c5e0;">
+    📌 今日の逆指値: <strong style="color:#58a6ff;">¥${Number(st.stop).toLocaleString()}</strong>
+    <span style="color:#6e7681;">(${dateStr} 朝ダイジェスト計算${st.strategy === 'MOMENTUM' ? '・高値-10%トレール' : ''})</span><br>
+    SBIの逆指値をこの価格に訂正してください</div>`;
+}
+
 // ---- 集約フック(render / renderTrades の末尾から呼ぶ) ----
 function renderImprovements() {
   try { renderPositionMeters(); } catch (e) {}
@@ -3712,11 +3863,17 @@ function renderImprovements() {
 // ============================================
 // 起動
 // ============================================
+let _bootDone = false;
 async function refreshAll() {
-  // 🔧 シグナル本体を最優先・独立で読む(現在値の取得失敗に巻き込まれない)
+  // 🔧 シグナル本体を最優先・独立で読む(現在値/逆指値の取得失敗に巻き込まれない)
   loadPrices().catch(() => {}).then(() => { try { renderImprovements(); } catch (e) {} });
+  loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} });
   await loadSignals();
   try { renderImprovements(); } catch (e) {}
+  if (!_bootDone) {
+    _bootDone = true;
+    cloudAutoRestore();  // 起動時1回: ローカルが空ならクラウドから自動復元
+  }
 }
 refreshAll();
 setInterval(refreshAll, 5 * 60 * 1000);   // 5分ごとに自動更新
