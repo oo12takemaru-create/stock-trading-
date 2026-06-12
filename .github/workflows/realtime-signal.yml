@@ -54,6 +54,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 🔒 残高連動用に非公開の trades.json を取得(GH_PAT未設定でも続行=初期資金で計算)
+      - name: Checkout private data
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: oo12takemaru-create/stock-trading-private
+          token: ${{ secrets.GH_PAT }}
+          path: private
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -82,6 +91,8 @@ jobs:
             python realtime_notifier.py --once \
               --log-csv signals_log.csv \
               --prices-json prices.json \
+              --capital-from-trades \
+              --trades-json private/trades.json \
               --capital "$CAPITAL" \
               --risk "$RISK"
           fi
