@@ -22,6 +22,8 @@ ENV/
 *.json
 !signal.json
 !prices.json
+# 🔒 trades.json / stops.json は非公開リポジトリ(stock-trading-private)管理。
+#    公開リポジトリには絶対コミットしない(例外を作らないこと)
 cost_tax_analysis_result.csv
 stop_loss_simulator_result.csv
 sector_threshold_analysis.csv
