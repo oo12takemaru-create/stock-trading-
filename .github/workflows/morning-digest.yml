@@ -1,0 +1,87 @@
+name: Morning Digest (朝の逆指値ダイジェスト)
+
+# 平日の朝(8:05 JST目安、Actionsの遅延で多少後ろにずれる)に1回実行。
+#   1) trades.json(ダッシュボードがクラウド同期した保有記録)を読む
+#   2) MOMENTUM保有は「高値-10%トレール」で今日の逆指値を計算(切上げのみ)
+#   3) 保有の現在値/含み損益/逆指値を1通のメールに集約して送信
+#   4) stops.json をコミット → ダッシュボードの保有カードに「今日の逆指値」表示
+#
+# cron は UTC: JST 8:05 = UTC 23:05(前日)
+
+on:
+  schedule:
+    - cron: '5 23 * * 0-4'   # 月〜金 8:05 JST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run(メール送信せずログのみ)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: morning-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Tokyo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 🔒 売買データ(trades.json / stops.json)は非公開リポジトリから取得
+      #    Secrets に GH_PAT(repo スコープ・長め期限)の登録が必要
+      - name: Checkout private data
+        uses: actions/checkout@v4
+        with:
+          repository: oo12takemaru-create/stock-trading-private
+          token: ${{ secrets.GH_PAT }}
+          path: private
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run morning digest
+        env:
+          GMAIL_USER:          ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO:           ${{ secrets.NOTIFY_TO }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python realtime_notifier.py --digest --dry-run \
+              --trades-json private/trades.json --stops-json private/stops.json
+          else
+            python realtime_notifier.py --digest \
+              --trades-json private/trades.json --stops-json private/stops.json
+          fi
+
+      - name: Commit stops.json (非公開リポジトリへ)
+        run: |
+          cd private
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add stops.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git pull --rebase --autostash || true
+            git commit -m "📌 今日の逆指値 ($(TZ='Asia/Tokyo' date +'%Y-%m-%d') JST)"
+            git push
+            echo "✓ stops.json 更新(ダッシュボードに反映)"
+          fi
