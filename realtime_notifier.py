@@ -257,7 +257,11 @@ def format_body(new_signals, result):
         lines.append(f"{em} {s['name']} ({s['ticker']}) [{s['strategy']}]")
         lines.append(f"  買値   : ¥{s['entry_price']:,.1f}")
         lines.append(f"  損切り : ¥{s['stop_price']:,.1f}")
-        lines.append(f"  目標   : ¥{s['target_price']:,.1f}")
+        if s["strategy"] == "MOMENTUM":
+            # ★trail本番採用: +10%固定利確をやめ高値-10%トレールで伸ばす(検証済みPF 2.03)
+            lines.append(f"  出口   : 高値-10%トレール(逆指値は朝ダイジェストで毎日更新)")
+        else:
+            lines.append(f"  目標   : ¥{s['target_price']:,.1f}")
         lines.append(f"  株数   : {s['shares']:,}株 (¥{s['cost']:,.0f})")
         lines.append(f"  根拠   : {s['info']}")
     lines.append("")
@@ -281,6 +285,191 @@ def market_open_now(force=False):
         return False
     t = now.hour * 60 + now.minute
     return (9 * 60) <= t <= (15 * 60 + 30)  # 9:00〜15:30(東証・昼休み含め通し)
+
+
+# ============================================================================
+# ④-2 trades.json(クラウド同期されたトレード記録)の読み込み
+# ============================================================================
+TRAIL_PCT = 10.0  # MOMENTUMトレール幅%(バックテスト検証済み: 8〜15%全幅でfixedに優位、10%採用)
+
+
+def load_trades_json(path="trades.json"):
+    """ダッシュボードが同期した trades.json から (保有中, クローズ済み) を返す"""
+    if not path or not os.path.exists(path):
+        return [], []
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        trades = data.get("trades", data if isinstance(data, list) else [])
+        opens = [t for t in trades if t.get("status") == "OPEN"]
+        closed = [t for t in trades if t.get("status") == "CLOSED"]
+        return opens, closed
+    except Exception as e:
+        log(f"⚠ trades.json 読込失敗: {e}")
+        return [], []
+
+
+def capital_from_trades(base_capital, path="trades.json"):
+    """残高連動資金 = 初期資金 + 確定損益合計(1%リスクを実残高に追随させる)"""
+    _, closed = load_trades_json(path)
+    realized = sum(float(t.get("pnl") or 0) for t in closed)
+    return base_capital + realized
+
+
+# ============================================================================
+# ④-3 朝のダイジェスト(保有のトレール逆指値を計算 → メール + stops.json)
+# ============================================================================
+def calc_today_stop(trade, hist_df):
+    """保有1件の「今日の逆指値」を返す (eff_stop, peak)。
+       MOMENTUM: max(初期ストップ, エントリー以降の高値×(1-10%)) … 切上げのみ。
+       その他戦略: 登録済みストップのまま(トレール検証はMOMENTUMのみ)。"""
+    entry = float(trade.get("entry_price") or 0)
+    stop0 = float(trade.get("stop_price") or 0)
+    strategy = (trade.get("strategy") or "").upper()
+    peak = entry
+    if hist_df is not None and len(hist_df):
+        try:
+            h = hist_df
+            ed = trade.get("entry_date") or ""
+            if ed:
+                h = hist_df[hist_df.index >= pd.Timestamp(ed)]
+            if len(h):
+                peak = max(peak, float(h["High"].max()))
+        except Exception:
+            pass
+    if strategy == "MOMENTUM" and entry > 0:
+        eff = max(stop0, peak * (1 - TRAIL_PCT / 100.0))
+    else:
+        eff = stop0
+    return round(eff, 1), round(peak, 1)
+
+
+def run_digest(trades_path="trades.json", stops_path="stops.json",
+               base_capital=1_000_000, dry_run=False):
+    """朝ダイジェスト: 保有の現在値/含み損益/今日の逆指値を1通のメールに。
+       同時に stops.json を書き出してダッシュボードにも反映する。"""
+    opens, closed = load_trades_json(trades_path)
+    realized = sum(float(t.get("pnl") or 0) for t in closed)
+    capital = base_capital + realized
+
+    # 地合い(前日終値ベース)
+    regime, vix_now = "UNKNOWN", None
+    try:
+        gd = ds.fetch_global_data()
+        regime, _ = ds.detect_market_regime(gd, datetime.now().date())
+        vix = gd.get("^VIX")
+        if vix is not None and len(vix):
+            v = float(vix["Close"].iloc[-1])
+            vix_now = v if v == v else None
+    except Exception as e:
+        log(f"⚠ 地合い取得失敗: {e}")
+
+    # 前回の逆指値(切上げ表示用)
+    prev = {}
+    if os.path.exists(stops_path):
+        try:
+            with open(stops_path, encoding="utf-8") as f:
+                prev = json.load(f).get("stops", {})
+        except Exception:
+            pass
+
+    stops = {}
+    pos_lines = []
+    raised = 0
+    alerts = []
+    for t in opens:
+        ticker = t.get("ticker") or ""
+        name = t.get("name") or ticker
+        shares = int(t.get("shares") or 0)
+        entry = float(t.get("entry_price") or 0)
+        strategy = (t.get("strategy") or "?")
+        em = STRAT_EMOJI.get(strategy, "・")
+
+        hist = None
+        cur = None
+        try:
+            hist = ds.yf.download(ticker, period="6mo", interval="1d",
+                                  progress=False, auto_adjust=False)
+            if hist is not None and len(hist):
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = hist.columns.get_level_values(0)
+                cur = float(hist["Close"].dropna().iloc[-1])
+        except Exception:
+            pass
+
+        eff_stop, peak = calc_today_stop(t, hist)
+        tid = str(t.get("id") or ticker)
+        prev_stop = None
+        try:
+            prev_stop = float(prev.get(tid, {}).get("stop") or 0) or None
+        except Exception:
+            pass
+
+        stops[tid] = {"ticker": ticker, "name": name, "strategy": strategy,
+                      "stop": eff_stop, "peak": peak,
+                      "cur": round(cur, 1) if cur else None}
+
+        pos_lines.append("")
+        pos_lines.append(f"{em} {name} ({ticker.replace('.T','')}) [{strategy}] {shares}株")
+        if cur and entry > 0:
+            upnl = (cur - entry) * shares
+            upct = (cur - entry) / entry * 100
+            sign = "+" if upnl >= 0 else ""
+            pos_lines.append(f"  現在値 ¥{cur:,.1f}  含み {sign}¥{upnl:,.0f} ({sign}{upct:.1f}%)")
+        if eff_stop > 0:
+            mark = ""
+            if prev_stop and eff_stop > prev_stop:
+                mark = f" ⬆ 切上げ(昨日 ¥{prev_stop:,.1f})"
+                raised += 1
+            pos_lines.append(f"  📌 今日の逆指値: ¥{eff_stop:,.1f}{mark}")
+            if cur and cur <= eff_stop:
+                alerts.append(f"🚨 {name}: 現在値が逆指値以下。寄りでの決済を検討")
+        else:
+            pos_lines.append("  (ストップ未設定 → ダッシュボードで設定推奨)")
+
+    # 本文組み立て
+    now = datetime.now()
+    wd = ["月", "火", "水", "木", "金", "土", "日"][now.weekday()]
+    lines = [f"☀️ 朝のダイジェスト {now.strftime('%m/%d')}({wd})"]
+    lines.append(f"地合い: {regime}" + (f" / VIX {vix_now:.1f}" if vix_now else ""))
+    if regime in ("BEARISH", "PANIC"):
+        lines.append(f"⚠️ 地合い悪化中。新規は慎重に、保有は撤退も検討。")
+    lines.append(f"推定残高: ¥{capital:,.0f}(確定損益 {'+' if realized>=0 else ''}¥{realized:,.0f})")
+    lines.append("=" * 36)
+    if opens:
+        lines.append(f"━━ 保有 {len(opens)}件(SBIで逆指値を確認/訂正)━━")
+        lines.extend(pos_lines)
+        if alerts:
+            lines.append("")
+            lines.extend(alerts)
+    else:
+        lines.append("保有ポジションなし(trades.json 未同期の場合はダッシュボードで同期)")
+    lines.append("")
+    lines.append("=" * 36)
+    lines.append("※MOMENTUMは高値-10%トレール。逆指値は切上げのみ(下げない)。")
+    lines.append("※価格は前日終値ベース。発注前にSBIの板で確認。")
+    body = "\n".join(lines)
+
+    subject = f"☀️ 朝ダイジェスト 保有{len(opens)}件" + (f"・逆指値切上げ{raised}件" if raised else "") + f" ({regime})"
+
+    # stops.json 書き出し(ダッシュボードの「今日の逆指値」表示用)
+    if not dry_run:
+        try:
+            with open(stops_path, "w", encoding="utf-8") as f:
+                json.dump({"updated": now.isoformat(timespec="seconds"),
+                           "regime": regime, "stops": stops}, f, ensure_ascii=False)
+            log(f"📌 stops.json 書き出し: {len(stops)}件")
+        except Exception as e:
+            log(f"⚠ stops.json 保存失敗: {e}")
+
+    if dry_run:
+        print("\n" + "-" * 50)
+        print(f"Subject: {subject}")
+        print(body)
+        print("-" * 50 + "\n")
+        return
+
+    notify_all(subject, body)
 
 
 # ============================================================================
@@ -409,6 +598,14 @@ def parse_args():
                    help="signals_log.csv で重複排除&追記(GitHub Actions向け)")
     p.add_argument("--prices-json", default=None,
                    help="全銘柄の最新値を prices.json に書き出す(ダッシュボードの現在値表示用)")
+    p.add_argument("--digest", action="store_true",
+                   help="朝ダイジェスト: 保有の逆指値(トレール)を計算してメール+stops.json")
+    p.add_argument("--trades-json", default="trades.json",
+                   help="トレード記録(クラウド同期)ファイル")
+    p.add_argument("--stops-json", default="stops.json",
+                   help="今日の逆指値の書き出し先")
+    p.add_argument("--capital-from-trades", action="store_true",
+                   help="資金を 初期資金+確定損益 に自動連動(推奨株数の計算が実残高に追随)")
     p.add_argument("--dry-run", action="store_true", help="通知せず判定のみ表示")
     p.add_argument("--force", action="store_true", help="市場時間ゲートを無視")
     p.add_argument("--test", action="store_true", help="全チャネルにテスト通知")
@@ -424,13 +621,24 @@ def main():
                         "メール / Discord のうち設定済みチャネルに届きます。")
         sys.exit(0 if ok else 1)
 
+    if args.digest:
+        # 朝ダイジェストは前日終値ベース(intraday差し替え不要)
+        run_digest(trades_path=args.trades_json, stops_path=args.stops_json,
+                   base_capital=args.capital, dry_run=args.dry_run)
+        return
+
     enable_intraday_fetch()
 
+    capital = args.capital
+    if args.capital_from_trades:
+        capital = capital_from_trades(args.capital, args.trades_json)
+        log(f"💰 残高連動資金: ¥{capital:,.0f}(初期¥{args.capital:,.0f}+確定損益)")
+
     if args.once:
-        run_once(args.capital, args.risk, dry_run=args.dry_run,
+        run_once(capital, args.risk, dry_run=args.dry_run,
                  force=args.force, log_csv=args.log_csv, prices_json=args.prices_json)
     else:
-        run_loop(args.capital, args.risk, args.interval,
+        run_loop(capital, args.risk, args.interval,
                  dry_run=args.dry_run, force=args.force,
                  log_csv=args.log_csv, prices_json=args.prices_json)
 
