@@ -210,6 +210,34 @@ def send_email(subject, body):
         return False
 
 
+def send_ntfy(title, body):
+    """ntfy.sh プッシュ通知(スマホアプリでトピック購読するだけ・登録不要)
+       日本語/絵文字対応のため JSON publish API を使用"""
+    topic = os.environ.get("NTFY_TOPIC")
+    if not topic:
+        return None  # 未設定(スキップ)
+    try:
+        res = requests.post(
+            "https://ntfy.sh",
+            json={
+                "topic": topic,
+                "title": title,
+                "message": body[:3800],  # 無料枠の上限(4KB)対策
+                "priority": 4,           # high: 通知音あり
+                "tags": ["chart_with_upwards_trend"],
+            },
+            timeout=15,
+        )
+        if res.status_code == 200:
+            log("📲 ntfy送信成功")
+            return True
+        log(f"⚠ ntfy送信失敗: HTTP {res.status_code} {res.text[:120]}")
+        return False
+    except Exception as e:
+        log(f"⚠ ntfy送信失敗: {e}")
+        return False
+
+
 def send_discord(text):
     url = get_discord_url()
     if not url:
@@ -229,15 +257,16 @@ def send_discord(text):
 
 
 def notify_all(subject, body):
-    """設定済みの全チャネルに送信。1つでも成功すれば True。"""
+    """設定済みの全チャネル(メール/Discord/ntfy)に送信。1つでも成功すれば True。"""
     results = []
     r_mail = send_email(subject, body)
     r_disc = send_discord(f"{subject}\n\n{body}")
-    for r in (r_mail, r_disc):
+    r_ntfy = send_ntfy(subject, body)
+    for r in (r_mail, r_disc, r_ntfy):
         if r is not None:
             results.append(r)
     if not results:
-        log("⚠ 通知先が未設定です(GMAIL_* / DISCORD_WEBHOOK_URL のいずれも無し)")
+        log("⚠ 通知先が未設定です(GMAIL_* / DISCORD_WEBHOOK_URL / NTFY_TOPIC のいずれも無し)")
         return False
     return any(results)
 
@@ -345,9 +374,20 @@ def calc_today_stop(trade, hist_df):
 
 
 def run_digest(trades_path="trades.json", stops_path="stops.json",
-               base_capital=1_000_000, dry_run=False):
+               base_capital=1_000_000, dry_run=False, force=False):
     """朝ダイジェスト: 保有の現在値/含み損益/今日の逆指値を1通のメールに。
        同時に stops.json を書き出してダッシュボードにも反映する。"""
+    # 同日二重送信ガード(外部クロック+GitHub遅延スケジュールの両発火対策)
+    if not force and not dry_run and os.path.exists(stops_path):
+        try:
+            with open(stops_path, encoding="utf-8") as f:
+                prev_updated = json.load(f).get("updated", "") or ""
+            if prev_updated[:10] == datetime.now().strftime("%Y-%m-%d"):
+                log("本日分のダイジェストは送信済み → スキップ(--force で再送可)")
+                return
+        except Exception:
+            pass
+
     opens, closed = load_trades_json(trades_path)
     realized = sum(float(t.get("pnl") or 0) for t in closed)
     capital = base_capital + realized
@@ -624,7 +664,7 @@ def main():
     if args.digest:
         # 朝ダイジェストは前日終値ベース(intraday差し替え不要)
         run_digest(trades_path=args.trades_json, stops_path=args.stops_json,
-                   base_capital=args.capital, dry_run=args.dry_run)
+                   base_capital=args.capital, dry_run=args.dry_run, force=args.force)
         return
 
     enable_intraday_fetch()
