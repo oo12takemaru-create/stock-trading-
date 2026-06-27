@@ -219,7 +219,9 @@ STOCKS = {
 
     # バイオ・医療機器(5本)
     "4587.T": ("ペプチドリーム", "バイオ"),
-    "4592.T": ("サンバイオ", "バイオ"),
+    # 2026-06-26 除外: サンバイオ(4592)は"落ちるナイフ"でBNFが繰り返し負ける銘柄。
+    #   監視対象から外す(管理外扱い)。戻したくなったら下行の # を削除するだけ。
+    # "4592.T": ("サンバイオ", "バイオ"),
     "2160.T": ("GNI", "バイオ"),
     "6869.T": ("シスメックス", "医療機器"),
     "4543.T": ("テルモ", "医療機器"),
@@ -658,6 +660,14 @@ def check_bnf_signal(df, sector, regime):
 
     bb_check = df["BB_lower_1_5"].iloc[idx]
     if pd.isna(bb_check) or close > bb_check:
+        return False, None
+
+    # ★落ちるナイフ・ガード(2026-06): サンバイオ型の崩壊を弾く。
+    #   極端な乖離(-25%超の深さ)かつ200日線割れ=構造的下落 → シグナル見送り。
+    #   健全な押し目(浅め・上昇トレンド中)は通す。
+    KNIFE_DEPTH = -25.0
+    ma200 = df["MA200"].iloc[idx]
+    if not pd.isna(ma200) and deviation < KNIFE_DEPTH and close < ma200:
         return False, None
 
     return True, {
