@@ -46,3 +46,5 @@ signal.json
 
 # OS
 Thumbs.db
+
+.vercel
