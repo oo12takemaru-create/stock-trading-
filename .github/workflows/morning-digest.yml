@@ -89,3 +89,20 @@ jobs:
             git push
             echo "✓ stops.json 更新(ダッシュボードに反映)"
           fi
+
+      # 🎯 ブレイク監視リストは市場データ(個人情報なし)なので公開リポジトリへ。
+      #    → ダッシュボードの「狙い」タブが PAT 不要で読める。dry-run時はコミットしない。
+      - name: Commit watchlist.json (公開リポジトリへ)
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add watchlist.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git pull --rebase --autostash || true
+            git commit -m "🎯 今日のブレイク監視 ($(TZ='Asia/Tokyo' date +'%Y-%m-%d') JST)"
+            git push
+            echo "✓ watchlist.json 更新(ダッシュボードの狙いタブに反映)"
+          fi
