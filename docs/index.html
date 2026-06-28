@@ -392,6 +392,20 @@ body {
   </div>
 
   <!-- ========================================= -->
+  <!-- TAB: 狙い(ブレイク監視リスト) -->
+  <!-- ========================================= -->
+  <div class="section" id="section-watch">
+    <div class="card-title">🚀 今日の狙い(ブレイク監視リスト)</div>
+    <div style="font-size:12px;color:#7d8590;margin-bottom:10px;line-height:1.6;">
+      20日高値の<strong>直下</strong>にいる上昇トレンド銘柄=「ブレイクしたら買い」の候補です。<br>
+      寄り前に SBI で <strong>①逆指値買い + ②損切り</strong> を IFDOCO で仕込めば、日中の張り付き不要。<br>
+      <span style="color:#6e7681;">※平日朝のダイジェスト(8:05)が自動更新。資金1%で100株買える銘柄のみ表示。</span>
+    </div>
+    <div id="watch-meta" style="font-size:11px;color:#6e7681;margin-bottom:10px;"></div>
+    <div id="watch-list"></div>
+  </div>
+
+  <!-- ========================================= -->
   <!-- TAB 2: HISTORY -->
   <!-- ========================================= -->
   <div class="section" id="section-history">
@@ -713,6 +727,9 @@ body {
 <div class="tab-bar">
   <button class="tab active" onclick="showSection('today')">
     <span class="tab-icon">🎯</span>今日
+  </button>
+  <button class="tab" onclick="showSection('watch')">
+    <span class="tab-icon">🚀</span>狙い
   </button>
   <button class="tab" onclick="showSection('history')">
     <span class="tab-icon">📜</span>履歴
@@ -3937,6 +3954,73 @@ function todayStopRow(t) {
     SBIの逆指値をこの価格に訂正してください</div>`;
 }
 
+// ---- 🚀 狙い(ブレイク監視リスト watchlist.json・公開repoなのでPAT不要) ----
+const WATCHLIST_URL = `${RAW_BASE}/watchlist.json`;
+let watchlistData = null;
+
+async function loadWatchlist() {
+  try {
+    const res = await fetch(`${WATCHLIST_URL}?_=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('not found');
+    watchlistData = await res.json();
+  } catch (e) {
+    watchlistData = null;  // 未生成(休日や初回)は静かに無視
+  }
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const el = document.getElementById('watch-list');
+  const meta = document.getElementById('watch-meta');
+  if (!el) return;
+  if (!watchlistData || !Array.isArray(watchlistData.items)) {
+    if (meta) meta.textContent = '';
+    el.innerHTML = '<div class="no-signal-card"><div>監視リストはまだ生成されていません<br>'
+      + '<span style="font-size:11px;color:#6e7681;">平日朝のダイジェスト後に表示されます</span></div></div>';
+    return;
+  }
+  const items = watchlistData.items;
+  if (meta) {
+    const up = watchlistData.updated ? watchlistData.updated.replace('T', ' ').slice(0, 16) : '';
+    meta.innerHTML = `地合い: <strong>${escapeHtml(watchlistData.regime || '?')}</strong>`
+      + ` / 更新: ${up} / ${items.length}件`;
+  }
+  if (!items.length) {
+    el.innerHTML = '<div class="no-signal-card"><div>20日高値の直下にいる銘柄なし(今日は様子見)</div></div>';
+    return;
+  }
+  el.innerHTML = items.map(w => {
+    const t = (w.ticker || '').replace('.T', '');
+    return `
+    <div class="signal-card strategy-MOMENTUM">
+      <div class="signal-strategy MOMENTUM">あと${Number(w.gap).toFixed(1)}%でブレイク</div>
+      <div>
+        <span class="signal-name">${escapeHtml(w.name || '')}</span>
+        <span class="signal-ticker">(${t})</span>
+      </div>
+      <div class="signal-sector">${escapeHtml(w.sector || '')}</div>
+      <div class="signal-numbers">
+        <div>
+          <div class="signal-num-label">逆指値買い</div>
+          <div class="signal-num-value num-entry">¥${Number(w.pivot).toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="signal-num-label">損切り(逆指値)</div>
+          <div class="signal-num-value num-stop">¥${Number(w.stop).toLocaleString()}</div>
+        </div>
+        <div>
+          <div class="signal-num-label">現値</div>
+          <div class="signal-num-value">¥${Number(w.close).toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="signal-meta">
+        <span>${w.shares}株 / ¥${Number(w.cost).toLocaleString()}</span>
+        ${quoteLinkBtn(w.ticker)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ---- 集約フック(render / renderTrades の末尾から呼ぶ) ----
 function renderImprovements() {
   try { renderPositionMeters(); } catch (e) {}
@@ -3954,6 +4038,7 @@ async function refreshAll() {
   // 🔧 シグナル本体を最優先・独立で読む(現在値/逆指値の取得失敗に巻き込まれない)
   loadPrices().catch(() => {}).then(() => { try { renderImprovements(); } catch (e) {} });
   loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} });
+  loadWatchlist().catch(() => {});  // 🚀 狙いタブ(ブレイク監視リスト)
   await loadSignals();
   try { renderImprovements(); } catch (e) {}
   if (!_bootDone) {
