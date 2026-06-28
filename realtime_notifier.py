@@ -63,6 +63,16 @@ import signal_logger as sl  # append_log / LOG_FIELDS を再利用
 SEEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifier_seen.json")
 STRAT_EMOJI = {"BNF-LITE": "🔄", "MOMENTUM": "🚀", "MINERVINI": "🌱"}
 
+# ── 戦略ごとの新規エントリー注文種別(SBIにそのまま入れる形) ──
+#   ブレイクアウト系(MOMENTUM/MINERVINI)= 逆指値買い(指定値以上で自動約定)
+#   逆張り系(BNF-LITE)               = 指値買い(押し目=指定値以下で約定)
+#   ※日中張り付けないため「寄り前に仕込む」運用。損切りは常に逆指値(売り)。
+ENTRY_ORDER = {
+    "MOMENTUM": "逆指値買い",
+    "MINERVINI": "逆指値買い",
+    "BNF-LITE": "指値買い",
+}
+
 
 # ============================================================================
 # ① ザラ場中の「当日足」を取り込むための fetch 差し替え(monkeypatch)
@@ -280,12 +290,14 @@ def format_body(new_signals, result):
     if result.get("vix"):
         lines.append(f"VIX: {result['vix']:.1f}")
     lines.append("=" * 36)
+    lines.append("【SBIにこのまま発注】①買い+②損切りはIFDOCOで一括が安全")
     for s in new_signals:
         em = STRAT_EMOJI.get(s["strategy"], "・")
+        order = ENTRY_ORDER.get(s["strategy"], "買い")
         lines.append("")
         lines.append(f"{em} {s['name']} ({s['ticker']}) [{s['strategy']}]")
-        lines.append(f"  買値   : ¥{s['entry_price']:,.1f}")
-        lines.append(f"  損切り : ¥{s['stop_price']:,.1f}")
+        lines.append(f"  ① {order}   : ¥{s['entry_price']:,.1f}")
+        lines.append(f"  ② 損切り(逆指値): ¥{s['stop_price']:,.1f}")
         if s["strategy"] == "MOMENTUM":
             # ★trail本番採用: +10%固定利確をやめ高値-10%トレールで伸ばす(検証済みPF 2.03)
             lines.append(f"  出口   : 高値-10%トレール(逆指値は朝ダイジェストで毎日更新)")
@@ -295,6 +307,7 @@ def format_body(new_signals, result):
         lines.append(f"  根拠   : {s['info']}")
     lines.append("")
     lines.append("=" * 36)
+    lines.append("①逆指値買い=指定値以上で自動約定 / 指値買い=指定値以下で約定")
     lines.append("※yfinance遅延(約15-20分)。発注前にSBIの板で現在値を確認。")
     return "\n".join(lines)
 
@@ -373,8 +386,68 @@ def calc_today_stop(trade, hist_df):
     return round(eff, 1), round(peak, 1)
 
 
+def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
+                             capital=1_000_000, risk_pct=1.0, regime="BULLISH"):
+    """寄り前(8:05)に分かる MOMENTUM ブレイク候補リストを作る。
+       MOMENTUMと同じ上昇トレンド条件(終値>MA50 かつ 終値>MA200)で、
+       20日高値(pivot)の直下にいる=「今日ブレイクしたら買い」の銘柄を抽出する。
+         逆指値買い = pivot(20日高値) / 損切り = pivot×0.95(-5%)
+       ★本番scan()と同じ建玉サイズ判定(calc_shares)を通し、リスク%で100株買えない
+         銘柄(高額株/除外セクター等)は除外=実際に発注できる候補だけ残す。
+       戻り値: dictのリスト(gap昇順=ブレイク間近順)。"""
+    out = []
+    items = list(ds.STOCKS.items())
+    total = len(items)
+    for i, (ticker, meta) in enumerate(items):
+        if isinstance(meta, (tuple, list)):
+            name = meta[0]
+            sector = meta[1] if len(meta) > 1 else ""
+        else:
+            name, sector = str(meta), ""
+        if i and i % 50 == 0:
+            log(f"  監視リスト走査 …{i}/{total}")
+        try:
+            df = ds.fetch_stock_data(ticker)
+            if df is None or len(df) < 200:
+                continue
+            df = ds.prepare_indicators(df)
+            idx = len(df) - 1
+            close = float(df["Close"].iloc[idx])
+            ma50 = df["MA50"].iloc[idx]
+            ma200 = df["MA200"].iloc[idx]
+            if pd.isna(ma50) or pd.isna(ma200):
+                continue
+            if close < ma200 or close < ma50:
+                continue  # MOMENTUMと同じ上昇トレンド条件
+            pivot = df["High"].iloc[max(0, idx - 20):idx].max()
+            if pd.isna(pivot) or pivot <= 0:
+                continue
+            pivot = float(pivot)
+            gap = (pivot - close) / close * 100.0
+            # gap<=0 は既にブレイク済み(=ザラ場通知で拾う)。ここは未到達の近接候補に絞る。
+            if gap <= 0 or gap > max_gap_pct:
+                continue
+            stop = pivot * 0.95
+            # 本番scan()と同じ建玉サイズ判定。100株未満(=高額株/除外セクター)は表示しない。
+            shares, cost = ds.calc_shares(capital, risk_pct, pivot, stop,
+                                          "MOMENTUM", regime, sector=sector)
+            if shares < 100:
+                continue
+            out.append({
+                "ticker": ticker, "name": name, "sector": sector,
+                "close": round(close, 1), "pivot": round(pivot, 1),
+                "stop": round(stop, 1), "gap": round(gap, 2),
+                "shares": int(shares), "cost": int(round(cost)),
+            })
+        except Exception:
+            continue
+    out.sort(key=lambda x: x["gap"])
+    return out[:top_n]
+
+
 def run_digest(trades_path="trades.json", stops_path="stops.json",
-               base_capital=1_000_000, dry_run=False, force=False):
+               base_capital=1_000_000, dry_run=False, force=False,
+               watchlist=True, watch_gap=4.0, watch_top=12):
     """朝ダイジェスト: 保有の現在値/含み損益/今日の逆指値を1通のメールに。
        同時に stops.json を書き出してダッシュボードにも反映する。"""
     # 同日二重送信ガード(外部クロック+GitHub遅延スケジュールの両発火対策)
@@ -484,13 +557,44 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
             lines.extend(alerts)
     else:
         lines.append("保有ポジションなし(trades.json 未同期の場合はダッシュボードで同期)")
+
+    # ── 今日のブレイク監視リスト(寄り前に逆指値買いを仕込む用) ──
+    watch = []
+    if watchlist:
+        log("📈 ブレイク監視リストを作成中 …(全銘柄スキャン)")
+        try:
+            watch = build_breakout_watchlist(max_gap_pct=watch_gap, top_n=watch_top,
+                                             capital=capital, regime=regime)
+        except Exception as e:
+            log(f"⚠ 監視リスト作成失敗: {e}")
+        lines.append("")
+        lines.append("=" * 36)
+        lines.append(f"━━ 今日のブレイク監視 {len(watch)}件(20日高値の直下=逆指値買い候補)━━")
+        if regime != "BULLISH":
+            lines.append(f"※地合いは{regime}。BULLISH以外だと当日MOMENTUMは原則発動しません(参考表示)。")
+        if watch:
+            for w in watch:
+                lines.append("")
+                lines.append(f"🚀 {w['name']} ({w['ticker'].replace('.T','')}) "
+                             f"あと{w['gap']:.1f}%でブレイク")
+                lines.append(f"  ① 逆指値買い : ¥{w['pivot']:,.1f}(現値¥{w['close']:,.1f})")
+                lines.append(f"  ② 損切り(逆指値): ¥{w['stop']:,.1f}")
+                lines.append(f"  株数   : {w['shares']:,}株 (¥{w['cost']:,.0f})")
+            lines.append("")
+            lines.append("→ 寄り前にSBIで①逆指値買い+②損切りをIFDOCOで仕込むと張り付き不要。")
+        else:
+            lines.append("(20日高値の直下にいる銘柄なし。今日は様子見)")
+
     lines.append("")
     lines.append("=" * 36)
     lines.append("※MOMENTUMは高値-10%トレール。逆指値は切上げのみ(下げない)。")
     lines.append("※価格は前日終値ベース。発注前にSBIの板で確認。")
     body = "\n".join(lines)
 
-    subject = f"☀️ 朝ダイジェスト 保有{len(opens)}件" + (f"・逆指値切上げ{raised}件" if raised else "") + f" ({regime})"
+    subject = (f"☀️ 朝ダイジェスト 保有{len(opens)}件"
+               + (f"・逆指値切上げ{raised}件" if raised else "")
+               + (f"・監視{len(watch)}件" if watch else "")
+               + f" ({regime})")
 
     # stops.json 書き出し(ダッシュボードの「今日の逆指値」表示用)
     if not dry_run:
@@ -644,6 +748,12 @@ def parse_args():
                    help="トレード記録(クラウド同期)ファイル")
     p.add_argument("--stops-json", default="stops.json",
                    help="今日の逆指値の書き出し先")
+    p.add_argument("--no-watchlist", action="store_true",
+                   help="朝ダイジェストのブレイク監視リストを無効化(全銘柄スキャンを省く)")
+    p.add_argument("--watch-gap", type=float, default=4.0,
+                   help="監視リストの採用閾値: 20日高値まで何%以内か(デフォルト4.0)")
+    p.add_argument("--watch-top", type=int, default=12,
+                   help="監視リストの最大表示件数(デフォルト12)")
     p.add_argument("--capital-from-trades", action="store_true",
                    help="資金を 初期資金+確定損益 に自動連動(推奨株数の計算が実残高に追随)")
     p.add_argument("--dry-run", action="store_true", help="通知せず判定のみ表示")
@@ -664,7 +774,9 @@ def main():
     if args.digest:
         # 朝ダイジェストは前日終値ベース(intraday差し替え不要)
         run_digest(trades_path=args.trades_json, stops_path=args.stops_json,
-                   base_capital=args.capital, dry_run=args.dry_run, force=args.force)
+                   base_capital=args.capital, dry_run=args.dry_run, force=args.force,
+                   watchlist=not args.no_watchlist,
+                   watch_gap=args.watch_gap, watch_top=args.watch_top)
         return
 
     enable_intraday_fetch()
