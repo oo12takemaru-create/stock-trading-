@@ -447,7 +447,8 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
 
 def run_digest(trades_path="trades.json", stops_path="stops.json",
                base_capital=1_000_000, dry_run=False, force=False,
-               watchlist=True, watch_gap=4.0, watch_top=12):
+               watchlist=True, watch_gap=4.0, watch_top=12,
+               watchlist_path="watchlist.json"):
     """朝ダイジェスト: 保有の現在値/含み損益/今日の逆指値を1通のメールに。
        同時に stops.json を書き出してダッシュボードにも反映する。"""
     # 同日二重送信ガード(外部クロック+GitHub遅延スケジュールの両発火対策)
@@ -606,6 +607,19 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
         except Exception as e:
             log(f"⚠ stops.json 保存失敗: {e}")
 
+    # ダッシュボードの「狙い」タブ用に監視リストを公開JSONへ書き出す
+    #   個人情報を含まない市場データなので dry-run でも書き出す(手元での確認用)。
+    if watchlist:
+        try:
+            with open(watchlist_path, "w", encoding="utf-8") as f:
+                json.dump({"updated": now.isoformat(timespec="seconds"),
+                           "regime": regime, "capital": capital,
+                           "gap_max": watch_gap, "items": watch},
+                          f, ensure_ascii=False)
+            log(f"🎯 watchlist.json 書き出し: {len(watch)}件")
+        except Exception as e:
+            log(f"⚠ watchlist.json 保存失敗: {e}")
+
     if dry_run:
         print("\n" + "-" * 50)
         print(f"Subject: {subject}")
@@ -754,6 +768,8 @@ def parse_args():
                    help="監視リストの採用閾値: 20日高値まで何%以内か(デフォルト4.0)")
     p.add_argument("--watch-top", type=int, default=12,
                    help="監視リストの最大表示件数(デフォルト12)")
+    p.add_argument("--watchlist-json", default="watchlist.json",
+                   help="ブレイク監視リストの書き出し先(ダッシュボードの「狙い」タブ用・公開repo)")
     p.add_argument("--capital-from-trades", action="store_true",
                    help="資金を 初期資金+確定損益 に自動連動(推奨株数の計算が実残高に追随)")
     p.add_argument("--dry-run", action="store_true", help="通知せず判定のみ表示")
@@ -776,7 +792,8 @@ def main():
         run_digest(trades_path=args.trades_json, stops_path=args.stops_json,
                    base_capital=args.capital, dry_run=args.dry_run, force=args.force,
                    watchlist=not args.no_watchlist,
-                   watch_gap=args.watch_gap, watch_top=args.watch_top)
+                   watch_gap=args.watch_gap, watch_top=args.watch_top,
+                   watchlist_path=args.watchlist_json)
         return
 
     enable_intraday_fetch()
