@@ -1112,6 +1112,9 @@ function renderSignalCard(s, idx) {
   const cost = sharesIdeal * entry;
 
   const ticker = (s.ticker || '').replace('.T', '');
+  // 🆕 逆指値リスト機能: 戦略別の新規エントリー注文種別(SBIにそのまま入れる形)
+  //   ブレイク系(MOMENTUM/MINERVINI)=逆指値買い / 逆張り(BNF-LITE)=指値買い
+  const orderLabel = (s.strategy === 'BNF-LITE') ? '指値買い' : '逆指値買い';
 
   return `
     <div class="signal-card strategy-${s.strategy}" onclick="copySignal(${idx})">
@@ -1123,11 +1126,11 @@ function renderSignalCard(s, idx) {
       <div class="signal-sector">${escapeHtml(s.sector || '')}</div>
       <div class="signal-numbers">
         <div>
-          <div class="signal-num-label">買値</div>
+          <div class="signal-num-label">${orderLabel}</div>
           <div class="signal-num-value num-entry">¥${entry.toLocaleString()}</div>
         </div>
         <div>
-          <div class="signal-num-label">損切り</div>
+          <div class="signal-num-label">損切り(逆指値)</div>
           <div class="signal-num-value num-stop">¥${stop.toLocaleString()}</div>
         </div>
         <div>
