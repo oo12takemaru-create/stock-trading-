@@ -3,8 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#0a1222">
 <title>📊 BNF×Minervini ダッシュボード</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="mask-icon" href="favicon.svg" color="#e7c061">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
@@ -297,6 +303,115 @@ body {
 .form-row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
+
+/* ===================================================================== */
+/* ===== PREMIUM NAVY × GOLD テーマ (2026-06-29 追加・上書きレイヤー) ===== */
+/*   既存ルールは消さず見た目だけ上書き。戻すにはこのブロックごと削除。   */
+/* ===================================================================== */
+:root{
+  --gold:#e7c061; --gold-2:#d4a843; --gold-soft:rgba(231,192,97,.14);
+  --navy-line:#22375a; --navy-line-soft:#1b2c49;
+  --navy-ink:#eaf1fb; --navy-muted:#9fb2cc; --navy-muted-2:#74879f;
+}
+body{
+  font-family:"Plus Jakarta Sans","Noto Sans JP",-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+  background:
+    radial-gradient(1100px 560px at 50% -8%, #16294c 0%, rgba(10,18,34,0) 62%),
+    linear-gradient(180deg,#0a1222 0%, #0b1426 100%);
+  background-attachment:fixed;
+  color:var(--navy-ink);
+}
+.container{ max-width:760px; }
+
+/* ヘッダー */
+.header{ position:relative; padding:24px 0 26px; }
+.header h1{
+  font-weight:800;
+  background:linear-gradient(92deg,#ffffff 0%, #f4dfa6 55%, var(--gold) 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.header .subtitle{ color:var(--navy-muted); }
+.header .updated{ color:var(--navy-muted-2); }
+.header::after{
+  content:""; display:block; width:56px; height:3px; margin:13px auto 0;
+  border-radius:3px; background:linear-gradient(90deg,var(--gold-2),var(--gold));
+  box-shadow:0 0 18px rgba(231,192,97,.45);
+}
+
+/* 汎用カード(地合いカードは色を保持するため除外) */
+.card:not(.regime-card){
+  background:linear-gradient(180deg,#11203a 0%, #0e1a30 100%);
+  border:1px solid var(--navy-line-soft);
+}
+.card{
+  border-radius:16px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 16px 34px -22px rgba(0,0,0,.9);
+}
+.card-title{ color:var(--gold); letter-spacing:.09em; }
+.regime-card{ border-radius:18px; box-shadow:0 18px 40px -24px rgba(0,0,0,.95); }
+
+/* シグナル/トレードカード */
+.signal-card, .trade-card{
+  background:linear-gradient(180deg,#13243f 0%, #0f1d33 100%);
+  border-radius:14px;
+  box-shadow:0 10px 26px -20px rgba(0,0,0,.9);
+  transition:transform .14s ease, box-shadow .2s ease, background .2s ease;
+}
+.signal-card:hover{ transform:translateY(-2px); box-shadow:0 18px 32px -20px rgba(0,0,0,.95); }
+.trade-card.pending{ background:linear-gradient(180deg,#0e2540 0%, #0c1f38 100%); }
+.signal-numbers{ border-top:1px solid var(--navy-line-soft); }
+
+/* 数値・見出しの締まり */
+.signal-num-value, .stat-value, .regime-card .regime-value{ letter-spacing:-.02em; }
+.signal-name, .trade-title{ letter-spacing:-.01em; }
+
+/* ボタン */
+.btn{ background:#14233f; border:1px solid var(--navy-line); color:var(--navy-ink); border-radius:11px; }
+.btn:active{ background:#1b2e4d; }
+.btn-primary{
+  background:linear-gradient(135deg,#1f6feb 0%, #3b8bff 100%);
+  border-color:transparent; color:#fff;
+  box-shadow:0 10px 22px -12px rgba(59,139,255,.75);
+}
+.copy-btn{ background:#152643; border:1px solid var(--navy-line); color:#cfe0ff; border-radius:9px; }
+
+/* 統計ボックス */
+.stat-box{ background:#0f1d33; border:1px solid var(--navy-line-soft); border-radius:12px; }
+
+/* 履歴・空状態・詳細インセット・入力 */
+.history-row{ background:#0f1d33; border-radius:10px; }
+.history-row:hover, .history-row.expanded{ background:#16284a; }
+.no-signal-card{ background:linear-gradient(180deg,#0f1d33,#0c1830); border:1px dashed var(--navy-line); border-radius:14px; }
+.history-detail .detail-item, .form-group input, .form-group select, .form-group textarea{ background:#0a1426; }
+.form-group input:focus, .form-group select:focus{ border-color:var(--gold); }
+
+/* モーダル */
+.modal-content{
+  background:linear-gradient(180deg,#11203a 0%, #0d1830 100%);
+  border:1px solid var(--navy-line); border-radius:16px;
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.95);
+}
+
+/* タブバー(グラス) */
+.tab-bar{
+  background:rgba(10,18,34,.82);
+  -webkit-backdrop-filter:saturate(170%) blur(16px); backdrop-filter:saturate(170%) blur(16px);
+  border-top:1px solid var(--navy-line-soft);
+  box-shadow:0 -10px 30px -20px rgba(0,0,0,.8);
+}
+.tab{ color:var(--navy-muted-2); position:relative; transition:color .15s ease; }
+.tab.active{ color:var(--gold); }
+.tab.active::before{
+  content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:28px; height:3px; border-radius:0 0 3px 3px;
+  background:linear-gradient(90deg,var(--gold-2),var(--gold));
+  box-shadow:0 0 12px rgba(231,192,97,.5);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-thumb{ background:#1c2e4a; border-radius:8px; }
+::-webkit-scrollbar-track{ background:transparent; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
