@@ -491,6 +491,18 @@ body{
     <!-- 🆕 D: 地合い急変バナー(BEARISH/PANIC時のみ) -->
     <div id="regime-alert-banner" style="display:none;background:#3a2a10;border:1px solid #d29922;color:#e3b341;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.5;"></div>
 
+    <!-- 🆕 今日の発注(朝のやることリスト) -->
+    <div class="card" id="morning-orders-card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>☀️ 今日の発注(朝のやることリスト)</span>
+        <span id="morning-progress" style="font-size:11px;color:#9fb2cc;font-weight:600;"></span>
+      </div>
+      <div id="morning-orders"></div>
+      <div style="font-size:10.5px;color:#6e7681;margin-top:8px;line-height:1.5;">
+        価格をタップ→コピー→SBIに貼り付け。済んだらチェック(チェック履歴は遵守率の記録として端末に保存)。
+      </div>
+    </div>
+
     <!-- 今日のシグナル -->
     <div class="card-title">🎯 今日のシグナル</div>
     <div id="today-signals"></div>
@@ -4082,6 +4094,7 @@ async function loadWatchlist() {
     watchlistData = null;  // 未生成(休日や初回)は静かに無視
   }
   renderWatchlist();
+  try { renderMorningOrders(); } catch (e) {}
 }
 
 function renderWatchlist() {
@@ -4136,6 +4149,124 @@ function renderWatchlist() {
   }).join('');
 }
 
+// ---- ☀️ 今日の発注(朝のやることリスト) ----
+//   保有の逆指値訂正(stops.json優先) + 狙いの逆指値買い(watchlist.json)を1画面に。
+//   チェックは日付キーでlocalStorageに保存(直近60日) → 遵守率の記録の種になる。
+const MORNING_LOG_KEY = 'morning_checklist_v1';
+
+function morningLog() {
+  try { return JSON.parse(localStorage.getItem(MORNING_LOG_KEY) || '{}'); } catch (e) { return {}; }
+}
+function saveMorningLog(log) {
+  const keys = Object.keys(log).sort();
+  while (keys.length > 60) { delete log[keys.shift()]; }
+  try { localStorage.setItem(MORNING_LOG_KEY, JSON.stringify(log)); } catch (e) {}
+}
+function toggleMorningItem(key) {
+  const today = new Date().toISOString().slice(0, 10);
+  const log = morningLog();
+  log[today] = log[today] || {};
+  log[today][key] = !log[today][key];
+  saveMorningLog(log);
+  renderMorningOrders();
+}
+function copyOrderPrice(val, btn) {
+  const text = String(val);
+  const ok = () => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ コピー';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok).catch(() => {});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); ok(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+}
+
+function morningRow(key, checked, title, sub, chips, breach) {
+  return `
+  <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #1b2c49;${checked ? 'opacity:.45;' : ''}">
+    <input type="checkbox" ${checked ? 'checked' : ''} onclick="toggleMorningItem('${key}')"
+           style="width:17px;height:17px;accent-color:#e7c061;cursor:pointer;flex-shrink:0;">
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:600;${checked ? 'text-decoration:line-through;' : ''}">${title}</div>
+      <div style="font-size:11px;color:${breach ? '#f85149' : '#9fb2cc'};margin-top:1px;">${sub}</div>
+    </div>
+    <div style="display:flex;gap:5px;flex-shrink:0;">${chips}</div>
+  </div>`;
+}
+function priceChip(label, val) {
+  return `<button class="copy-btn" onclick="copyOrderPrice(${val},this)" style="padding:5px 9px;">${label} ¥${Number(val).toLocaleString()}</button>`;
+}
+
+function renderMorningOrders() {
+  const el = document.getElementById('morning-orders');
+  if (!el) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const done = morningLog()[today] || {};
+  let html = '';
+  let total = 0, checked = 0;
+
+  // ── ① 保有の逆指値を訂正 ──
+  const opens = loadTrades().filter(t => t.status === 'OPEN');
+  let holdRows = '';
+  opens.forEach(t => {
+    const st = currentStops[String(t.id)] ||
+      Object.values(currentStops).find(s => s && s.ticker === t.ticker);
+    const stop = (st && st.stop) ? Number(st.stop) : (Number(t.stop_price) || 0);
+    if (!stop) return;
+    const cur = (st && st.cur) ? Number(st.cur) : null;
+    const breach = !!(cur && cur <= stop);
+    const key = 'h_' + (t.ticker || '');
+    const isChecked = !!done[key];
+    total++; if (isChecked) checked++;
+    const tk = (t.ticker || '').replace('.T', '');
+    const trail = (t.strategy === 'MOMENTUM') ? '・高値-10%トレール(切上げのみ)' : '';
+    const sub = breach
+      ? '⚠ 現在値が逆指値以下 → 寄りでの決済を検討'
+      : `SBIの逆指値売りをこの価格に${st && st.stop ? '(朝ダイジェスト計算)' : '(記録の損切り)'}${trail}`;
+    holdRows += morningRow(key, isChecked,
+      `${escapeHtml(t.name || '')} <span style="color:#74879f;font-weight:400;">(${tk}) ${t.shares}株</span>`,
+      sub, priceChip('逆指値', stop), breach);
+  });
+  if (holdRows) {
+    html += `<div style="font-size:11px;color:#e7c061;font-weight:700;letter-spacing:.06em;margin:6px 0 2px;">① 保有の逆指値を訂正</div>` + holdRows;
+  }
+
+  // ── ② 今日の逆指値買い(ブレイク監視) ──
+  const watch = (watchlistData && Array.isArray(watchlistData.items)) ? watchlistData.items : [];
+  if (watch.length) {
+    let buyRows = '';
+    watch.forEach(w => {
+      const key = 'w_' + (w.ticker || '');
+      const isChecked = !!done[key];
+      total++; if (isChecked) checked++;
+      const tk = (w.ticker || '').replace('.T', '');
+      buyRows += morningRow(key, isChecked,
+        `${escapeHtml(w.name || '')} <span style="color:#74879f;font-weight:400;">(${tk}) ${w.shares}株</span>`,
+        `あと${Number(w.gap).toFixed(1)}%でブレイク・IFDOCOで①買い+②損切りを一括推奨`,
+        priceChip('買', w.pivot) + priceChip('損切', w.stop), false);
+    });
+    html += `<div style="font-size:11px;color:#e7c061;font-weight:700;letter-spacing:.06em;margin:12px 0 2px;">② 今日の逆指値買い(ブレイク監視・任意)</div>`;
+    if (watchlistData.regime && watchlistData.regime !== 'BULLISH') {
+      html += `<div style="font-size:10.5px;color:#d29922;margin:2px 0 4px;">※地合いは${escapeHtml(watchlistData.regime)}。BULLISH以外は参考表示(当日MOMENTUMは原則発動しません)。</div>`;
+    }
+    html += buyRows;
+  }
+
+  if (!html) {
+    html = '<div style="font-size:12px;color:#7d8590;padding:10px 0;">朝ダイジェスト後にここに表示されます(保有の逆指値・狙いの買い)。<br>保有の逆指値はPAT設定(トレードタブ)後に自動表示。</div>';
+  }
+  el.innerHTML = html;
+  const prog = document.getElementById('morning-progress');
+  if (prog) prog.textContent = total ? `${checked}/${total} 完了` : '';
+}
+
 // ---- 集約フック(render / renderTrades の末尾から呼ぶ) ----
 function renderImprovements() {
   try { renderPositionMeters(); } catch (e) {}
@@ -4143,6 +4274,7 @@ function renderImprovements() {
   try { renderEquityCurve(); } catch (e) {}
   try { renderMonthlyStats(); } catch (e) {}
   try { updateFreshness(); } catch (e) {}
+  try { renderMorningOrders(); } catch (e) {}
 }
 
 // ============================================
@@ -4152,8 +4284,8 @@ let _bootDone = false;
 async function refreshAll() {
   // 🔧 シグナル本体を最優先・独立で読む(現在値/逆指値の取得失敗に巻き込まれない)
   loadPrices().catch(() => {}).then(() => { try { renderImprovements(); } catch (e) {} });
-  loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} });
-  loadWatchlist().catch(() => {});  // 🚀 狙いタブ(ブレイク監視リスト)
+  loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} try { renderMorningOrders(); } catch (e) {} });
+  loadWatchlist().catch(() => {});  // 🚀 狙いタブ(ブレイク監視リスト)+今日の発注に反映
   await loadSignals();
   try { renderImprovements(); } catch (e) {}
   if (!_bootDone) {
