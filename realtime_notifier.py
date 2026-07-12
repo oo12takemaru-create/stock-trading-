@@ -466,8 +466,9 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
     realized = sum(float(t.get("pnl") or 0) for t in closed)
     capital = base_capital + realized
 
-    # 地合い(前日終値ベース)
+    # 地合い(前日終値ベース)。gdは後段のPHYSICS計器盤でも使う
     regime, vix_now = "UNKNOWN", None
+    gd = None
     try:
         gd = ds.fetch_global_data()
         regime, _ = ds.detect_market_regime(gd, datetime.now().date())
@@ -488,6 +489,7 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
             pass
 
     stops = {}
+    hist_map = {}   # 保有銘柄の価格履歴(PHYSICS共振モニターで再利用)
     pos_lines = []
     raised = 0
     alerts = []
@@ -511,6 +513,7 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
         except Exception:
             pass
 
+        hist_map[ticker] = hist
         eff_stop, peak = calc_today_stop(t, hist)
         tid = str(t.get("id") or ticker)
         prev_stop = None
@@ -559,6 +562,81 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
     else:
         lines.append("保有ポジションなし(trades.json 未同期の場合はダッシュボードで同期)")
 
+    # ── 🧭 PHYSICS計器盤(2026-07-12移植・表示のみ=シグナル不変) ──
+    #   移植元: 物理システム/physics_scanner_v0_6.py の L3共振/L2C暴落プロトコル/L2D暴落ハンター。
+    #   10年BT検証でシグナルへの組み込み(弾性限界)は却下、警報表示のみ採用(CHANGELOG 2026-07-12)。
+    physics = {}
+    ph_lines = []
+    # ① 共振モニター: 保有の8割以上が同時に下げた「全赤日」を直近10日で数える(3銘柄以上で有効)
+    rets = {}
+    for tk, h in hist_map.items():
+        try:
+            if h is not None and len(h) > 12:
+                rets[tk] = h["Close"].pct_change()
+        except Exception:
+            pass
+    if len(rets) >= 3:
+        try:
+            R = pd.DataFrame(rets).dropna(how="all").iloc[-10:]
+            down_ratio = (R < 0).sum(axis=1) / R.notna().sum(axis=1)
+            all_red = down_ratio >= 0.8
+            red_count = int(all_red.sum())
+            red_dates = [d.strftime("%m/%d") for d in all_red.index[all_red]][-3:]
+            res_alert = red_count >= 2
+            physics["resonance"] = {"alert": res_alert, "red_count": red_count,
+                                    "red_dates": red_dates, "n": len(rets)}
+            if res_alert:
+                ph_lines.append(f"🔴 共振警報: 直近10日に全赤{red_count}回({', '.join(red_dates)})")
+                ph_lines.append("   → 保有が1つの塊として動いています。新規は控えめに(建玉半分目安)")
+            else:
+                ph_lines.append(f"🟢 共振: 直近10日の全赤{red_count}回 → 分散は生きている")
+        except Exception as e:
+            log(f"⚠ 共振モニター計算失敗: {e}")
+    # ②③ 日経の計器: 暴落ハンター(-15%発報/-10%監視) + 暴落プロトコル(前日-4% or 2日-6%)
+    try:
+        n225 = gd.get("^N225") if gd else None
+        if n225 is not None and len(n225) > 130:
+            c = n225["Close"]
+            close = float(c.iloc[-1])
+            ma25 = float(c.rolling(25).mean().iloc[-1])
+            dev = (close - ma25) / ma25 * 100
+            r = c.pct_change() * 100
+            d1 = float(r.iloc[-1])
+            d2 = float(r.iloc[-2:].sum())
+            status = "fire" if dev <= -15 else ("watch" if dev <= -10 else "calm")
+            physics["hunter"] = {"dev": round(dev, 1), "status": status,
+                                 "ma25": round(ma25), "stop": round(close * 0.88)}
+            if status == "fire":
+                ph_lines.append(f"🎯 暴落ハンター発報: 日経の25日線乖離 {dev:+.1f}%(発報ライン-15%)")
+                ph_lines.append(f"   92年で14回・勝率93%・平均+6.4%の系統バネ領域。翌営業日寄りで指数ETF、")
+                ph_lines.append(f"   出口=25日線タッチ({ma25:,.0f})or30営業日、災害損切り-12%({close*0.88:,.0f})")
+            elif status == "watch":
+                ph_lines.append(f"⚠ 暴落ハンター接近中: 日経の25日線乖離 {dev:+.1f}%(発報-15%)。待機現金の準備を")
+            else:
+                ph_lines.append(f"🟢 暴落ハンター: 日経の25日線乖離 {dev:+.1f}%(発報-15%/監視-10%) → 平常")
+            crash_active = (d1 <= -4.0) or (d2 <= -6.0)
+            if crash_active:
+                rv = c.pct_change().rolling(20).std()
+                pre = rv.rank(pct=True).iloc[-120:-60]
+                pre_pct = float(pre.median() * 100) if len(pre) else 50.0
+                calm_born = pre_pct < 25
+                physics["crash"] = {"active": True, "d1": round(d1, 1), "d2": round(d2, 1),
+                                    "calm_pctile": round(pre_pct),
+                                    "type_hint": "一撃型候補" if calm_born else "余震型候補"}
+                ph_lines.append(f"🚨 暴落プロトコル起動(前日{d1:+.1f}% / 2日{d2:+.1f}%)")
+                ph_lines.append("   [鉄則] 今日は投げ売りも新規も禁止(Day0-1は何もしない)")
+                ph_lines.append(f"   [型判定] 直前60-120日の静けさ: {pre_pct:.0f}%ile → "
+                                + ("静けさ由来=一撃型候補" if calm_born else "緊張由来=余震型候補"))
+                ph_lines.append("   一撃型→VIX急速沈静+半値戻しで再開 / 余震型→VIX高値切り下げ2回まで新規凍結")
+    except Exception as e:
+        log(f"⚠ PHYSICS計器盤の計算失敗: {e}")
+
+    if ph_lines:
+        lines.append("")
+        lines.append("=" * 36)
+        lines.append("━━ 🧭 相場計器盤(PHYSICS・表示のみ)━━")
+        lines.extend(ph_lines)
+
     # ── 今日のブレイク監視リスト(寄り前に逆指値買いを仕込む用) ──
     watch = []
     if watchlist:
@@ -592,18 +670,27 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
     lines.append("※価格は前日終値ベース。発注前にSBIの板で確認。")
     body = "\n".join(lines)
 
+    ph_mark = ""
+    if physics.get("crash", {}).get("active"):
+        ph_mark += "🚨暴落P"
+    if physics.get("hunter", {}).get("status") == "fire":
+        ph_mark += "🎯ハンター"
+    if physics.get("resonance", {}).get("alert"):
+        ph_mark += "🔴共振"
     subject = (f"☀️ 朝ダイジェスト 保有{len(opens)}件"
                + (f"・逆指値切上げ{raised}件" if raised else "")
                + (f"・監視{len(watch)}件" if watch else "")
-               + f" ({regime})")
+               + f" ({regime})"
+               + (f" {ph_mark}" if ph_mark else ""))
 
     # stops.json 書き出し(ダッシュボードの「今日の逆指値」表示用)
     if not dry_run:
         try:
             with open(stops_path, "w", encoding="utf-8") as f:
                 json.dump({"updated": now.isoformat(timespec="seconds"),
-                           "regime": regime, "stops": stops}, f, ensure_ascii=False)
-            log(f"📌 stops.json 書き出し: {len(stops)}件")
+                           "regime": regime, "stops": stops,
+                           "physics": physics}, f, ensure_ascii=False)
+            log(f"📌 stops.json 書き出し: {len(stops)}件 + PHYSICS計器盤")
         except Exception as e:
             log(f"⚠ stops.json 保存失敗: {e}")
 
