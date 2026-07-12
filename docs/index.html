@@ -503,6 +503,15 @@ body{
       </div>
     </div>
 
+    <!-- 🆕 🧭 相場計器盤(PHYSICS移植・朝ダイジェストがstops.jsonに同梱) -->
+    <div class="card" id="physics-gauge-card" style="display:none;">
+      <div class="card-title">🧭 相場計器盤(PHYSICS)</div>
+      <div id="physics-gauges"></div>
+      <div style="font-size:10.5px;color:#6e7681;margin-top:6px;">
+        表示のみ(シグナルは不変)。朝ダイジェストと同時更新。PAT設定済み端末で表示。
+      </div>
+    </div>
+
     <!-- 今日のシグナル -->
     <div class="card-title">🎯 今日のシグナル</div>
     <div id="today-signals"></div>
@@ -4050,6 +4059,7 @@ async function cloudRestoreTrades() {
 }
 
 // ---- 今日の逆指値(朝ダイジェストが計算した stops.json) ----
+let physicsGauges = null;  // 🧭 相場計器盤(stops.jsonのphysicsキー)
 async function loadStops() {
   try {
     const pat = localStorage.getItem(PAT_KEY);
@@ -4067,6 +4077,7 @@ async function loadStops() {
     const j = JSON.parse(await res.text());
     currentStops = j.stops || {};
     stopsUpdated = j.updated || null;
+    physicsGauges = j.physics || null;
   } catch (e) { /* stops.json 未生成時は静かに無視 */ }
 }
 
@@ -4267,6 +4278,47 @@ function renderMorningOrders() {
   if (prog) prog.textContent = total ? `${checked}/${total} 完了` : '';
 }
 
+// ---- 🧭 相場計器盤(PHYSICS移植・表示のみ=シグナル不変) ----
+function gaugeRow(label, value, note, color) {
+  return `<div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #1b2c49;font-size:12px;">
+    <div style="flex:1;color:#9fb2cc;">${label}</div>
+    <div style="font-weight:700;font-size:14px;color:${color};">${value}</div>
+    <div style="flex:1.4;color:${color};font-size:11px;text-align:right;">${note}</div>
+  </div>`;
+}
+function renderPhysicsGauges() {
+  const card = document.getElementById('physics-gauge-card');
+  const el = document.getElementById('physics-gauges');
+  if (!card || !el) return;
+  const g = physicsGauges;
+  if (!g || (!g.resonance && !g.hunter && !g.crash)) { card.style.display = 'none'; return; }
+  const rows = [];
+  if (g.crash && g.crash.active) {
+    rows.push(`<div style="background:#5a1f1f;border:1px solid #f85149;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:#ffa198;line-height:1.7;">
+      <strong style="color:#f85149;">🚨 暴落プロトコル起動</strong>(前日${g.crash.d1}% / 2日${g.crash.d2}%)<br>
+      型判定: <strong>${escapeHtml(g.crash.type_hint || '')}</strong>(直前の静けさ ${g.crash.calm_pctile}%ile)<br>
+      鉄則: Day0-1は投げ売りも新規もしない。一撃型→VIX沈静+半値戻しで再開 / 余震型→VIX高値切り下げ2回まで新規凍結</div>`);
+  }
+  if (g.hunter) {
+    const h = g.hunter;
+    const conf = h.status === 'fire'
+      ? { c: '#f85149', t: `🎯 発報! 系統バネ領域(92年14回・勝率93%)。出口=25日線 ¥${Number(h.ma25).toLocaleString()}` }
+      : (h.status === 'watch'
+        ? { c: '#d29922', t: '⚠ 接近中(発報-15%)。待機現金の準備を' }
+        : { c: '#56d364', t: '平常' });
+    rows.push(gaugeRow('暴落ハンター(日経25日線乖離)', `${h.dev > 0 ? '+' : ''}${h.dev}%`, conf.t, conf.c));
+  }
+  if (g.resonance) {
+    const r = g.resonance;
+    const conf = r.alert
+      ? { c: '#f85149', t: `🔴 警報(${(r.red_dates || []).join(', ')})。新規は控えめに(建玉半分目安)` }
+      : { c: '#56d364', t: '分散は生きている' };
+    rows.push(gaugeRow(`共振モニター(保有${r.n}銘柄・全赤/10日)`, `${r.red_count}回`, conf.t, conf.c));
+  }
+  el.innerHTML = rows.join('');
+  card.style.display = '';
+}
+
 // ---- 集約フック(render / renderTrades の末尾から呼ぶ) ----
 function renderImprovements() {
   try { renderPositionMeters(); } catch (e) {}
@@ -4284,7 +4336,7 @@ let _bootDone = false;
 async function refreshAll() {
   // 🔧 シグナル本体を最優先・独立で読む(現在値/逆指値の取得失敗に巻き込まれない)
   loadPrices().catch(() => {}).then(() => { try { renderImprovements(); } catch (e) {} });
-  loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} try { renderMorningOrders(); } catch (e) {} });
+  loadStops().catch(() => {}).then(() => { try { renderTrades(); } catch (e) {} try { renderMorningOrders(); } catch (e) {} try { renderPhysicsGauges(); } catch (e) {} });
   loadWatchlist().catch(() => {});  // 🚀 狙いタブ(ブレイク監視リスト)+今日の発注に反映
   await loadSignals();
   try { renderImprovements(); } catch (e) {}
