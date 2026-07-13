@@ -4348,6 +4348,11 @@ async function refreshAll() {
 refreshAll();
 setInterval(refreshAll, 5 * 60 * 1000);   // 5分ごとに自動更新
 setInterval(updateFreshness, 30 * 1000);  // 鮮度表示を30秒ごとに更新
+// 🆕 スマホ対策(2026-07-13): バックグラウンドのタブは自動更新が止まるため、
+//    タブに戻った瞬間に必ず最新へ更新する(昼のシグナルが古い画面に出ない問題の恒久対策)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { try { refreshAll(); } catch (e) {} }
+});
 </script>
 
 </body>
