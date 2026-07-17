@@ -1,0 +1,52 @@
+name: Free Scanner (無料版BNFスキャナー)
+
+# 平日 19:30 JST に実行 (UTC 10:30)。
+# 無料版は1営業日遅れのデータなので、GitHubのcron遅延があっても実害なし。
+on:
+  schedule:
+    - cron: '30 10 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run free scanner
+        run: |
+          python scanner_free.py --output docs/free_scanner.json
+
+      - name: Commit free_scanner.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/free_scanner.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "無料版スキャナー結果を更新"
+            git push
+          fi
+
+      - name: Write summary
+        run: |
+          echo "## 無料版スキャナー実行完了" >> $GITHUB_STEP_SUMMARY
+          python -c "import json; d=json.load(open('docs/free_scanner.json',encoding='utf-8')); n=sum(1 for r in d['rows'] if r['judge']=='signal'); print(f\"対象営業日: {d['target_date']} / 地合い: {d['jiai']} / シグナル: {n}件\")" >> $GITHUB_STEP_SUMMARY
