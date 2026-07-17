@@ -38,11 +38,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/free_scanner.json
+          git add -f docs/free_scanner.json
           if git diff --staged --quiet; then
             echo "変更なし"
           else
             git commit -m "無料版スキャナー結果を更新"
+            # 他ワークフローの同時pushと衝突しても失敗しないよう取り込んでからpush
+            git pull --rebase origin main
             git push
           fi
 
