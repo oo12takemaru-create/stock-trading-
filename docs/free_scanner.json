@@ -1,0 +1,28 @@
+{
+ "target_date": "2026-07-16",
+ "generated_at": "2026-07-17T22:38:09+09:00",
+ "jiai": "中立(75日線の上・25日線の下)",
+ "rows": [
+  {
+   "judge": "signal",
+   "code": "6976",
+   "name": "太陽誘電",
+   "sector": "電子部品",
+   "kairi": -27.62
+  },
+  {
+   "judge": "signal",
+   "code": "6506",
+   "name": "安川電機",
+   "sector": "モーター",
+   "kairi": -19.2
+  },
+  {
+   "judge": "signal",
+   "code": "6981",
+   "name": "村田製作所",
+   "sector": "電子部品",
+   "kairi": -19.19
+  }
+ ]
+}
