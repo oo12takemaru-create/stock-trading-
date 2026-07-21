@@ -1098,6 +1098,43 @@ document.getElementById('run-action-btn').href = ACTIONS_URL;
 document.getElementById('github-issues-btn').href = ISSUES_URL;
 
 // ============================================
+// 🔒 リポジトリ非公開化 対応 (2026-07-21)
+// ============================================
+// signals_log.csv(損切り/利確ライン・株数・コスト)、watchlist.json(運用資金額)は
+// 公開リポジトリのままだと raw.githubusercontent.com から誰でも読めてしまう。
+// これを塞ぐためリポジトリを非公開へ切り替えるが、非公開になると raw は
+// 認証必須になり従来の fetch が全て失敗する。そこで:
+//    ・PAT があれば Contents API(認証あり)から読む
+//    ・PAT が無ければ従来どおり raw から読む
+// の二段構えにして、公開中・非公開化後のどちらでも動くようにする。
+//
+// ※Contents API の raw メディアタイプは 1MB まで。signals_log.csv が
+//   1MB を超えたら blobs API への移行が必要(2026-07時点で約50KB)。
+async function fetchRepoFile(path, opt) {
+  const o = opt || {};
+  const bust = `_=${Date.now()}`;
+  const pat = localStorage.getItem(PAT_KEY);
+  if (pat) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${user}/${repo}/contents/${path}?${bust}`,
+        {
+          signal: o.signal,
+          cache: 'no-store',
+          headers: { 'Authorization': `Bearer ${pat}`, 'Accept': 'application/vnd.github.raw' }
+        }
+      );
+      if (res.ok) return res;
+      // 401/403 (PATの期限切れ・scope不足) 等はここで諦めず raw を試す
+      //  = 公開中なら PAT が壊れていても表示が止まらない
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;  // タイムアウトは握りつぶさない
+    }
+  }
+  return fetch(`${RAW_BASE}/${path}?${bust}`, { signal: o.signal, cache: 'no-store' });
+}
+
+// ============================================
 // CSV パース
 // ============================================
 function parseCSV(text) {
@@ -1146,9 +1183,8 @@ async function loadSignals() {
     // 8秒タイムアウト付き fetch(ハングを防ぐ)
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 8000);
-    const url = `${SIGNALS_URL}?_=${Date.now()}`;
     let res;
-    try { res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' }); }
+    try { res = await fetchRepoFile('signals_log.csv', { signal: ctrl.signal }); }
     finally { clearTimeout(tid); }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
@@ -1158,12 +1194,20 @@ async function loadSignals() {
   } catch (e) {
     const msg = (e && e.name === 'AbortError') ? '読み込みタイムアウト(8秒)'
               : (e && e.message ? e.message : '不明なエラー');
+    // 🔒 非公開リポジトリでは PAT が無いと必ず失敗する。原因が分かる案内を出す。
+    const patHint = localStorage.getItem(PAT_KEY) ? '' :
+      `<div style="margin-top:8px;padding:8px;background:#3d2b00;border:1px solid #9e6a03;border-radius:6px;font-size:12px;line-height:1.6;">
+        🔒 <strong>PAT が未設定です。</strong><br>
+        リポジトリを非公開にしている場合、データの読み込みに PAT が必須です。<br>
+        下の「🔑 PAT 設定」から登録してください。
+      </div>`;
     document.getElementById('today-signals').innerHTML =
       `<div class="error-message">
         <strong>⚠️ データ取得に失敗しました</strong><br>
         ${escapeHtml(msg)}<br>
         <span style="font-size:11px;opacity:0.7">${_signalRetry < 4 ? '数秒後に自動で再試行します…' : '自動再試行を停止しました'}</span><br>
         <button class="btn" style="margin-top:8px;background:#1f6feb;" onclick="loadSignals()">🔄 今すぐ再読み込み</button>
+        ${patHint}
         <div style="font-size:10px;opacity:0.5;margin-top:6px;">URL: ${SIGNALS_URL}</div>
       </div>`;
     if (_signalRetry < 4) { _signalRetry++; setTimeout(loadSignals, 3000); }
@@ -3730,7 +3774,7 @@ async function loadPrices() {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 8000);
     let res;
-    try { res = await fetch(`${PRICES_URL}?_=${Date.now()}`, { signal: ctrl.signal, cache: 'no-store' }); }
+    try { res = await fetchRepoFile('prices.json', { signal: ctrl.signal }); }
     finally { clearTimeout(tid); }
     if (!res.ok) return;
     const j = await res.json();
@@ -4092,13 +4136,14 @@ function todayStopRow(t) {
     SBIの逆指値をこの価格に訂正してください</div>`;
 }
 
-// ---- 🚀 狙い(ブレイク監視リスト watchlist.json・公開repoなのでPAT不要) ----
+// ---- 🚀 狙い(ブレイク監視リスト watchlist.json) ----
+// 🔒 capital(運用資金額)を含むため非公開リポジトリへ移行。読み込みは fetchRepoFile 経由。
 const WATCHLIST_URL = `${RAW_BASE}/watchlist.json`;
 let watchlistData = null;
 
 async function loadWatchlist() {
   try {
-    const res = await fetch(`${WATCHLIST_URL}?_=${Date.now()}`, { cache: 'no-store' });
+    const res = await fetchRepoFile('watchlist.json');
     if (!res.ok) throw new Error('not found');
     watchlistData = await res.json();
   } catch (e) {
