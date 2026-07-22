@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/free_scanner.json
+          git add -f docs/free_scanner.json docs/market_jiai.json
           if git diff --staged --quiet; then
             echo "変更なし"
           else
@@ -51,4 +51,15 @@ jobs:
       - name: Write summary
         run: |
           echo "## 無料版スキャナー実行完了" >> $GITHUB_STEP_SUMMARY
-          python -c "import json; d=json.load(open('docs/free_scanner.json',encoding='utf-8')); n=sum(1 for r in d['rows'] if r['judge']=='signal'); print(f\"対象営業日: {d['target_date']} / 地合い: {d['jiai']} / シグナル: {n}件\")" >> $GITHUB_STEP_SUMMARY
+          python - >> $GITHUB_STEP_SUMMARY <<'PY'
+          import json
+          d = json.load(open('docs/free_scanner.json', encoding='utf-8'))
+          n = sum(1 for r in d['rows'] if r['judge'] == 'signal')
+          print(f"- 対象営業日: {d['target_date']} / 地合い: {d['jiai']} / 乖離シグナル: {n}件")
+          if 'signals_today_count' in d:
+              sod = d.get('signal_of_day')
+              one = f"{sod['code']} {sod['name']} ({sod['strategy_label']})" if sod else "なし(当日初出なし)"
+              print(f"- 本番シグナル {d['signals_today_date']}: {d['signals_today_count']}件 / 公開1件: {one}")
+          else:
+              print("- ⚠ signals_log.csv が読めず signal_of_day は未出力")
+          PY
