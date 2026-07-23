@@ -1,6 +1,6 @@
 {
- "target_date": "2026-07-21",
- "generated_at": "2026-07-22T21:12:35+09:00",
+ "target_date": "2026-07-22",
+ "generated_at": "2026-07-23T21:10:51+09:00",
  "jiai": "中立(75日線の上・25日線の下)",
  "rows": [
   {
@@ -8,33 +8,25 @@
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -30.15
+   "kairi": -24.07
   },
   {
    "judge": "signal",
    "code": "6506",
    "name": "安川電機",
    "sector": "モーター",
-   "kairi": -23.48
+   "kairi": -21.3
   },
   {
    "judge": "signal",
    "code": "6981",
    "name": "村田製作所",
    "sector": "電子部品",
-   "kairi": -22.13
+   "kairi": -18.35
   }
  ],
- "signals_today_date": "2026-07-22",
+ "signals_today_date": "2026-07-23",
  "is_halt": false,
  "signals_today_count": 3,
- "signal_of_day": {
-  "scan_date": "2026-07-22",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "7752",
-  "name": "リコー",
-  "sector": "OA機器",
-  "reason": "20日高値ブレイク"
- }
+ "signal_of_day": null
 }
