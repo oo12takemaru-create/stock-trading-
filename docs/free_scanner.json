@@ -1,6 +1,6 @@
 {
  "target_date": "2026-07-23",
- "generated_at": "2026-07-24T21:02:12+09:00",
+ "generated_at": "2026-07-27T22:25:44+09:00",
  "jiai": "中立(75日線の上・25日線の下)",
  "rows": [
   {
@@ -25,16 +25,8 @@
    "kairi": -15.41
   }
  ],
- "signals_today_date": "2026-07-24",
+ "signals_today_date": "2026-07-27",
  "is_halt": false,
  "signals_today_count": 1,
- "signal_of_day": {
-  "scan_date": "2026-07-24",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "5401",
-  "name": "日本製鉄",
-  "sector": "鉄鋼",
-  "reason": "20日高値ブレイク"
- }
+ "signal_of_day": null
 }
