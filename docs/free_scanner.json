@@ -1,6 +1,6 @@
 {
- "target_date": "2026-07-23",
- "generated_at": "2026-07-27T22:25:44+09:00",
+ "target_date": "2026-07-27",
+ "generated_at": "2026-07-28T21:21:52+09:00",
  "jiai": "中立(75日線の上・25日線の下)",
  "rows": [
   {
@@ -8,25 +8,33 @@
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -24.79
+   "kairi": -25.58
   },
   {
    "judge": "signal",
    "code": "6506",
    "name": "安川電機",
    "sector": "モーター",
-   "kairi": -18.62
+   "kairi": -17.8
   },
   {
    "judge": "signal",
    "code": "6981",
    "name": "村田製作所",
    "sector": "電子部品",
-   "kairi": -15.41
+   "kairi": -17.41
   }
  ],
- "signals_today_date": "2026-07-27",
+ "signals_today_date": "2026-07-28",
  "is_halt": false,
- "signals_today_count": 1,
- "signal_of_day": null
+ "signals_today_count": 4,
+ "signal_of_day": {
+  "scan_date": "2026-07-28",
+  "strategy": "MOMENTUM",
+  "strategy_label": "順張り（ブレイク）",
+  "code": "3003",
+  "name": "ヒューリック",
+  "sector": "不動産",
+  "reason": "20日高値ブレイク"
+ }
 }
