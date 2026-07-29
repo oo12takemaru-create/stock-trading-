@@ -1,6 +1,6 @@
 {
  "target_date": "2026-07-27",
- "generated_at": "2026-07-28T21:21:52+09:00",
+ "generated_at": "2026-07-29T21:29:39+09:00",
  "jiai": "中立(75日線の上・25日線の下)",
  "rows": [
   {
@@ -25,16 +25,16 @@
    "kairi": -17.41
   }
  ],
- "signals_today_date": "2026-07-28",
+ "signals_today_date": "2026-07-29",
  "is_halt": false,
- "signals_today_count": 4,
+ "signals_today_count": 16,
  "signal_of_day": {
-  "scan_date": "2026-07-28",
+  "scan_date": "2026-07-29",
   "strategy": "MOMENTUM",
   "strategy_label": "順張り（ブレイク）",
-  "code": "3003",
-  "name": "ヒューリック",
-  "sector": "不動産",
+  "code": "4612",
+  "name": "日本ペイントHD",
+  "sector": "化学",
   "reason": "20日高値ブレイク"
  }
 }
