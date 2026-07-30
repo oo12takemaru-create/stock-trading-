@@ -1,40 +1,40 @@
 {
- "target_date": "2026-07-27",
- "generated_at": "2026-07-29T21:29:39+09:00",
- "jiai": "中立(75日線の上・25日線の下)",
+ "target_date": "2026-07-29",
+ "generated_at": "2026-07-30T21:12:40+09:00",
+ "jiai": "弱気(75日線の下)",
  "rows": [
   {
    "judge": "signal",
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -25.58
-  },
-  {
-   "judge": "signal",
-   "code": "6506",
-   "name": "安川電機",
-   "sector": "モーター",
-   "kairi": -17.8
+   "kairi": -39.58
   },
   {
    "judge": "signal",
    "code": "6981",
    "name": "村田製作所",
    "sector": "電子部品",
-   "kairi": -17.41
+   "kairi": -33.82
+  },
+  {
+   "judge": "signal",
+   "code": "7735",
+   "name": "SCREEN HD",
+   "sector": "半導体製造装置",
+   "kairi": -31.32
   }
  ],
- "signals_today_date": "2026-07-29",
+ "signals_today_date": "2026-07-30",
  "is_halt": false,
- "signals_today_count": 16,
+ "signals_today_count": 1,
  "signal_of_day": {
-  "scan_date": "2026-07-29",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "4612",
-  "name": "日本ペイントHD",
-  "sector": "化学",
-  "reason": "20日高値ブレイク"
+  "scan_date": "2026-07-30",
+  "strategy": "BNF-LITE",
+  "strategy_label": "逆張り（乖離）",
+  "code": "6526",
+  "name": "ソシオネクスト",
+  "sector": "AI半導体",
+  "reason": "乖離率-22.9%"
  }
 }
