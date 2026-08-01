@@ -394,8 +394,9 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
          逆指値買い = pivot(20日高値) / 損切り = pivot×0.95(-5%)
        ★本番scan()と同じ建玉サイズ判定(calc_shares)を通し、リスク%で100株買えない
          銘柄(高額株/除外セクター等)は除外=実際に発注できる候補だけ残す。
-       戻り値: dictのリスト(gap昇順=ブレイク間近順)。"""
+       戻り値: (dictのリスト(gap昇順), 騰落レシオ等のbreadth辞書orNone)。"""
     out = []
+    br_up, br_dn = {}, {}   # 📡 騰落レシオ用: 日付→値上がり/値下がり銘柄数(直近25営業日)
     items = list(ds.STOCKS.items())
     total = len(items)
     for i, (ticker, meta) in enumerate(items):
@@ -410,6 +411,17 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
             df = ds.fetch_stock_data(ticker)
             if df is None or len(df) < 200:
                 continue
+            # 📡 騰落レシオの集計(トレンド条件で弾かれる前に・全銘柄対象)
+            try:
+                rets_b = df["Close"].dropna().tail(26).pct_change().dropna().tail(25)
+                for dt_b, r_b in rets_b.items():
+                    k_b = str(dt_b.date())
+                    if r_b > 0:
+                        br_up[k_b] = br_up.get(k_b, 0) + 1
+                    elif r_b < 0:
+                        br_dn[k_b] = br_dn.get(k_b, 0) + 1
+            except Exception:
+                pass
             df = ds.prepare_indicators(df)
             idx = len(df) - 1
             close = float(df["Close"].iloc[idx])
@@ -441,8 +453,23 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
             })
         except Exception:
             continue
+    breadth = None
+    try:
+        days = sorted(set(br_up) | set(br_dn))[-25:]
+        if len(days) >= 20:
+            tot_up = sum(br_up.get(d, 0) for d in days)
+            tot_dn = sum(br_dn.get(d, 0) for d in days)
+            last = days[-1]
+            breadth = {
+                "adv_dec_ratio25": round(tot_up / tot_dn * 100) if tot_dn else None,
+                "today_adv": br_up.get(last, 0),
+                "today_dn": br_dn.get(last, 0),
+                "breadth_date": last,
+            }
+    except Exception:
+        breadth = None
     out.sort(key=lambda x: x["gap"])
-    return out[:top_n]
+    return out[:top_n], breadth
 
 
 def run_digest(trades_path="trades.json", stops_path="stops.json",
@@ -639,16 +666,47 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
 
     # ── 今日のブレイク監視リスト(寄り前に逆指値買いを仕込む用) ──
     watch = []
+    breadth = None
+    market = {}
     if watchlist:
         log("📈 ブレイク監視リストを作成中 …(全銘柄スキャン)")
         try:
-            watch = build_breakout_watchlist(max_gap_pct=watch_gap, top_n=watch_top,
-                                             capital=capital, regime=regime)
+            watch, breadth = build_breakout_watchlist(max_gap_pct=watch_gap, top_n=watch_top,
+                                                      capital=capital, regime=regime)
         except Exception as e:
             log(f"⚠ 監視リスト作成失敗: {e}")
+        # 📡 相場状況(ダッシュボードの相場パネル用・指数と騰落レシオのみ=個人情報なし・公開可)
+        try:
+            n225_m = gd.get("^N225") if gd else None
+            if n225_m is not None and len(n225_m) > 210:
+                c_m = n225_m["Close"]
+                close_m = float(c_m.iloc[-1])
+                ma25_m = float(c_m.rolling(25).mean().iloc[-1])
+                ma75_m = float(c_m.rolling(75).mean().iloc[-1])
+                ma200_m = float(c_m.rolling(200).mean().iloc[-1])
+                chg1m_m = (close_m / float(c_m.iloc[-22]) - 1) * 100
+                rv_m = c_m.pct_change().rolling(20).std()
+                calm_m = float(rv_m.rank(pct=True).iloc[-1] * 100)
+                market = {"nikkei": round(close_m),
+                          "dev25": round((close_m - ma25_m) / ma25_m * 100, 1),
+                          "dev75": round((close_m - ma75_m) / ma75_m * 100, 1),
+                          "dev200": round((close_m - ma200_m) / ma200_m * 100, 1),
+                          "chg_1m": round(chg1m_m, 1),
+                          "vix": round(vix_now, 1) if vix_now else None,
+                          "calm_pctile": round(calm_m),
+                          "regime": regime}
+                if breadth:
+                    market.update(breadth)
+        except Exception as e:
+            log(f"⚠ 相場状況の計算失敗: {e}")
         lines.append("")
         lines.append("=" * 36)
         lines.append(f"━━ 今日のブレイク監視 {len(watch)}件(20日高値の直下=逆指値買い候補)━━")
+        if market:
+            adr = market.get("adv_dec_ratio25")
+            lines.append(f"相場: 日経{market['nikkei']:,}(25MA{market['dev25']:+.1f}%)"
+                         + (f" / 騰落レシオ25日 {adr}" if adr else "")
+                         + f" / 静けさ{market['calm_pctile']}%ile")
         if regime != "BULLISH":
             lines.append(f"※地合いは{regime}。BULLISH以外だと当日MOMENTUMは原則発動しません(参考表示)。")
         if watch:
@@ -701,9 +759,10 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
             with open(watchlist_path, "w", encoding="utf-8") as f:
                 json.dump({"updated": now.isoformat(timespec="seconds"),
                            "regime": regime, "capital": capital,
-                           "gap_max": watch_gap, "items": watch},
+                           "gap_max": watch_gap, "items": watch,
+                           "market": market},
                           f, ensure_ascii=False)
-            log(f"🎯 watchlist.json 書き出し: {len(watch)}件")
+            log(f"🎯 watchlist.json 書き出し: {len(watch)}件 + 相場状況")
         except Exception as e:
             log(f"⚠ watchlist.json 保存失敗: {e}")
 
