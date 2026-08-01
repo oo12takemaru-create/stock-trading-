@@ -1,21 +1,27 @@
-name: Daily Trading Signal (v2.7.5)
+name: Daily Trading Signal (v2.8.0)
 
+# 実行スケジュール: 月曜〜金曜の朝8:00 / 昼12:00 / 夕18:00 (JST)
+# cronはUTC基準:
+#   JST 08:00 = UTC 前日23:00  → cron: '0 23 * * 0-4' (日〜木 UTC = 月〜金 JST)
+#   JST 12:00 = UTC 当日03:00  → cron: '0 3 * * 1-5' (月〜金 UTC = 月〜金 JST)
+#   JST 18:00 = UTC 当日09:00  → cron: '0 9 * * 1-5' (月〜金 UTC = 月〜金 JST)
 on:
   schedule:
-    - cron: '0 23 * * 0-4'
-    - cron: '0 3 * * 1-5'
-    - cron: '0 9 * * 1-5'
-  workflow_dispatch:
+    - cron: '0 23 * * 0-4'   # 朝 08:00 JST(月〜金)
+    - cron: '0 3 * * 1-5'    # 昼 12:00 JST(月〜金)
+    - cron: '0 9 * * 1-5'    # 夕 18:00 JST(月〜金)
+  workflow_dispatch:          # 手動実行も可能
     inputs:
       capital:
-        description: 'Capital (yen)'
+        description: '運用資金(円)'
         required: false
         default: '1000000'
       risk:
-        description: 'Risk per trade (%)'
+        description: '1トレードリスク(%)'
         required: false
         default: '1.0'
 
+# GITHUB_TOKEN で Issue 作成・signals_log.csv コミットできるように権限付与
 permissions:
   contents: write
   issues: write
@@ -40,29 +46,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Determine time slot
+      - name: Determine time slot (朝/昼/夕)
         id: slot
         run: |
           JST_HOUR=$(TZ='Asia/Tokyo' date +%H)
           if [ "$JST_HOUR" -lt "10" ]; then
-            echo "slot=Morning" >> $GITHUB_OUTPUT
+            echo "slot=🌅 朝" >> $GITHUB_OUTPUT
             echo "slot_en=morning" >> $GITHUB_OUTPUT
           elif [ "$JST_HOUR" -lt "15" ]; then
-            echo "slot=Midday" >> $GITHUB_OUTPUT
+            echo "slot=☀️ 昼" >> $GITHUB_OUTPUT
             echo "slot_en=midday" >> $GITHUB_OUTPUT
           else
-            echo "slot=Evening" >> $GITHUB_OUTPUT
+            echo "slot=🌙 夕" >> $GITHUB_OUTPUT
             echo "slot_en=evening" >> $GITHUB_OUTPUT
           fi
           echo "date_jst=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
           echo "time_jst=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
 
-      - name: Run Daily Scanner v2.7.5
+      # ★2026-07-22: v2.7系→v2.8.0へ差し替え(341銘柄・サンバイオ除外・ナイフガード・
+      #   セクター別リスク調整)。CLIは完全互換。ザラ場通知/朝ダイジェストと同一ロジックに統一。
+      - name: Run Daily Scanner v2.8.0
         env:
           CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
           RISK:    ${{ github.event.inputs.risk || '1.0' }}
         run: |
-          python daily_scanner_v2_7_5.py \
+          python daily_scanner_v2_8_0.py \
             --capital "$CAPITAL" \
             --risk "$RISK" \
             --output signal.md \
@@ -71,22 +79,22 @@ jobs:
       - name: Add timestamp header
         run: |
           cat > signal_final.md <<HEADER
-          > Auto run: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
-          > v2.7.5 (200銘柄) | Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          > ⏰ 自動実行: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
+          > 📦 v2.8.0 341銘柄版 | GitHub Actions run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           HEADER
           cat signal.md >> signal_final.md
 
-      - name: Create signal issue
+      - name: Create or update today's signal issue
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "Signal ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
+          title: "📊 シグナル ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
           content-filepath: signal_final.md
           labels: |
             auto-signal
             ${{ steps.slot.outputs.slot_en }}
 
-      - name: Upload artifacts
+      - name: Upload signal artifacts
         uses: actions/upload-artifact@v4
         with:
           name: signal-${{ steps.slot.outputs.date_jst }}-${{ steps.slot.outputs.slot_en }}
@@ -95,25 +103,51 @@ jobs:
             signal.json
           retention-days: 30
 
+      # ★新機能: シグナル履歴を signals_log.csv に追記
       - name: Append to signals_log.csv
         run: |
           python signal_logger.py signal.json signals_log.csv
 
-      - name: Commit signals_log.csv
+      # ★2026-07-22: lost-update対策(realtime-signal.ymlと同方式)。
+      #   旧実装は他コミットと衝突するとpush失敗でシグナル行が消失(7/13の教訓)。
+      - name: Commit signals_log.csv (行を失わないマージ+リトライ)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add signals_log.csv
           if git diff --staged --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Update signals_log.csv (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
-            git push
-            echo "Updated signals_log.csv"
+            echo "変更なし(全て既存シグナル)"
+            exit 0
           fi
+          cp signals_log.csv /tmp/ours_signals.csv
+          git reset --hard HEAD
+          for i in 1 2 3 4 5; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python merge_signals_log.py /tmp/ours_signals.csv signals_log.csv
+            git add signals_log.csv
+            if git diff --staged --quiet; then
+              echo "リモートに反映済み → 完了"
+              exit 0
+            fi
+            git commit -m "📊 Update signals_log.csv (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
+            if git push; then
+              echo "✓ signals_log.csv を更新(試行${i}回目で成功)"
+              exit 0
+            fi
+            echo "push失敗(試行${i}/5) → リモート最新で再マージして再試行"
+            sleep 7
+          done
+          echo "::error::5回試行してもpushできず。シグナル行(末尾5行):"
+          tail -5 /tmp/ours_signals.csv
+          exit 1
 
       - name: Write summary
         run: |
-          echo "## v2.7.5 execution complete (200 stocks)" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 デイリースキャナー v2.8.0 実行完了" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏰ 実行時刻: ${{ steps.slot.outputs.time_jst }} JST" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏷️ タイムスロット: ${{ steps.slot.outputs.slot }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 💰 運用資金: ¥${{ env.CAPITAL || '1000000' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           cat signal.md >> $GITHUB_STEP_SUMMARY
