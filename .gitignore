@@ -52,3 +52,6 @@ signal.json
 Thumbs.db
 
 .vercel
+!docs/radar.json
+!docs/cot.json
+!docs/ai_analysis.json
