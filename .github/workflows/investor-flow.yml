@@ -1,0 +1,44 @@
+name: Investor Flow Weekly (kaburadar.jp)
+
+# JPX投資部門別売買状況(週間)を毎週木曜16:05 JSTに取得して docs/investor_flow.json に公開
+# (JPXの公表は木曜15:00ごろ) JST木曜16:05 = UTC木曜07:05 → cron '5 7 * * 4'
+on:
+  schedule:
+    - cron: '5 7 * * 4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pandas xlrd
+
+      - name: Fetch investor flow
+        run: python investor_flow.py docs/investor_flow.json
+
+      - name: Commit investor_flow.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/investor_flow.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🏦 投資部門別売買状況を更新"
+          git pull --rebase origin main
+          git push
