@@ -2,9 +2,9 @@ name: AI Market Analysis (kaburadar.jp)
 
 # 毎朝 6:30 JST (月〜金) に AI相場分析を生成して docs/ai_analysis.json に公開
 # JST 06:30 = UTC 前日21:30 → cron '30 21 * * 0-4' (日〜木 UTC = 月〜金 JST)
+# ※通常はClaude Codeの毎朝ルーティン(kaburadar-ai/)が生成する。
+#   本ワークフローは手動実行のみのフォールバック(要 GEMINI_API_KEY secret)。
 on:
-  schedule:
-    - cron: '30 21 * * 0-4'
   workflow_dispatch:
 
 permissions:
