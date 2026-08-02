@@ -1,0 +1,73 @@
+{
+ "updated": "2026-08-02T22:29:12+09:00",
+ "report_date": "2026-07-28",
+ "source": "CFTC Commitments of Traders (legacy, futures only, non-commercial)",
+ "items": [
+  {
+   "key": "jpy",
+   "label": "日本円",
+   "date": "2026-07-28",
+   "long": 101271,
+   "short": 264683,
+   "net": -163412,
+   "net_prev": -152125,
+   "change": -11287,
+   "open_interest": 432366
+  },
+  {
+   "key": "sp500",
+   "label": "S&P500 (E-mini)",
+   "date": "2026-07-28",
+   "long": 257703,
+   "short": 274899,
+   "net": -17196,
+   "net_prev": -16784,
+   "change": -412,
+   "open_interest": 1984408
+  },
+  {
+   "key": "nasdaq",
+   "label": "ナスダック100 (mini)",
+   "date": "2026-07-28",
+   "long": 81531,
+   "short": 76617,
+   "net": 4914,
+   "net_prev": 4546,
+   "change": 368,
+   "open_interest": 294781
+  },
+  {
+   "key": "nikkei",
+   "label": "日経平均先物(円建て)",
+   "date": "2026-07-28",
+   "long": 9282,
+   "short": 3060,
+   "net": 6222,
+   "net_prev": 3962,
+   "change": 2260,
+   "open_interest": 35445
+  },
+  {
+   "key": "gold",
+   "label": "金",
+   "date": "2026-07-28",
+   "long": 219622,
+   "short": 37552,
+   "net": 182070,
+   "net_prev": 183910,
+   "change": -1840,
+   "open_interest": 384603
+  },
+  {
+   "key": "wti",
+   "label": "WTI原油",
+   "date": "2026-07-28",
+   "long": 87185,
+   "short": 83212,
+   "net": 3973,
+   "net_prev": 12514,
+   "change": -8541,
+   "open_interest": 781193
+  }
+ ]
+}
