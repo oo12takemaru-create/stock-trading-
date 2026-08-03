@@ -1,0 +1,65 @@
+name: Tenbagger Weekly Ranking
+
+# 十倍株スキャナー(公開用)。毎週土曜 09:00 JST = 土曜 00:00 UTC に実行し、
+# 東証全銘柄を採点して docs/tenbagger.json を更新する。株レーダー(kaburadar.jp)が表示。
+# GitHub Actionsのcronは混雑時に遅延するが、週次ランキングなので数時間の遅れは許容。
+on:
+  schedule:
+    - cron: '0 0 * * 6'   # 土曜 09:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tenbagger ranking (全銘柄2年分の取得を含むため20〜40分)
+        run: python tenbagger_rank.py
+
+      - name: Commit docs/tenbagger.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git stash --include-untracked || true
+            git reset --hard origin/${{ github.ref_name }}
+            git stash pop || true
+            git add -f docs/tenbagger.json
+            if git diff --staged --quiet; then
+              echo "tenbagger.json 変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "🚀 Update docs/tenbagger.json (weekly)"
+            if git push; then
+              echo "✓ tenbagger.json を公開(試行${i}回目で成功)"
+              exit 0
+            fi
+            echo "push失敗(試行${i}/3) → 再試行"
+            sleep 7
+          done
+          echo "::error::tenbagger.json のpushに失敗(次回実行で再試行される)"
+          exit 1
+
+      - name: Write summary
+        run: |
+          echo "## 🚀 十倍株スキャナー 週次実行完了" >> $GITHUB_STEP_SUMMARY
+          python -c "import json;d=json.load(open('docs/tenbagger.json',encoding='utf-8'));print(f\"- データ最終日: {d['data_date']} / 評価 {d['universe']}銘柄\");print(f\"- 1位: {d['items'][0]['code']} {d['items'][0]['name']} ({d['items'][0]['score']}点)\")" >> $GITHUB_STEP_SUMMARY
