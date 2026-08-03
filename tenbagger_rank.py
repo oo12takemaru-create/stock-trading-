@@ -2,8 +2,9 @@
 """十倍株スキャナー(公開用・GitHub Actions週次実行版)
 
 ミネルヴィニ(トレンドテンプレート8点)+ ロケット投資(検証済み条件3点)+
-サイズ(時価総額2点)の3レンズで東証全銘柄を機械的に採点し、
-上位50銘柄を docs/tenbagger.json に書き出す。株レーダー(kaburadar.jp)が表示する。
+サイズ(時価総額2点)+ リンチ(業績5点・技術点上位300のみ)の4レンズ・満点18点で
+東証全銘柄を機械的に採点し、上位50銘柄を docs/tenbagger.json に書き出す。
+株レーダー(kaburadar.jp)が表示する。
 
 これは機械的スクリーニングの出力事実の公開であり、投資助言・銘柄推奨ではない。
 ローカル版: 株式投資開発/十倍株スキャナー/tenbagger_screener.py(ロジックは同一)
@@ -33,6 +34,7 @@ MIN_TURNOVER = 20e6      # 20日平均売買代金 2,000万円未満は除外
 RS_TOP_PCT = 70
 CHUNK = 200
 TOP_N = 50
+LYNCH_POOL = 300         # 業績(リンチレンズ)を取得するのは技術点上位この件数のみ
 
 
 def evaluate(close_s: pd.Series, vol_s: pd.Series) -> dict | None:
@@ -83,6 +85,54 @@ def evaluate(close_s: pd.Series, vol_s: pd.Series) -> dict | None:
         "turnover": turnover,
         "last_date": d.index[-1],
     }
+
+
+def lynch_eval(tk: str) -> dict:
+    """リンチレンズ(業績5点)。データ欠損は加点なし=業績を確認できない銘柄は上げない。
+
+    L1 PEG(PER÷利益成長率) <1.0で2点 / <1.5で1点
+    L2 利益成長が年20〜50%のスイートスポットで1点(50%超は過熱とみなし加点しない)
+    L3 有利子負債が自己資本の50%未満で1点
+    L4 無名(アナリスト1人以下 かつ 機関保有20%未満)で1点
+    成長率は年次純利益の3年成長率(年率)を優先し、無ければ直近四半期YoYで代用。
+    """
+    out = {"lynch": 0.0, "peg": None, "growth_pct": None}
+    try:
+        tick = yf.Ticker(tk)
+        info = tick.info or {}
+    except Exception:
+        return out
+    growth = None
+    try:
+        ist = tick.income_stmt
+        if ist is not None and "Net Income" in ist.index:
+            ni = ist.loc["Net Income"].dropna()
+            if len(ni) >= 2:
+                latest, oldest = float(ni.iloc[0]), float(ni.iloc[-1])
+                years = (ni.index[0] - ni.index[-1]).days / 365.25
+                if latest > 0 and oldest > 0 and years >= 1:
+                    growth = (latest / oldest) ** (1 / years) - 1
+    except Exception:
+        pass
+    if growth is None:
+        g = info.get("earningsGrowth")
+        growth = float(g) if g is not None else None
+
+    pe = info.get("trailingPE")
+    peg = pe / (growth * 100) if (pe and growth and pe > 0 and growth > 0) else None
+    dte = info.get("debtToEquity")
+    analysts = info.get("numberOfAnalystOpinions") or 0
+    inst = info.get("heldPercentInstitutions")
+
+    l1 = 2.0 if (peg is not None and peg < 1.0) else (1.0 if peg is not None and peg < 1.5 else 0.0)
+    l2 = 1.0 if (growth is not None and 0.20 <= growth <= 0.50) else 0.0
+    l3 = 1.0 if (dte is not None and dte < 50) else 0.0
+    l4 = 1.0 if (inst is not None and inst < 0.20 and analysts <= 1) else 0.0
+
+    out["lynch"] = l1 + l2 + l3 + l4
+    out["peg"] = None if peg is None else round(peg, 2)
+    out["growth_pct"] = None if growth is None else round(growth * 100, 1)
+    return out
 
 
 def size_score(mcap_oku) -> float:
@@ -144,6 +194,20 @@ def main():
     illiquid = t["turnover"] < MIN_TURNOVER
     t = t[~illiquid].sort_values(["score", "rs_pct"], ascending=False)
 
+    # リンチレンズ: 技術点上位のみ業績を取得して加点(最終審査)
+    pool = list(t.head(LYNCH_POOL).index)
+    print(f"リンチレンズ: 技術点上位{len(pool)}銘柄の業績を取得(10分前後)")
+    lynch_rows = {}
+    for j, tk in enumerate(pool, 1):
+        lynch_rows[tk] = lynch_eval(tk)
+        if j % 50 == 0:
+            print(f"  {j}/{len(pool)} 済")
+        time.sleep(0.2)
+    t = t.join(pd.DataFrame.from_dict(lynch_rows, orient="index"))
+    t["lynch"] = t["lynch"].fillna(0.0)
+    t["score"] = t["score"] + t["lynch"]
+    t = t.sort_values(["score", "rs_pct"], ascending=False)
+
     data_date = max(r["last_date"] for r in rows.values())
     items = []
     for rank, (_, r) in enumerate(t.head(TOP_N).iterrows(), 1):
@@ -159,6 +223,9 @@ def main():
             "minervini": int(r["minervini"]),
             "rocket": int(r["rocket"]),
             "size": float(r["size"]),
+            "lynch": float(r["lynch"]),
+            "peg": None if pd.isna(r["peg"]) else float(r["peg"]),
+            "growth_pct": None if pd.isna(r["growth_pct"]) else float(r["growth_pct"]),
             "rs": float(r["rs_pct"]),
             "off_high_pct": float(r["off_high_pct"]),
             "ret3m_pct": float(r["ret3m_pct"]),
@@ -172,7 +239,8 @@ def main():
         "universe": int(n_all),
         "excluded_young": int(young),
         "excluded_illiquid": int(illiquid.sum()),
-        "max_score": 13,
+        "max_score": 18,
+        "lynch_pool": len(pool),
         "items": items,
     }
     OUT_JSON.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
