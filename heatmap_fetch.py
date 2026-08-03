@@ -19,7 +19,7 @@ def main():
     from daily_scanner_v2_8_0 import STOCKS
 
     tickers = list(STOCKS.keys())
-    df = yf.download(tickers, period="7d", progress=False, auto_adjust=False,
+    df = yf.download(tickers, period="60d", progress=False, auto_adjust=False,
                      group_by="ticker", threads=True)
 
     items = []
@@ -36,14 +36,26 @@ def main():
             change = (last / prev - 1) * 100
             turnover = last * vol  # 売買代金(円)
             name, sector = STOCKS[t]
-            items.append({
+            item = {
                 "t": t.replace(".T", ""),
                 "n": name,
                 "s": sector,
                 "c": round(change, 2),
                 "p": round(last, 1),
                 "v": round(turnover / 1e8, 1),  # 億円
-            })
+            }
+            # 出来高倍率(当日出来高 ÷ 直近20日平均・当日除く) = 資金流入のサイン
+            vols = sub["Volume"].iloc[-21:-1].dropna()
+            if len(vols) >= 10:
+                avg = float(vols.mean())
+                if avg > 0:
+                    item["r"] = round(vol / avg, 2)
+            # 5日騰落率
+            if len(sub) >= 6:
+                p5 = float(sub["Close"].iloc[-6])
+                if p5 > 0:
+                    item["c5"] = round((last / p5 - 1) * 100, 1)
+            items.append(item)
         except Exception:
             continue
 
