@@ -37,8 +37,12 @@ JST = timezone(timedelta(hours=9))
 PAGES = "https://oo12takemaru-create.github.io/stock-trading-"
 DOCS = Path("docs")
 
-ANTHROPIC_MODEL = "claude-sonnet-5"
-GEMINI_MODEL = "gemini-2.5-flash"
+# モデルは環境変数で差し替え可能(コストと品質のトレードオフ)
+#   claude-opus-5    $5 / $25 per 1M tokens (既定・最高品質)
+#   claude-sonnet-5  $3 / $15 (2026-08-31まで導入価格 $2 / $10)
+#   claude-haiku-4-5 $1 / $5  (最安)
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-opus-5"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
 
 RSS_FEEDS = [
     ("NHK 経済",  "https://www3.nhk.or.jp/rss/news/cat5.xml"),
@@ -388,12 +392,16 @@ def _extract_json(text):
 
 
 def call_anthropic(prompt, key):
+    # 注意(Claude 5世代の仕様):
+    #  - temperature / top_p / top_k は送ると400エラーになるので付けない
+    #  - thinkingは既定でオン。max_tokensは「思考+本文」の合計上限なので
+    #    JSONが途中で切れないよう十分な余裕を取る
     res = _post_json(
         "https://api.anthropic.com/v1/messages",
         {
             "model": ANTHROPIC_MODEL,
-            "max_tokens": 4096,
-            "temperature": 0.4,
+            "max_tokens": 16000,
+            "output_config": {"effort": "medium"},
             "messages": [{"role": "user", "content": prompt}],
         },
         {
@@ -402,6 +410,10 @@ def call_anthropic(prompt, key):
             "anthropic-version": "2023-06-01",
         },
     )
+    if res.get("stop_reason") == "refusal":
+        raise RuntimeError("安全性フィルタにより生成が拒否されました")
+    if res.get("stop_reason") == "max_tokens":
+        raise RuntimeError("max_tokens に達して出力が途中で切れました")
     text = "".join(b.get("text", "") for b in res.get("content", []) if b.get("type") == "text")
     return _extract_json(text)
 
