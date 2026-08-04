@@ -42,6 +42,9 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 任意: リポジトリ変数 ANTHROPIC_MODEL でモデルを差し替え
+          # (未設定なら claude-opus-5。安くしたい場合は claude-sonnet-5 など)
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: |
           python ai_analysis.py docs/ai_analysis.json
 
