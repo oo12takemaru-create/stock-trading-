@@ -69,17 +69,20 @@ def evaluate(close_s: pd.Series, vol_s: pd.Series) -> dict | None:
     ])
     base_win = close[-66:]
     prev20 = vol[-25:-5]
-    rocket = sum([
-        c >= hi52 * 0.95,
-        base_win.max() / base_win.min() <= 1.30,
-        prev20.mean() > 0 and vol[-5:].max() >= prev20.mean() * 2,
-    ])
+    r1 = c >= hi52 * 0.95                                       # 新高値圏
+    r2 = base_win.max() / base_win.min() <= 1.30                # 発射台(持ち合い)
+    r3 = prev20.mean() > 0 and vol[-5:].max() >= prev20.mean() * 2  # 点火出来高
+    ma25 = close[-25:].mean()
     turnover = float((d["Close"] * d["Volume"]).tail(20).mean())
     return {
         "close": round(c, 1),
         "rs_raw": rs_raw,
         "minervini7": int(minervini),   # M8(RS)は全銘柄比較後に加点
-        "rocket": int(rocket),
+        "rocket": int(r1 + r2 + r3),
+        "near_high": bool(r1),
+        "base": bool(r2),
+        "ignition": bool(r3),
+        "ma25_gap_pct": round((c / ma25 - 1) * 100, 1),
         "off_high_pct": round((c / hi52 - 1) * 100, 1),
         "ret3m_pct": round(ret(63) * 100, 1),
         "turnover": turnover,
@@ -96,7 +99,7 @@ def lynch_eval(tk: str) -> dict:
     L4 無名(アナリスト1人以下 かつ 機関保有20%未満)で1点
     成長率は年次純利益の3年成長率(年率)を優先し、無ければ直近四半期YoYで代用。
     """
-    out = {"lynch": 0.0, "peg": None, "growth_pct": None}
+    out = {"lynch": 0.0, "peg": None, "growth_pct": None, "obscure": False}
     try:
         tick = yf.Ticker(tk)
         info = tick.info or {}
@@ -132,6 +135,7 @@ def lynch_eval(tk: str) -> dict:
     out["lynch"] = l1 + l2 + l3 + l4
     out["peg"] = None if peg is None else round(peg, 2)
     out["growth_pct"] = None if growth is None else round(growth * 100, 1)
+    out["obscure"] = l4 == 1.0
     return out
 
 
@@ -226,6 +230,11 @@ def main():
             "lynch": float(r["lynch"]),
             "peg": None if pd.isna(r["peg"]) else float(r["peg"]),
             "growth_pct": None if pd.isna(r["growth_pct"]) else float(r["growth_pct"]),
+            "obscure": bool(r["obscure"]) if not pd.isna(r["obscure"]) else False,
+            "near_high": bool(r["near_high"]),
+            "base": bool(r["base"]),
+            "ignition": bool(r["ignition"]),
+            "ma25_gap_pct": float(r["ma25_gap_pct"]),
             "rs": float(r["rs_pct"]),
             "off_high_pct": float(r["off_high_pct"]),
             "ret3m_pct": float(r["ret3m_pct"]),
