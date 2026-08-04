@@ -1,19 +1,27 @@
 name: AI Market Analysis (kaburadar.jp)
 
-# 毎朝 6:30 JST (月〜金) に AI相場分析を生成して docs/ai_analysis.json に公開
-# JST 06:30 = UTC 前日21:30 → cron '30 21 * * 0-4' (日〜木 UTC = 月〜金 JST)
-# ※通常はClaude Codeの毎朝ルーティン(kaburadar-ai/)が生成する。
-#   本ワークフローは手動実行のみのフォールバック(要 GEMINI_API_KEY secret)。
+# 毎朝 6:25 JST (月〜金) に AI相場分析を生成して docs/ai_analysis.json に公開
+# JST 06:25 = UTC 前日21:25 → cron '25 21 * * 0-4' (日〜木 UTC = 月〜金 JST)
+# ※ :00 / :30 はGitHub側が混雑して遅延しやすいため、あえて外した時刻にしている
+#
+# APIキーは ANTHROPIC_API_KEY を優先し、無ければ GEMINI_API_KEY を使う。
+# どちらか一方をリポジトリのSecretsに登録すれば動く。
 on:
+  schedule:
+    - cron: '25 21 * * 0-4'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: ai-analysis
+  cancel-in-progress: false
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -32,6 +40,7 @@ jobs:
 
       - name: Generate AI analysis
         env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python ai_analysis.py docs/ai_analysis.json
