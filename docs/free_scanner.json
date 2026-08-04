@@ -1,6 +1,6 @@
 {
- "target_date": "2026-07-31",
- "generated_at": "2026-08-03T22:25:38+09:00",
+ "target_date": "2026-08-03",
+ "generated_at": "2026-08-04T21:26:29+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,25 +8,33 @@
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -28.16
+   "kairi": -28.97
   },
   {
    "judge": "signal",
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -24.61
+   "kairi": -25.36
   },
   {
    "judge": "signal",
-   "code": "3436",
-   "name": "SUMCO",
-   "sector": "半導体",
-   "kairi": -20.28
+   "code": "6981",
+   "name": "村田製作所",
+   "sector": "電子部品",
+   "kairi": -19.63
   }
  ],
- "signals_today_date": "2026-08-03",
+ "signals_today_date": "2026-08-04",
  "is_halt": false,
- "signals_today_count": 3,
- "signal_of_day": null
+ "signals_today_count": 2,
+ "signal_of_day": {
+  "scan_date": "2026-08-04",
+  "strategy": "BNF-LITE",
+  "strategy_label": "逆張り（乖離）",
+  "code": "3407",
+  "name": "旭化成",
+  "sector": "化学",
+  "reason": "乖離率-13.3%"
+ }
 }
