@@ -18,8 +18,25 @@ def main():
     import yfinance as yf
     from daily_scanner_v2_8_0 import STOCKS
 
+    # 時価総額用の発行済株式数(十倍株スキャナーのCSVを流用。無ければ時価総額を出さない)
+    SHARES = {}
+    try:
+        import csv
+        with open("tenbagger_shares.csv", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                code = (row.get("ticker") or row.get("code") or "").strip().replace(".T", "")
+                try:
+                    n = float(row.get("shares") or 0)
+                except ValueError:
+                    n = 0
+                if code and n > 0:
+                    SHARES[code] = n
+        print(f"発行済株式数: {len(SHARES)}銘柄", file=sys.stderr)
+    except Exception as e:
+        print(f"株式数CSV読込スキップ: {e}", file=sys.stderr)
+
     tickers = list(STOCKS.keys())
-    df = yf.download(tickers, period="60d", progress=False, auto_adjust=False,
+    df = yf.download(tickers, period="130d", progress=False, auto_adjust=False,
                      group_by="ticker", threads=True)
 
     items = []
@@ -58,11 +75,16 @@ def main():
                 avg = float(vols.mean())
                 if avg > 0:
                     item["r"] = round(vol / avg, 2)
-            # 5日騰落率
-            if len(sub) >= 6:
-                p5 = float(sub["Close"].iloc[-6])
-                if p5 > 0:
-                    item["c5"] = round((last / p5 - 1) * 100, 1)
+            # 期間別騰落率(1週=5営業日 / 1ヶ月=20 / 3ヶ月=60)
+            for key, back in (("c5", 5), ("c20", 20), ("c60", 60)):
+                if len(sub) >= back + 1:
+                    pb = float(sub["Close"].iloc[-(back + 1)])
+                    if pb > 0:
+                        item[key] = round((last / pb - 1) * 100, 1)
+            # 時価総額(億円) = 終値 × 発行済株式数
+            sh = SHARES.get(t.replace(".T", ""))
+            if sh:
+                item["m"] = round(last * sh / 1e8)
             items.append(item)
         except Exception:
             continue
