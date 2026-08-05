@@ -1,11 +1,13 @@
 name: Tenbagger Weekly Ranking
 
-# 十倍株スキャナー(公開用)。毎週土曜 09:00 JST = 土曜 00:00 UTC に実行し、
-# 東証全銘柄を採点して docs/tenbagger.json を更新する。株レーダー(kaburadar.jp)が表示。
-# GitHub Actionsのcronは混雑時に遅延するが、週次ランキングなので数時間の遅れは許容。
+# 十倍株スキャナー(公開用)。金曜終値のデータで東証全銘柄を採点し、
+# docs/tenbagger.json を更新する。株レーダー(kaburadar.jp)が表示。
+# ★GitHub Actionsのcronは混雑時に2〜3時間遅延するため、キリの良い分を避け、
+#   土曜に2回走らせて「その週の更新が必ず入る」ようにしている(同じ金曜終値なので冪等)。
 on:
   schedule:
-    - cron: '0 0 * * 6'   # 土曜 09:00 JST
+    - cron: '13 23 * * 5'  # 土 08:13 JST
+    - cron: '13 4 * * 6'   # 土 13:13 JST (保険)
   workflow_dispatch:
 
 permissions:
