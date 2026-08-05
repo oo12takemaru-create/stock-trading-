@@ -1,12 +1,18 @@
 name: Heatmap (kaburadar.jp)
 
-# 日本株ヒートマップ用データを平日3回(10:00/12:45/15:45 JST)更新 → docs/heatmap.json
-# JST 10:00 = UTC 01:00 / JST 12:45 = UTC 03:45 / JST 15:45 = UTC 06:45
+# 日本株ヒートマップ用データを平日6回更新 → docs/heatmap.json
+# ★GitHub Actionsの定時実行は混雑時に2〜3時間遅延することがあるため、
+#   (a)キリの良い分を避ける (b)回数を増やして「その日の更新が必ず入る」ようにする
+#   の2点で対策している。1回あたり約45秒。
+# JST = UTC+9 / 東証は 9:00-15:30 JST
 on:
   schedule:
-    - cron: '0 1 * * 1-5'
-    - cron: '45 3 * * 1-5'
-    - cron: '45 6 * * 1-5'
+    - cron: '3 0 * * 1-5'    # 09:03 JST 寄り付き直後
+    - cron: '23 1 * * 1-5'   # 10:23 JST
+    - cron: '23 3 * * 1-5'   # 12:23 JST 後場寄り
+    - cron: '23 5 * * 1-5'   # 14:23 JST
+    - cron: '3 7 * * 1-5'    # 16:03 JST 大引け後(確定値)
+    - cron: '3 10 * * 1-5'   # 19:03 JST 保険(遅延時の取りこぼし防止)
   workflow_dispatch:
 
 permissions:

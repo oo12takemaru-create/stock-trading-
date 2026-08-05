@@ -23,6 +23,7 @@ def main():
                      group_by="ticker", threads=True)
 
     items = []
+    trade_dates = {}
     for t in tickers:
         try:
             sub = df[t].dropna(subset=["Close"])
@@ -36,6 +37,13 @@ def main():
             change = (last / prev - 1) * 100
             turnover = last * vol  # 売買代金(円)
             name, sector = STOCKS[t]
+            # 価格データの取引日(最新行の日付)
+            try:
+                d0 = sub.index[-1]
+                dstr = d0.strftime("%Y-%m-%d")
+                trade_dates[dstr] = trade_dates.get(dstr, 0) + 1
+            except Exception:
+                pass
             item = {
                 "t": t.replace(".T", ""),
                 "n": name,
@@ -63,15 +71,18 @@ def main():
         print(f"取得数が少なすぎる: {len(items)}", file=sys.stderr)
         sys.exit(1)
 
+    # 最頻値=市場全体の最新取引日
+    trade_date = max(trade_dates, key=trade_dates.get) if trade_dates else None
     out = {
         "updated": datetime.now(JST).isoformat(timespec="seconds"),
+        "trade_date": trade_date,
         "count": len(items),
         "items": items,
     }
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     up = sum(1 for i in items if i["c"] > 0)
-    print(f"heatmap.json 生成: {len(items)}銘柄 (上昇{up}/下落{len(items)-up-sum(1 for i in items if i['c']==0)})")
+    print(f"heatmap.json 生成: {len(items)}銘柄 取引日={trade_date} (上昇{up}/下落{len(items)-up-sum(1 for i in items if i['c']==0)})")
 
 
 if __name__ == "__main__":
