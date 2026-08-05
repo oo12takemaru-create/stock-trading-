@@ -1,0 +1,82 @@
+name: Data Healthcheck (kaburadar.jp)
+
+# 公開JSONが古くなっていないかを毎日チェックし、古ければIssueで通知する。
+# 「更新が止まったことに気づけない」のを防ぐための監視。
+# 平日 21:13 JST (= 12:13 UTC) に実行。
+on:
+  schedule:
+    - cron: '13 12 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check data freshness
+        id: chk
+        run: |
+          python - <<'PY' > report.md
+          import json, sys
+          from datetime import datetime, timezone, timedelta
+          JST = timezone(timedelta(hours=9))
+          now = datetime.now(JST)
+          today = now.date()
+
+          # (ファイル, 表示名, 許容遅れ日数)
+          TARGETS = [
+              ("docs/heatmap.json",       "ヒートマップ/出来高", 1),
+              ("docs/radar.json",         "地合い判定",         1),
+              ("docs/ai_analysis.json",   "AI朝刊",             1),
+              ("docs/cot.json",           "投機筋(COT)",        8),
+              ("docs/investor_flow.json", "投資部門別",         8),
+              ("docs/tenbagger.json",     "十倍株スキャナー",   8),
+          ]
+          problems = []
+          rows = []
+          for path, label, tol in TARGETS:
+              try:
+                  d = json.load(open(path, encoding="utf-8"))
+              except Exception as e:
+                  problems.append(f"{label}: 読込失敗 ({e})")
+                  rows.append(f"| {label} | ❌ 読込失敗 | - |")
+                  continue
+              upd = d.get("updated") or (d.get("latest") or {}).get("updated") or ""
+              try:
+                  dt = datetime.fromisoformat(upd).date()
+                  age = (today - dt).days
+              except Exception:
+                  problems.append(f"{label}: updated が読めない ({upd!r})")
+                  rows.append(f"| {label} | ❌ 日付不明 | {upd} |")
+                  continue
+              ok = age <= tol
+              if not ok:
+                  problems.append(f"{label}: {age}日前が最新 (許容{tol}日)")
+              rows.append(f"| {label} | {'✅' if ok else '⚠️ 古い'} | {upd[:16]} ({age}日前) |")
+
+          print(f"## 株レーダー データ鮮度チェック ({now:%Y-%m-%d %H:%M} JST)\n")
+          print("| データ | 状態 | 最終更新 |")
+          print("|---|---|---|")
+          print("\n".join(rows))
+          if problems:
+              print("\n### ⚠️ 要対応\n")
+              for p in problems:
+                  print(f"- {p}")
+          PY
+          cat report.md >> $GITHUB_STEP_SUMMARY
+          if grep -q "要対応" report.md; then echo "stale=true" >> $GITHUB_OUTPUT; else echo "stale=false" >> $GITHUB_OUTPUT; fi
+
+      - name: Open issue when stale
+        if: steps.chk.outputs.stale == 'true'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "⚠️ 株レーダー: データ更新が止まっています"
+          content-filepath: report.md
+          labels: data-alert
