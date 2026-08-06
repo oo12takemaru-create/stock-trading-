@@ -466,6 +466,8 @@ def main():
     if len(inputs) < 300:
         print("入力データが少なすぎるため中止", file=sys.stderr)
         sys.exit(1)
+    # make_x_post.py が数字を拾えるよう入力データを残す(デバッグにも使う)
+    Path("inputs.txt").write_text(inputs, encoding="utf-8")
 
     prompt = PROMPT_TEMPLATE.format(inputs=inputs)
 

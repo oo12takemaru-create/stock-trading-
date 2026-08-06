@@ -1,15 +1,15 @@
 name: AI Market Analysis (kaburadar.jp)
 
-# 通常は「PCを朝スリープ解除 → Claude Codeの定期タスクが生成」で運用している。
-# 本ワークフローは手動実行のバックアップ(PCが動かせない日・旅行中など)。
+# AI朝刊の本番生成。平日6:25 JSTに自動実行する(PCの電源状態に依存しない)。
+# 以前はPCのClaude Code定期タスクで生成していたが、朝アプリが起動していないと
+# 発火しない(2026-08-06に実際に取りこぼした)ため、クラウド実行を正とした。
 #
-# 使うには ANTHROPIC_API_KEY か GEMINI_API_KEY をSecretsに登録してから
-# Actionsタブで手動実行する。キー未登録のまま自動実行すると毎朝失敗するので、
-# スケジュールはあえて設定していない。
-# 自動化したくなったら次の行を on: の下に足す(平日6:25 JST):
-#   schedule:
-#     - cron: '25 21 * * 0-4'
+# 必須: Secrets に ANTHROPIC_API_KEY(または GEMINI_API_KEY)を登録すること。
+# 未登録だと毎朝この job が失敗する(サイトには前日分が残るだけで実害はない)。
+# 任意: リポジトリ変数 ANTHROPIC_MODEL でモデル差し替え、Secret NTFY_TOPIC でスマホ通知。
 on:
+  schedule:
+    - cron: '25 21 * * 0-4'   # 21:25 UTC(日〜木) = 6:25 JST(月〜金)
   workflow_dispatch:
 
 permissions:
@@ -37,7 +37,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pandas
+          pip install yfinance pandas pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
 
       - name: Generate AI analysis
         env:
@@ -49,11 +51,18 @@ jobs:
         run: |
           python ai_analysis.py docs/ai_analysis.json
 
+      - name: Build X post text and image
+        continue-on-error: true    # 投稿素材の失敗で朝刊の公開を止めない
+        run: |
+          python -X utf8 make_x_post.py docs/ai_analysis.json inputs.txt docs/x
+          echo "----- 本文 -----"
+          cat docs/x/x_post.txt
+
       - name: Commit ai_analysis.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/ai_analysis.json
+          git add -f docs/ai_analysis.json docs/x/x_card.png docs/x/x_post.txt
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
@@ -61,3 +70,26 @@ jobs:
           git commit -m "🤖 AI相場分析を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
           git pull --rebase origin main
           git push
+
+      - name: Notify (ntfy)
+        if: success()
+        continue-on-error: true
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "NTFY_TOPIC未設定のためスキップ"; exit 0; fi
+          python - <<'PY'
+          import json, os, urllib.request
+          d = json.load(open("docs/ai_analysis.json", encoding="utf-8"))["latest"]
+          body = open("docs/x/x_post.txt", encoding="utf-8").read() if os.path.exists("docs/x/x_post.txt") else d["headline"]
+          urllib.request.urlopen(urllib.request.Request(
+              "https://ntfy.sh",
+              data=json.dumps({
+                  "topic": os.environ["NTFY_TOPIC"],
+                  "title": f"AI朝刊 {d['date']}",
+                  "message": body[:1200],
+                  "click": "https://oo12takemaru-create.github.io/stock-trading-/x/x_card.png",
+              }).encode("utf-8"),
+              headers={"Content-Type": "application/json"}), timeout=30)
+          print("ntfy送信OK")
+          PY
