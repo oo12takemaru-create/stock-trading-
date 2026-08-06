@@ -1,40 +1,32 @@
 {
- "target_date": "2026-08-04",
- "generated_at": "2026-08-05T21:24:19+09:00",
- "jiai": "弱気(75日線の下)",
+ "target_date": "2026-08-05",
+ "generated_at": "2026-08-06T21:26:42+09:00",
+ "jiai": "強気(25日線・75日線の上)",
  "rows": [
   {
    "judge": "signal",
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -24.48
+   "kairi": -15.84
   },
   {
    "judge": "signal",
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -20.29
+   "kairi": -15.66
   },
   {
-   "judge": "signal",
-   "code": "6981",
-   "name": "村田製作所",
-   "sector": "電子部品",
-   "kairi": -18.67
+   "judge": "watch",
+   "code": "8035",
+   "name": "東京エレクトロン",
+   "sector": "半導体製造装置",
+   "kairi": -10.67
   }
  ],
- "signals_today_date": "2026-08-05",
+ "signals_today_date": "2026-08-06",
  "is_halt": false,
- "signals_today_count": 5,
- "signal_of_day": {
-  "scan_date": "2026-08-05",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "6395",
-  "name": "タダノ",
-  "sector": "機械",
-  "reason": "20日高値ブレイク"
- }
+ "signals_today_count": 4,
+ "signal_of_day": null
 }
