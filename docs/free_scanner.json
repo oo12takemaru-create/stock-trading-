@@ -1,6 +1,6 @@
 {
- "target_date": "2026-08-06",
- "generated_at": "2026-08-07T20:22:48+09:00",
+ "target_date": "2026-08-07",
+ "generated_at": "2026-08-10T20:31:03+09:00",
  "jiai": "中立(75日線の上・25日線の下)",
  "rows": [
   {
@@ -8,33 +8,25 @@
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -22.09
+   "kairi": -21.33
   },
   {
-   "judge": "watch",
+   "judge": "signal",
+   "code": "2413",
+   "name": "エムスリー",
+   "sector": "医療IT",
+   "kairi": -17.68
+  },
+  {
+   "judge": "signal",
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -14.44
-  },
-  {
-   "judge": "watch",
-   "code": "8035",
-   "name": "東京エレクトロン",
-   "sector": "半導体製造装置",
-   "kairi": -14.36
+   "kairi": -17.19
   }
  ],
- "signals_today_date": "2026-08-07",
+ "signals_today_date": "2026-08-10",
  "is_halt": false,
  "signals_today_count": 6,
- "signal_of_day": {
-  "scan_date": "2026-08-07",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "5020",
-  "name": "ENEOS",
-  "sector": "石油",
-  "reason": "20日高値ブレイク"
- }
+ "signal_of_day": null
 }
