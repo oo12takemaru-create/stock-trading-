@@ -1,0 +1,52 @@
+name: Crash Gauges Daily (kaburadar.jp)
+
+# 著書『暴落は、減衰する』の5つの傾斜計を採点して docs/gauge.json に公開
+# 逆イールド(FRED日次)・CAPE(月次相当)・信用の膨張(四半期)・騰落レシオ(日次)・政策金利(月次)
+# ゆっくり動く指標なので1日1回で足りるが、GitHubのcron遅延対策で2回まわす。
+# JST 17:23 = UTC 08:23 / JST 21:23 = UTC 12:23
+on:
+  schedule:
+    - cron: '23 8 * * 1-5'
+    - cron: '23 12 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gauge-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas numpy
+
+      - name: Build gauge.json
+        run: python gauge_fetch.py
+
+      - name: Commit gauge.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/gauge.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "⚠️ 5つの傾斜計を更新"
+          git pull --rebase origin main
+          git push
