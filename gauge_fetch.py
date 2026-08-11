@@ -24,6 +24,7 @@
 import json
 import re
 import sys
+import time
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from io import StringIO
@@ -45,16 +46,67 @@ MARGIN_YOY = 10.0      # 信用の膨張とみなす前年比(%)
 POST_INVERSION_M = 18  # 逆イールド解消後も警戒を続ける月数（発生→景気後退入り平均1年半）
 
 
-def fred(series):
-    """FRED の日次/月次CSVを Series で返す"""
-    req = urllib.request.Request(FRED + series, headers=UA)
-    with urllib.request.urlopen(req, timeout=45) as r:
-        txt = r.read().decode("utf-8")
-    d = pd.read_csv(StringIO(txt))
-    d.columns = ["date", "v"]
-    d["date"] = pd.to_datetime(d["date"])
-    d["v"] = pd.to_numeric(d["v"], errors="coerce")
-    return d.dropna().set_index("date")["v"]
+def fred(series, tries=3):
+    """FRED の日次/月次CSVを Series で返す。
+
+    FREDは時々応答が遅れる。1回のタイムアウトで傾斜計が3つまとめて
+    未判定になったことがあるので、待ち時間を伸ばしながら数回試す。
+    """
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(FRED + series, headers=UA)
+            with urllib.request.urlopen(req, timeout=30 + i * 30) as r:
+                txt = r.read().decode("utf-8")
+            d = pd.read_csv(StringIO(txt))
+            d.columns = ["date", "v"]
+            d["date"] = pd.to_datetime(d["date"])
+            d["v"] = pd.to_numeric(d["v"], errors="coerce")
+            return d.dropna().set_index("date")["v"]
+        except Exception as e:
+            last = e
+            if i < tries - 1:
+                time.sleep(3 + i * 4)
+    raise last
+
+
+# 前回の gauge.json（取得失敗した傾斜計を前回値で埋めるため）
+PREV = {}
+MAX_REUSE_DAYS = 30
+
+
+def load_prev():
+    try:
+        old = json.loads(OUT.read_text(encoding="utf-8"))
+        for x in old.get("gauges", []):
+            if x.get("on") is not None and x.get("asof") and not x.get("stale"):
+                PREV[x["key"]] = x
+    except Exception:
+        pass
+
+
+def with_fallback(res):
+    """取得失敗した傾斜計を、30日以内の前回値があればそれで埋める。
+
+    未判定のままにするより「いつ時点の値か」を明示して前回値を出すほうが
+    実用的で、かつ嘘にならない。古すぎる場合は未判定に戻す。
+    """
+    if res.get("on") is not None:
+        return res
+    p = PREV.get(res["key"])
+    if not p:
+        return res
+    try:
+        age = (datetime.now(JST).date() - datetime.strptime(p["asof"], "%Y-%m-%d").date()).days
+    except Exception:
+        return res
+    if age > MAX_REUSE_DAYS:
+        return res
+    out = dict(p)
+    out["stale"] = True
+    out["detail"] = (f"※今回はデータを取得できず、{p['asof']}時点の前回値を表示しています。"
+                     + p.get("detail", ""))
+    return out
 
 
 def g(key, no, label, on, value, criterion, detail, asof, source, book):
@@ -381,7 +433,9 @@ def compute_stage():
 
 
 def main():
-    gauges = [gauge_yield(), gauge_cape(), gauge_margin(), gauge_overheat(), gauge_tightening()]
+    load_prev()   # 前回値は with_fallback で使うので、上書き前に読む
+    gauges = [with_fallback(f()) for f in
+              (gauge_yield, gauge_cape, gauge_margin, gauge_overheat, gauge_tightening)]
     phase = compute_stage()
 
     lit = sum(1 for x in gauges if x["on"] is True)
