@@ -1,0 +1,55 @@
+name: Crash Radar Daily (kaburadar.jp)
+
+# 暴落警戒度メーターを平日の大引け後に更新して docs/crash.json に公開
+# 26年分を毎回再計算するので、公開している発生率は常に実データと一致する
+#
+# GitHubの無料枠のcronは2.5〜3時間遅れて発火することがあるため、
+# 大引け(15:30)後に複数回まわして取り逃しを防ぐ。丸い分を避ける。
+# JST 16:47 = UTC 07:47 / JST 19:47 = UTC 10:47 / JST 22:47 = UTC 13:47
+on:
+  schedule:
+    - cron: '47 7 * * 1-5'
+    - cron: '47 10 * * 1-5'
+    - cron: '47 13 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crash-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas numpy
+
+      - name: Build crash.json
+        run: python crash_fetch.py
+
+      - name: Commit crash.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/crash.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "⚠️ 暴落警戒度メーターを更新"
+          git pull --rebase origin main
+          git push
