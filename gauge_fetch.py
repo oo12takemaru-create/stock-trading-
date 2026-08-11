@@ -382,7 +382,7 @@ def compute_stage():
 
 def main():
     gauges = [gauge_yield(), gauge_cape(), gauge_margin(), gauge_overheat(), gauge_tightening()]
-    stage = compute_stage()
+    phase = compute_stage()
 
     lit = sum(1 for x in gauges if x["on"] is True)
     unknown = sum(1 for x in gauges if x["on"] is None)
@@ -410,7 +410,9 @@ def main():
         "lit": lit, "total": len(gauges), "judged": judged, "unknown": unknown,
         "stage_key": key, "stage": label, "message": msg,
         "gauges": gauges,
-        "stage": stage,
+        # 第9章のステージは "phase"。トップレベルの "stage" は傾斜計の判定ラベル
+        # （様子見／注意／無視できない警告）なので、キー名を分けないと上書きされる
+        "phase": phase,
         "book": {"title": "暴落は、減衰する", "asin": "B0H8HHC16H",
                  "url": "https://www.amazon.co.jp/dp/B0H8HHC16H?tag=ruletrade-22",
                  "basis": "第2章「5つの前兆を、一つずつ読む」／第5章「今の日米相場を、実データで採点する」"},
@@ -424,14 +426,14 @@ def main():
         mark = "●" if x["on"] is True else ("○" if x["on"] is False else "？")
         print(f"  [{mark}] {x['no']}. {x['label']:14s} {x['value']:>18s}  {x['detail'][:60]}")
 
-    if stage.get("ok"):
-        print(f"\nステージ: {stage['stage']}  VIX {stage['vix']}（{stage['vix_band']}）"
-              f" / 騰落レシオ {stage['adr']} / 高値から {stage['drawdown']:+.1f}%")
-        if stage.get("aftershocks"):
+    if phase.get("ok"):
+        print(f"\nステージ: {phase['stage']}  VIX {phase['vix']}（{phase['vix_band']}）"
+              f" / 騰落レシオ {phase['adr']} / 高値から {phase['drawdown']:+.1f}%")
+        if phase.get("aftershocks"):
             print("  余震（2%以上動いた日数／週）: "
-                  + " ".join(f"{w['week']}週{w['big']}/{w['days']}日" for w in stage["aftershocks"]))
+                  + " ".join(f"{w['week']}週{w['big']}/{w['days']}日" for w in phase["aftershocks"]))
     else:
-        print(f"\nステージ判定: 取得失敗（{stage.get('why')}）", file=sys.stderr)
+        print(f"\nステージ判定: 取得失敗（{phase.get('why')}）", file=sys.stderr)
     if unknown:
         print("\n未判定があります。ページ側では消灯扱いにせず「未判定」と表示されます。", file=sys.stderr)
 
