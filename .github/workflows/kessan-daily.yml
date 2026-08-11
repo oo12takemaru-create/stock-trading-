@@ -1,0 +1,52 @@
+name: Kessan Daily (kaburadar.jp)
+
+# JPXの決算発表予定日を毎日取得して docs/kessan.json に公開
+# 予定日は会社の都合で前後するので毎日取り直す。
+# 朝と夕方の2回。GitHubの無料枠cronは2.5〜3時間遅れることがあるため丸い分を避ける。
+# JST 07:43 = UTC 前日22:43 / JST 18:43 = UTC 09:43
+on:
+  schedule:
+    - cron: '43 22 * * 0-4'
+    - cron: '43 9 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kessan-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q pandas openpyxl
+
+      - name: Build kessan.json
+        run: python kessan_fetch.py
+
+      - name: Commit kessan.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/kessan.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📅 決算発表予定を更新"
+          git pull --rebase origin main
+          git push
