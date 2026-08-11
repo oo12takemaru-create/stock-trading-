@@ -159,6 +159,33 @@ def gauge_margin():
              "FRED（米ブローカー証拠金債務・四半期）", BOOK)
 
 
+# ─── 市場データ（④とステージ判定で共用。341銘柄を2度落とさないため）───
+_MD = {}
+
+
+def market_data():
+    """(騰落レシオ系列, 日経終値系列, VIX系列, 銘柄数) を返す。1回だけ取得してキャッシュ"""
+    if _MD:
+        return _MD["adr"], _MD["n225"], _MD["vix"], _MD["n"]
+    import yfinance as yf
+    from daily_scanner_v2_8_0 import STOCKS
+    tickers = list(STOCKS.keys())
+    raw = yf.download(tickers, period="1y", progress=False,
+                      auto_adjust=False, threads=True)["Close"].dropna(how="all")
+    chg = raw.diff()
+    up, dn = (chg > 0).sum(axis=1), (chg < 0).sum(axis=1)
+    # 騰落レシオ = 25日間の値上がり銘柄数合計 / 値下がり銘柄数合計 × 100
+    adr = (up.rolling(25).sum() / dn.rolling(25).sum() * 100).dropna()
+
+    def series(t, period):
+        d = yf.download(t, period=period, progress=False, auto_adjust=False)["Close"].dropna()
+        return d.iloc[:, 0] if isinstance(d, pd.DataFrame) else d
+
+    _MD.update(adr=adr, n225=series("^N225", "2y"), vix=series("^VIX", "2y"),
+               n=raw.shape[1])
+    return _MD["adr"], _MD["n225"], _MD["vix"], _MD["n"]
+
+
 # ─── ④ 市場の過熱（騰落レシオ＋ワニの口）─────────────────────
 def gauge_overheat():
     BOOK = (f"騰落レシオは値上がり銘柄数と値下がり銘柄数の比率。{ADR_HOT:.0f}超で過熱、"
@@ -167,25 +194,12 @@ def gauge_overheat():
             "一部の銘柄だけが指数を押し上げ、市場の土台が指数の高さに追いついていない状態。")
     CRIT = f"騰落レシオ{ADR_HOT:.0f}超（過熱）、または「ワニの口」（指数が52週高値の5%以内 かつ 騰落レシオ100未満）"
     try:
-        import yfinance as yf
-        from daily_scanner_v2_8_0 import STOCKS
-        tickers = list(STOCKS.keys())
-        raw = yf.download(tickers, period="90d", progress=False,
-                          auto_adjust=False, threads=True)["Close"]
-        raw = raw.dropna(how="all")
-        chg = raw.diff()
-        up = (chg > 0).sum(axis=1)
-        dn = (chg < 0).sum(axis=1)
-        # 騰落レシオ = 25日間の値上がり銘柄数合計 / 値下がり銘柄数合計 × 100
-        adr = (up.rolling(25).sum() / dn.rolling(25).sum() * 100).dropna()
+        adr, n225, _vix, ntk = market_data()
         if adr.empty:
             raise ValueError("25日分のデータが揃わない")
         cur_adr = float(adr.iloc[-1])
-
-        n225 = yf.download("^N225", period="1y", progress=False,
-                           auto_adjust=False)["Close"].dropna()
-        n = float(n225.iloc[-1].item() if hasattr(n225.iloc[-1], "item") else n225.iloc[-1])
-        hi = float(n225.max().item() if hasattr(n225.max(), "item") else n225.max())
+        y1 = n225[n225.index >= n225.index[-1] - pd.Timedelta(days=365)]
+        n, hi = float(y1.iloc[-1]), float(y1.max())
         from_hi = n / hi - 1
     except Exception as e:
         return fail("overheat", 4, "市場の過熱", CRIT, BOOK, f"{type(e).__name__}: {e}")
@@ -203,7 +217,7 @@ def gauge_overheat():
                + ("底値圏の水域にある。" if cur_adr < ADR_COLD else "過熱もワニの口も出ていない。"))
     return g("overheat", 4, "市場の過熱", on, f"騰落レシオ {cur_adr:.0f}", CRIT, det,
              datetime.now(JST).strftime("%Y-%m-%d"),
-             f"自前計算（監視{len(tickers)}銘柄の25日騰落レシオ）＋日経52週高値", BOOK)
+             f"自前計算（監視{ntk}銘柄の25日騰落レシオ）＋日経52週高値", BOOK)
 
 
 # ─── ⑤ 金融の引き締め ────────────────────────────────────────
@@ -238,8 +252,137 @@ def gauge_tightening():
              CRIT, det, asof, "FRED（米FF金利上限・日本の政策金利）", BOOK)
 
 
+# ─── 暴落のステージ判定（本 第9章）────────────────────────────
+# VIXの水準（本 第9章）
+VIX_BANDS = [(20, "平時", "市場は落ち着いている"),
+             (25, "警戒感", "警戒感が出始めた水準"),
+             (30, "乱高下", "相場の乱高下が意識され始める水準"),
+             (40, "強い不安", "市場に強い不安が広がっている状態"),
+             (999, "パニック", "パニックに近い局面。2008年は約90、2020年は約85まで跳ねた")]
+BIG_MOVE = 0.02   # 「大きな値動き」の閾値（余震の数え方）
+ACTIVE_DD = -0.08  # 本震とみなすドローダウン
+ACTIVE_VIX = 25.0
+
+
+def vix_band(v):
+    for lim, name, desc in VIX_BANDS:
+        if v < lim:
+            return name, desc
+    return VIX_BANDS[-1][1], VIX_BANDS[-1][2]
+
+
+def compute_stage():
+    """暴落局面かを判定し、局面なら初期/中盤/後半を返す。
+
+    本 第9章の要点:
+      ・VIXは水準より「向き」が重要。高いだけで底と判断するのが最大の過ち
+      ・注目すべきはVIXがピークをつけて低下に転じる瞬間
+      ・騰落レシオは底を当てるのが得意。70割れが売られすぎの水域
+      ・2つの向きが揃って変わったとき、恐怖は峠を越えたと判断してよい
+    """
+    try:
+        adr, n225, vix, _ = market_data()
+    except Exception as e:
+        return {"ok": False, "why": f"{type(e).__name__}: {e}"}
+
+    v = float(vix.iloc[-1])
+    band, band_desc = vix_band(v)
+    a = float(adr.iloc[-1])
+
+    # 直近60営業日の高値からのドローダウン
+    win = n225.tail(60)
+    peak_idx = win.idxmax()
+    peak = float(win.max())
+    cur = float(n225.iloc[-1])
+    dd = cur / peak - 1
+
+    # VIXの向き: 直近20営業日のピークと、そこからの経過・下落率
+    v20 = vix.tail(20)
+    vpeak = float(v20.max())
+    vpeak_at = v20.idxmax()
+    days_since_vpeak = int((vix.index[-1] - vpeak_at).days)
+    off_peak = v / vpeak - 1 if vpeak else 0.0
+    # 「上昇中」は5%以上の上昇に限る。平常水準の小さな揺れを上昇と取ると、
+    # 恐怖が引いたあとの日が「初期」に戻ってしまう（2024/8/20で実際に起きた）
+    rising = v > float(vix.iloc[-4]) * 1.05 if len(vix) >= 4 else False
+    # VIXが平時圏に戻り、ピークからも大きく下がっていれば、小さな揺れに関係なく後半
+    calm_returned = (v < 20) and (off_peak <= -0.30)
+
+    active = (v >= ACTIVE_VIX) or (dd <= ACTIVE_DD)
+
+    # 余震の減衰（本 第6章・大森公式の日足での見方）
+    # 本震以降、|前日比|が2%以上の日が週あたり何日出ているかの推移
+    aftershocks = []
+    shock_at = None
+    if active:
+        after = n225[n225.index >= peak_idx]
+        r = after.pct_change().dropna()
+        if len(r):
+            shock_at = r.idxmin()          # 最も下げた日を本震とみなす
+            post = r[r.index >= shock_at]
+            for wk in range(0, min(6, (len(post) + 4) // 5)):
+                seg = post.iloc[wk * 5:(wk + 1) * 5]
+                if len(seg) == 0:
+                    break
+                aftershocks.append({
+                    "week": wk + 1,
+                    "days": int(len(seg)),
+                    "big": int((seg.abs() >= BIG_MOVE).sum()),
+                    "max": round(float(seg.abs().max()) * 100, 2),
+                })
+
+    if not active:
+        return {"ok": True, "active": False,
+                "vix": round(v, 2), "vix_band": band, "vix_band_desc": band_desc,
+                "adr": round(a, 1), "drawdown": round(dd * 100, 1),
+                "stage_key": "none", "stage": "暴落局面ではない",
+                "message": (f"VIXは{v:.1f}（{band}）、日経は直近60営業日の高値から{dd:+.1%}。"
+                            f"本の第9章の道具は、暴落が始まってから使うものです。"
+                            f"いま出番はありません。"),
+                "action": "平常どおり。傾斜計（燃料）の確認を続ける段階です。"}
+
+    # ステージ判定
+    oversold = a < ADR_COLD
+    peaked = calm_returned or ((off_peak <= -0.15) and (days_since_vpeak >= 2) and not rising)
+
+    if peaked and a >= ADR_COLD:
+        key, name = "late", "後半"
+        msg = (f"VIXは直近ピーク{vpeak:.1f}から{off_peak:+.1%}下がり（{days_since_vpeak}日前がピーク）、"
+               f"騰落レシオも{a:.0f}と売られすぎの水域から戻ってきています。"
+               f"2つの向きが揃って変わった形——本の言葉では、恐怖が峠を越えた局面です。")
+        act = "余震が目に見えて減衰し始めた段階。分割で買い向かう本番。ただし本震が二度、三度と連なる局面では単純な読み方は通用しません。"
+    elif peaked:
+        key, name = "late", "後半"
+        msg = (f"VIXは直近ピーク{vpeak:.1f}から{off_peak:+.1%}下がっていますが、"
+               f"騰落レシオは{a:.0f}でまだ売られすぎの水域です。恐怖の向きは変わりかけています。")
+        act = "2つの向きが揃うのを待つ段階。分割の1回目までなら検討できる局面です。"
+    elif oversold or v >= 30:
+        key, name = "mid", "中盤"
+        msg = (f"VIXは{v:.1f}（{band}）で高止まりし、騰落レシオは{a:.0f}"
+               f"{'——売られすぎの水域に入りました' if oversold else 'と売られすぎに近づいています'}。"
+               f"VIXはまだ明確なピークをつけていません。")
+        act = "事前に決めた備えを実行に移し始める段階。分割での買い向かいの準備を進めてよい局面です。"
+    else:
+        key, name = "early", "初期"
+        msg = (f"VIXが{v:.1f}（{band}）まで{'上昇中' if rising else '上昇'}し、"
+               f"騰落レシオは{a:.0f}でまだ極端な水準に達していません。本震の直後にあたります。")
+        act = "焦って買い向かう場面ではありません。VIXが高いだけで「そろそろ底」と判断するのが、最大の過ちです。"
+
+    return {"ok": True, "active": True,
+            "vix": round(v, 2), "vix_band": band, "vix_band_desc": band_desc,
+            "vix_peak": round(vpeak, 2), "vix_off_peak": round(off_peak * 100, 1),
+            "vix_peak_days": days_since_vpeak, "vix_rising": bool(rising),
+            "adr": round(a, 1), "adr_oversold": bool(oversold),
+            "drawdown": round(dd * 100, 1),
+            "peak_date": peak_idx.strftime("%Y-%m-%d"),
+            "shock_date": shock_at.strftime("%Y-%m-%d") if shock_at is not None else None,
+            "aftershocks": aftershocks,
+            "stage_key": key, "stage": name, "message": msg, "action": act}
+
+
 def main():
     gauges = [gauge_yield(), gauge_cape(), gauge_margin(), gauge_overheat(), gauge_tightening()]
+    stage = compute_stage()
 
     lit = sum(1 for x in gauges if x["on"] is True)
     unknown = sum(1 for x in gauges if x["on"] is None)
@@ -267,6 +410,7 @@ def main():
         "lit": lit, "total": len(gauges), "judged": judged, "unknown": unknown,
         "stage_key": key, "stage": label, "message": msg,
         "gauges": gauges,
+        "stage": stage,
         "book": {"title": "暴落は、減衰する", "asin": "B0H8HHC16H",
                  "url": "https://www.amazon.co.jp/dp/B0H8HHC16H?tag=ruletrade-22",
                  "basis": "第2章「5つの前兆を、一つずつ読む」／第5章「今の日米相場を、実データで採点する」"},
@@ -279,6 +423,15 @@ def main():
     for x in gauges:
         mark = "●" if x["on"] is True else ("○" if x["on"] is False else "？")
         print(f"  [{mark}] {x['no']}. {x['label']:14s} {x['value']:>18s}  {x['detail'][:60]}")
+
+    if stage.get("ok"):
+        print(f"\nステージ: {stage['stage']}  VIX {stage['vix']}（{stage['vix_band']}）"
+              f" / 騰落レシオ {stage['adr']} / 高値から {stage['drawdown']:+.1f}%")
+        if stage.get("aftershocks"):
+            print("  余震（2%以上動いた日数／週）: "
+                  + " ".join(f"{w['week']}週{w['big']}/{w['days']}日" for w in stage["aftershocks"]))
+    else:
+        print(f"\nステージ判定: 取得失敗（{stage.get('why')}）", file=sys.stderr)
     if unknown:
         print("\n未判定があります。ページ側では消灯扱いにせず「未判定」と表示されます。", file=sys.stderr)
 
