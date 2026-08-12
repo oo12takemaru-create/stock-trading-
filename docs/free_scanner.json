@@ -1,32 +1,32 @@
 {
- "target_date": "2026-08-07",
- "generated_at": "2026-08-11T20:20:58+09:00",
- "jiai": "中立(75日線の上・25日線の下)",
+ "target_date": "2026-08-10",
+ "generated_at": "2026-08-12T20:23:12+09:00",
+ "jiai": "強気(25日線・75日線の上)",
  "rows": [
   {
    "judge": "signal",
    "code": "6976",
    "name": "太陽誘電",
    "sector": "電子部品",
-   "kairi": -21.33
+   "kairi": -19.69
   },
   {
    "judge": "signal",
    "code": "2413",
    "name": "エムスリー",
    "sector": "医療IT",
-   "kairi": -17.68
+   "kairi": -16.67
   },
   {
    "judge": "signal",
-   "code": "7735",
-   "name": "SCREEN HD",
-   "sector": "半導体製造装置",
-   "kairi": -17.19
+   "code": "4751",
+   "name": "サイバーエージェント",
+   "sector": "広告IT",
+   "kairi": -15.42
   }
  ],
- "signals_today_date": "2026-08-11",
+ "signals_today_date": "2026-08-12",
  "is_halt": false,
- "signals_today_count": 2,
+ "signals_today_count": 0,
  "signal_of_day": null
 }
