@@ -52,12 +52,3 @@ signal.json
 Thumbs.db
 
 .vercel
-!docs/radar.json
-!docs/cot.json
-!docs/ai_analysis.json
-!docs/investor_flow.json
-!docs/heatmap.json
-!docs/radar_history.json
-
-# AI朝刊の中間ファイル
-inputs.txt
