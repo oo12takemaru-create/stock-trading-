@@ -1,32 +1,40 @@
 {
- "target_date": "2026-08-10",
- "generated_at": "2026-08-12T20:23:12+09:00",
+ "target_date": "2026-08-12",
+ "generated_at": "2026-08-13T20:21:53+09:00",
  "jiai": "強気(25日線・75日線の上)",
  "rows": [
   {
-   "judge": "signal",
-   "code": "6976",
-   "name": "太陽誘電",
-   "sector": "電子部品",
-   "kairi": -19.69
-  },
-  {
-   "judge": "signal",
-   "code": "2413",
-   "name": "エムスリー",
-   "sector": "医療IT",
-   "kairi": -16.67
-  },
-  {
-   "judge": "signal",
+   "judge": "watch",
    "code": "4751",
    "name": "サイバーエージェント",
    "sector": "広告IT",
-   "kairi": -15.42
+   "kairi": -14.85
+  },
+  {
+   "judge": "watch",
+   "code": "4901",
+   "name": "富士フイルム",
+   "sector": "化学",
+   "kairi": -12.1
+  },
+  {
+   "judge": "watch",
+   "code": "6976",
+   "name": "太陽誘電",
+   "sector": "電子部品",
+   "kairi": -11.23
   }
  ],
- "signals_today_date": "2026-08-12",
+ "signals_today_date": "2026-08-13",
  "is_halt": false,
- "signals_today_count": 0,
- "signal_of_day": null
+ "signals_today_count": 1,
+ "signal_of_day": {
+  "scan_date": "2026-08-13",
+  "strategy": "MOMENTUM",
+  "strategy_label": "順張り（ブレイク）",
+  "code": "4180",
+  "name": "Appier Group",
+  "sector": "AIサービス",
+  "reason": "20日高値ブレイク"
+ }
 }
