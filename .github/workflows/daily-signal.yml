@@ -142,33 +142,6 @@ jobs:
           tail -5 /tmp/ours_signals.csv
           exit 1
 
-      # ★2026-08-02: 株レーダー(kaburadar.jp)連携。地合い・件数のみの公開JSONを
-      #   docs/radar.json に書き出す(銘柄名は含めない)。既存処理とは独立・失敗しても
-      #   ワークフロー全体は落とさない(continue-on-error)。
-      - name: Publish radar.json for kaburadar.jp
-        continue-on-error: true
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          for i in 1 2 3; do
-            git fetch origin ${{ github.ref_name }}
-            git reset --hard origin/${{ github.ref_name }}
-            python make_radar_json.py signal.json docs/radar.json
-            git add -f docs/radar.json docs/radar_history.json
-            if git diff --staged --quiet; then
-              echo "radar.json 変更なし → 完了"
-              exit 0
-            fi
-            git commit -m "📡 Update docs/radar.json (${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }})"
-            if git push; then
-              echo "✓ radar.json を公開(試行${i}回目で成功)"
-              exit 0
-            fi
-            echo "push失敗(試行${i}/3) → 再試行"
-            sleep 7
-          done
-          echo "::warning::radar.json のpushに失敗(次回実行で再試行される)"
-
       - name: Write summary
         run: |
           echo "## 📊 デイリースキャナー v2.8.0 実行完了" >> $GITHUB_STEP_SUMMARY
