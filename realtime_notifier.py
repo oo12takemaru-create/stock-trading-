@@ -439,6 +439,12 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
             # gap<=0 は既にブレイク済み(=ザラ場通知で拾う)。ここは未到達の近接候補に絞る。
             if gap <= 0 or gap > max_gap_pct:
                 continue
+            # ★v2.8.1: 新高値型フィルタ(本番scan()のMOMENTUM判定と同一基準)
+            #   ブレイク時の約定価格≒pivotが52週高値の95%未満の候補は、
+            #   ブレイクしてもスキャナーがシグナルを出さないため監視リストにも載せない
+            high_52w = df["High"].iloc[max(0, idx - 252):idx + 1].max()
+            if pd.isna(high_52w) or high_52w <= 0 or pivot < float(high_52w) * 0.95:
+                continue
             stop = pivot * 0.95
             # 本番scan()と同じ建玉サイズ判定。100株未満(=高額株/除外セクター)は表示しない。
             shares, cost = ds.calc_shares(capital, risk_pct, pivot, stop,
