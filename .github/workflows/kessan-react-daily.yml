@@ -1,0 +1,52 @@
+name: Kessan Reaction Daily (kaburadar.jp)
+
+# 決算の答え合わせ（発表銘柄が翌営業日どう動いたか）を docs/kessan_react.json に公開
+# 反応が出るのは翌営業日の取引なので、引け後に集計する。
+# 1,000銘柄ぶんの株価を取るので数分かかる。
+# JST 18:53 = UTC 09:53 / JST 08:53 = UTC 前日23:53（取り逃し対策）
+on:
+  schedule:
+    - cron: '53 9 * * 1-5'
+    - cron: '53 23 * * 0-4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kessan-react-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q pandas openpyxl yfinance
+
+      - name: Build kessan_react.json
+        run: python kessan_react.py
+
+      - name: Commit kessan_react.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/kessan_react.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📊 決算の答え合わせを更新"
+          git pull --rebase origin main
+          git push
