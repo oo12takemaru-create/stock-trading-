@@ -46,16 +46,19 @@ MARGIN_YOY = 10.0      # 信用の膨張とみなす前年比(%)
 POST_INVERSION_M = 18  # 逆イールド解消後も警戒を続ける月数（発生→景気後退入り平均1年半）
 
 
-def fred(series, tries=3):
+def fred(series, tries=3, years=6):
     """FRED の日次/月次CSVを Series で返す。
 
     FREDは時々応答が遅れる。1回のタイムアウトで傾斜計が3つまとめて
     未判定になったことがあるので、待ち時間を伸ばしながら数回試す。
+    全履歴（T10Y2Yは26年分・約1MB）を毎回落とすのが遅さの主因なので、
+    cosd= で判定に必要な直近数年分だけ取る。
     """
+    start = (datetime.now(JST) - timedelta(days=365 * years)).strftime("%Y-%m-%d")
     last = None
     for i in range(tries):
         try:
-            req = urllib.request.Request(FRED + series, headers=UA)
+            req = urllib.request.Request(FRED + series + "&cosd=" + start, headers=UA)
             with urllib.request.urlopen(req, timeout=30 + i * 30) as r:
                 txt = r.read().decode("utf-8")
             d = pd.read_csv(StringIO(txt))
@@ -75,14 +78,40 @@ PREV = {}
 MAX_REUSE_DAYS = 30
 
 
+LAST_GOOD = OUT.parent / "gauge_last_good.json"
+
+
 def load_prev():
+    """最後に成功した値を読む。
+
+    以前は直前の gauge.json から読んでいたが、一度失敗JSONがコミットされると
+    以後のrunが前回値を失い、未判定が連鎖する欠陥があった（実際に起きた）。
+    成功値だけを別ファイルに貯めることで、何回失敗が続いても
+    「最後に成功した30日以内の値」に必ず戻れる。"""
+    for src in (LAST_GOOD, OUT):
+        try:
+            old = json.loads(src.read_text(encoding="utf-8"))
+            items = old.get("gauges", old if isinstance(old, list) else [])
+            for x in items:
+                if x.get("on") is not None and x.get("asof") and not x.get("stale"):
+                    PREV.setdefault(x["key"], x)
+        except Exception:
+            pass
+
+
+def save_last_good(gauges):
+    keep = dict(PREV)
+    today = datetime.now(JST).strftime("%Y-%m-%d")
+    for x in gauges:
+        if x.get("on") is not None and x.get("asof") and not x.get("stale"):
+            rec = dict(x)
+            rec["fetched_at"] = today     # 鮮度判定はこの日付で行う（asofは表示用）
+            keep[x["key"]] = rec
     try:
-        old = json.loads(OUT.read_text(encoding="utf-8"))
-        for x in old.get("gauges", []):
-            if x.get("on") is not None and x.get("asof") and not x.get("stale"):
-                PREV[x["key"]] = x
-    except Exception:
-        pass
+        LAST_GOOD.write_text(json.dumps({"gauges": list(keep.values())},
+                             ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print(f"last_good保存失敗: {e}", file=sys.stderr)
 
 
 def with_fallback(res):
@@ -97,7 +126,8 @@ def with_fallback(res):
     if not p:
         return res
     try:
-        age = (datetime.now(JST).date() - datetime.strptime(p["asof"], "%Y-%m-%d").date()).days
+        base = p.get("fetched_at") or p["asof"]
+        age = (datetime.now(JST).date() - datetime.strptime(base, "%Y-%m-%d").date()).days
     except Exception:
         return res
     if age > MAX_REUSE_DAYS:
@@ -153,7 +183,7 @@ def gauge_yield():
         on = False
         val = f"{cur:+.2f}%"
         det = (f"順イールド。最後の逆転から{months:.0f}ヶ月経過し、警戒期間（{POST_INVERSION_M}ヶ月）を過ぎた。"
-               if months is not None else "順イールド。記録上、逆転はない。")
+               if months is not None else "順イールド。直近6年の記録に逆転はない。")
     return g("yield", 1, "逆イールド", on, val, CRIT, det, asof,
              "FRED（米10年債−2年債スプレッド T10Y2Y）", BOOK)
 
@@ -436,6 +466,7 @@ def main():
     load_prev()   # 前回値は with_fallback で使うので、上書き前に読む
     gauges = [with_fallback(f()) for f in
               (gauge_yield, gauge_cape, gauge_margin, gauge_overheat, gauge_tightening)]
+    save_last_good(gauges)
     phase = compute_stage()
 
     lit = sum(1 for x in gauges if x["on"] is True)
