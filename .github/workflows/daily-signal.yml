@@ -1,4 +1,4 @@
-name: Daily Trading Signal (v2.8.0)
+name: Daily Trading Signal (v2.8.1)
 
 # 実行スケジュール: 月曜〜金曜の朝8:00 / 昼12:00 / 夕18:00 (JST)
 # cronはUTC基準:
@@ -65,7 +65,7 @@ jobs:
 
       # ★2026-07-22: v2.7系→v2.8.0へ差し替え(341銘柄・サンバイオ除外・ナイフガード・
       #   セクター別リスク調整)。CLIは完全互換。ザラ場通知/朝ダイジェストと同一ロジックに統一。
-      - name: Run Daily Scanner v2.8.0
+      - name: Run Daily Scanner v2.8.1(新高値型フィルタ)
         env:
           CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
           RISK:    ${{ github.event.inputs.risk || '1.0' }}
