@@ -1,0 +1,51 @@
+name: Shinyo Weekly (kaburadar.jp)
+
+# JPX「信用取引現在高」を取得して docs/shinyo.json に公開
+# 金曜申込み分が翌週火曜ごろ公表されるので、火・水・木の夕方にまわして取り逃しを防ぐ。
+# JPXは直近5週分しか置いていないため、docs/shinyo_state.json に履歴を蓄積し続ける。
+# JST 19:07 = UTC 10:07
+on:
+  schedule:
+    - cron: '7 10 * * 2,3,4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shinyo-weekly
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q pandas xlrd
+
+      - name: Build shinyo.json
+        run: python shinyo_fetch.py
+
+      - name: Commit shinyo.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/shinyo.json docs/shinyo_state.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "💳 信用取引の需給を更新"
+          git pull --rebase origin main
+          git push
