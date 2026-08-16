@@ -1,0 +1,52 @@
+name: AI Record Daily (kaburadar.jp)
+
+# AI朝刊・地合い判定の成績を機械採点して docs/ai_record.json に公開
+# git履歴から過去の全スタンスを復元するため fetch-depth: 0 が必須。
+# JST 17:53 = UTC 08:53（引け後、当日の終値で採点できる時間）
+on:
+  schedule:
+    - cron: '53 8 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-record
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas
+
+      - name: Build ai_record.json
+        run: python ai_record.py
+
+      - name: Commit ai_record.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/ai_record.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📊 AI・地合いの成績表を更新"
+          git pull --rebase origin main
+          git push
