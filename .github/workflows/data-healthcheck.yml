@@ -2,10 +2,13 @@ name: Data Healthcheck (kaburadar.jp)
 
 # 公開JSONが古くなっていないかを毎日チェックし、古ければIssueで通知する。
 # 「更新が止まったことに気づけない」のを防ぐための監視。
-# 平日 21:13 JST (= 12:13 UTC) に実行。
+# 毎日 23:43 JST (= 14:43 UTC) に実行。
+# しきい値0(当日更新必須)にしたので、その日の全ジョブが終わった後に走らせる必要がある。
+# 最も遅いのは gauge-daily の 21:23 JST。21:13 に見ていた頃は
+# 傾斜計・着火が「まだ走っていないだけ」で誤検知した。
 on:
   schedule:
-    - cron: '13 12 * * *'
+    - cron: '43 14 * * *'
   workflow_dispatch:
 
 permissions:
