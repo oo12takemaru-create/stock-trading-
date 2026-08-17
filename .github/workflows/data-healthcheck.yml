@@ -5,7 +5,7 @@ name: Data Healthcheck (kaburadar.jp)
 # 平日 21:13 JST (= 12:13 UTC) に実行。
 on:
   schedule:
-    - cron: '13 12 * * 1-5'
+    - cron: '13 12 * * *'
   workflow_dispatch:
 
 permissions:
@@ -30,14 +30,30 @@ jobs:
           now = datetime.now(JST)
           today = now.date()
 
-          # (ファイル, 表示名, 許容遅れ日数)
+          def bizdays_between(d1, d2):
+              """d1→d2 の営業日数（土日を除く。祝日は考慮しない=安全側に厳しめ）"""
+              n, cur = 0, d1
+              while cur < d2:
+                  cur += timedelta(days=1)
+                  if cur.weekday() < 5:
+                      n += 1
+              return n
+
+          # (ファイル, 表示名, 許容遅れ営業日数)
+          # 0 = 当日更新されていること。21:13 JSTチェックなので日次データは当日分が出ている前提。
+          #     祝日は誤検知しうるが「気づけない」より軽い害として受け入れる。
           TARGETS = [
-              ("docs/heatmap.json",       "ヒートマップ/出来高", 1),
-              ("docs/radar.json",         "地合い判定",         1),
-              ("docs/ai_analysis.json",   "AI朝刊",             1),
-              ("docs/cot.json",           "投機筋(COT)",        8),
-              ("docs/investor_flow.json", "投資部門別",         8),
-              ("docs/tenbagger.json",     "十倍株スキャナー",   8),
+              ("docs/heatmap.json",       "ヒートマップ/出来高", 0),
+              ("docs/radar.json",         "地合い判定",         0),
+              ("docs/ai_analysis.json",   "AI朝刊",             0),
+              ("docs/cot.json",           "投機筋(COT)",        6),
+              ("docs/investor_flow.json", "投資部門別",         6),
+              ("docs/tenbagger.json",     "十倍株スキャナー",   6),
+              ("docs/karauri.json",       "空売り残高",         2),
+              ("docs/kessan.json",        "決算カレンダー",     2),
+              ("docs/gauge.json",         "暴落の傾斜計",       0),
+              ("docs/crash.json",         "着火判定",           0),
+              ("docs/shinyo.json",        "信用取引の需給",     6),
           ]
           problems = []
           rows = []
@@ -51,15 +67,15 @@ jobs:
               upd = d.get("updated") or (d.get("latest") or {}).get("updated") or ""
               try:
                   dt = datetime.fromisoformat(upd).date()
-                  age = (today - dt).days
+                  age = bizdays_between(dt, today)   # 営業日ベース
               except Exception:
                   problems.append(f"{label}: updated が読めない ({upd!r})")
                   rows.append(f"| {label} | ❌ 日付不明 | {upd} |")
                   continue
               ok = age <= tol
               if not ok:
-                  problems.append(f"{label}: {age}日前が最新 (許容{tol}日)")
-              rows.append(f"| {label} | {'✅' if ok else '⚠️ 古い'} | {upd[:16]} ({age}日前) |")
+                  problems.append(f"{label}: {age}営業日前が最新 (許容{tol}営業日)")
+              rows.append(f"| {label} | {'✅' if ok else '⚠️ 古い'} | {upd[:16]} ({age}営業日前) |")
 
           print(f"## 株レーダー データ鮮度チェック ({now:%Y-%m-%d %H:%M} JST)\n")
           print("| データ | 状態 | 最終更新 |")

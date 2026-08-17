@@ -1,0 +1,91 @@
+name: Radar Publish (kaburadar.jp)
+
+# docs/radar.json（株レーダーの地合い判定）を公開する。
+#
+# ■ なぜ daily-signal.yml から独立させたか（2026-08-17）
+#   もともと daily-signal.yml の中に radar.json 公開ステップを入れていたが、
+#   2026-08-13 に別の開発フロー（「feat: 朝ダイジェスト+クラウド同期」）が
+#   daily-signal.yml を丸ごと上書きし、そのステップが消えて
+#   radar.json が4日間更新されないまま気づかれなかった。
+#   → daily-signal.yml には一切触らず、その完了を待って
+#     artifact の signal.json から radar.json を作る独立フローにする。
+#     これで daily-signal.yml が今後何度上書きされても地合いは止まらない。
+on:
+  workflow_run:
+    workflows: ["Daily Trading Signal (v2.8.1)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: radar-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # スキャナーが失敗した回は signal.json が信頼できないのでスキップ
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve source run id
+        id: src
+        run: |
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            echo "id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          else
+            # 手動実行時は最後に成功した daily-signal を使う
+            RID=$(gh run list --workflow=daily-signal.yml --status=success --limit 1 --json databaseId --jq '.[0].databaseId')
+            echo "id=$RID" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download signal.json artifact
+        run: |
+          gh run download "${{ steps.src.outputs.id }}" -D artifacts
+          SIG=$(find artifacts -name signal.json | head -1)
+          if [ -z "$SIG" ]; then
+            echo "::error::signal.json が artifact に見つかりません（run ${{ steps.src.outputs.id }}）"
+            exit 1
+          fi
+          cp "$SIG" signal.json
+          echo "使用: $SIG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish radar.json (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python make_radar_json.py signal.json docs/radar.json
+            git add -f docs/radar.json docs/radar_history.json
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "📡 地合い判定を公開（radar.json）"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
