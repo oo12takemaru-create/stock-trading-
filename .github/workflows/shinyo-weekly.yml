@@ -32,16 +32,22 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -q pandas xlrd
+        run: pip install -q pandas xlrd pymupdf
 
       - name: Build shinyo.json
         run: python shinyo_fetch.py
+
+      # 銘柄別の週末残高（PDF公表）。市場全体とは別ファイル・別スクリプト。
+      # こちらが失敗しても shinyo.json の公開は止めない
+      - name: Build shinyo_meigara.json
+        run: python shinmei_fetch.py || echo "::warning::銘柄別信用残の取得に失敗（次回に持ち越し）"
+
 
       - name: Commit shinyo.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/shinyo.json docs/shinyo_state.json
+          git add -f docs/shinyo.json docs/shinyo_state.json docs/shinyo_meigara.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

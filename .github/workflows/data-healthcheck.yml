@@ -57,6 +57,7 @@ jobs:
               ("docs/gauge.json",         "暴落の傾斜計",       0),
               ("docs/crash.json",         "着火判定",           0),
               ("docs/shinyo.json",        "信用取引の需給",     6),
+              ("docs/shinyo_meigara.json","銘柄別信用残",       6),
           ]
           problems = []
           rows = []
