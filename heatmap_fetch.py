@@ -36,7 +36,8 @@ def main():
         print(f"株式数CSV読込スキップ: {e}", file=sys.stderr)
 
     tickers = list(STOCKS.keys())
-    df = yf.download(tickers, period="130d", progress=False, auto_adjust=False,
+    # 52週高値とMA200の計算に約1年分が必要（400暦日≒270営業日）
+    df = yf.download(tickers, period="400d", progress=False, auto_adjust=False,
                      group_by="ticker", threads=True)
 
     items = []
@@ -81,6 +82,20 @@ def main():
                     pb = float(sub["Close"].iloc[-(back + 1)])
                     if pb > 0:
                         item[key] = round((last / pb - 1) * 100, 1)
+            # 52週高値からの位置と移動平均線との乖離。
+            # 定義は十倍株スキャナー(tenbagger_rank.py)と同じ終値ベースに揃える。
+            closes = sub["Close"]
+            hi52 = float(closes.iloc[-252:].max())
+            if hi52 > 0:
+                item["hi"] = round((last / hi52 - 1) * 100, 1)   # 0=今日が52週高値
+            if len(closes) >= 25:
+                ma25 = float(closes.iloc[-25:].mean())
+                if ma25 > 0:
+                    item["g25"] = round((last / ma25 - 1) * 100, 1)
+            if len(closes) >= 200:   # 上場1年未満はMA200を出さない(誤解のもと)
+                ma200 = float(closes.iloc[-200:].mean())
+                if ma200 > 0:
+                    item["g200"] = round((last / ma200 - 1) * 100, 1)
             # 時価総額(億円) = 終値 × 発行済株式数
             sh = SHARES.get(t.replace(".T", ""))
             if sh:
