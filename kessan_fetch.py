@@ -121,7 +121,10 @@ def main():
     try:
         from daily_scanner_v2_8_0 import STOCKS
         major = {t.split(".")[0] for t in STOCKS}
-    except Exception as e:
+    except BaseException as e:
+        # スキャナーはyfinance等が無いとimport時にsys.exit(1)する。
+        # SystemExitはExceptionの子ではないので、BaseExceptionで受けないと
+        # このtryをすり抜けてプロセスごと死ぬ（2026-08-17のCI障害の原因）
         print(f"主要銘柄リストを読めませんでした（フラグなしで続行）: {e}", file=sys.stderr)
 
     today = datetime.now(JST).date()

@@ -33,7 +33,8 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -q pandas openpyxl
+        # yfinanceはスキャナーの銘柄リスト(主要フラグ)のimportに必要
+        run: pip install -q pandas openpyxl yfinance
 
       - name: Build kessan.json
         run: python kessan_fetch.py
