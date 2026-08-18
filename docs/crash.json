@@ -1,7 +1,7 @@
 {
- "updated": "2026-08-17T23:12:10+09:00",
- "trade_date": "2026-08-17",
- "n225": 69220.25,
+ "updated": "2026-08-18T17:16:10+09:00",
+ "trade_date": "2026-08-18",
+ "n225": 67460.73,
  "horizon": 20,
  "crash_def": -0.1,
  "score": 1,
@@ -16,59 +16,59 @@
    "key": "gold_chg20",
    "label": "金が20営業日で5%以上上昇",
    "on": true,
-   "value": "+11.97%",
+   "value": "+11.61%",
    "threshold": "5%以上",
-   "distance": "6.97%超過",
+   "distance": "6.61%超過",
    "ratio": 1.33,
    "why": "株を持ちながら保険を買う動き。資金が逃げ場を探しているサイン"
-  },
-  {
-   "key": "usdjpy_chg20",
-   "label": "20営業日で3%以上の円高",
-   "on": false,
-   "value": "-1.63%",
-   "threshold": "-3%未満",
-   "distance": "あと1.37%",
-   "ratio": 1.98,
-   "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
   {
    "key": "ret20",
    "label": "日経が20営業日でマイナス",
    "on": false,
-   "value": "+3.57%",
+   "value": "+0.94%",
    "threshold": "0%未満",
-   "distance": "あと3.57%",
+   "distance": "あと0.94%",
    "ratio": 1.24,
    "why": "すでに下げている。ボラティリティは連続する"
-  },
-  {
-   "key": "vix_high",
-   "label": "VIXが20以上",
-   "on": false,
-   "value": "14.98",
-   "threshold": "20以上",
-   "distance": "あと5.02",
-   "ratio": 1.42,
-   "why": "市場が平常時より不安定と見ている水準"
   },
   {
    "key": "vix_chg5",
    "label": "VIXが5日で15%以上上昇",
    "on": false,
-   "value": "+0.54%",
+   "value": "+7.65%",
    "threshold": "15%以上",
-   "distance": "あと14.46%",
+   "distance": "あと7.35%",
    "ratio": 1.82,
    "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
+  },
+  {
+   "key": "vix_high",
+   "label": "VIXが20以上",
+   "on": false,
+   "value": "16.04",
+   "threshold": "20以上",
+   "distance": "あと3.96",
+   "ratio": 1.42,
+   "why": "市場が平常時より不安定と見ている水準"
+  },
+  {
+   "key": "usdjpy_chg20",
+   "label": "20営業日で3%以上の円高",
+   "on": false,
+   "value": "-1.45%",
+   "threshold": "-3%未満",
+   "distance": "あと1.55%",
+   "ratio": 1.98,
+   "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
   {
    "key": "spx_ma200_dev",
    "label": "S&P500が200日線割れ",
    "on": false,
-   "value": "+9.94%",
+   "value": "+10.08%",
    "threshold": "0%未満",
-   "distance": "あと9.94%",
+   "distance": "あと10.08%",
    "ratio": 1.71,
    "why": "米国株が長期トレンドを割ると、日本株の下落も深くなりやすい"
   },
@@ -76,9 +76,9 @@
    "key": "ma200_dev",
    "label": "日経が200日線割れ",
    "on": false,
-   "value": "+19.54%",
+   "value": "+16.52%",
    "threshold": "0%未満",
-   "distance": "あと19.54%",
+   "distance": "あと16.52%",
    "ratio": 1.3,
    "why": "長期トレンドの下。下げが下げを呼ぶ状態に入りやすい"
   }
@@ -623,7 +623,7 @@
    "s": 2
   },
   {
-   "d": "2026-08-17",
+   "d": "2026-08-18",
    "s": 1
   }
  ]
