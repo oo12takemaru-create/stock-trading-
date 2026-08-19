@@ -1,5 +1,5 @@
 {
- "updated": "2026-08-19T18:10:05+09:00",
+ "updated": "2026-08-19T22:29:07+09:00",
  "lit": 3,
  "total": 5,
  "judged": 5,
@@ -78,11 +78,11 @@
  "phase": {
   "ok": true,
   "active": true,
-  "vix": 15.8,
+  "vix": 15.5,
   "vix_band": "平時",
   "vix_band_desc": "市場は落ち着いている",
   "vix_peak": 20.66,
-  "vix_off_peak": -23.5,
+  "vix_off_peak": -25.0,
   "vix_peak_days": 21,
   "vix_rising": true,
   "adr": 111.9,
@@ -112,25 +112,25 @@
    {
     "week": 4,
     "days": 5,
-    "big": 3,
+    "big": 4,
     "max": 4.03
    },
    {
     "week": 5,
     "days": 5,
     "big": 2,
-    "max": 4.03
+    "max": 3.66
    },
    {
     "week": 6,
     "days": 5,
     "big": 1,
-    "max": 3.66
+    "max": 2.08
    }
   ],
   "stage_key": "early",
   "stage": "初期",
-  "message": "VIXが15.8（平時）まで上昇中し、騰落レシオは112でまだ極端な水準に達していません。本震の直後にあたります。",
+  "message": "VIXが15.5（平時）まで上昇中し、騰落レシオは112でまだ極端な水準に達していません。本震の直後にあたります。",
   "action": "焦って買い向かう場面ではありません。VIXが高いだけで「そろそろ底」と判断するのが、最大の過ちです。"
  },
  "book": {
