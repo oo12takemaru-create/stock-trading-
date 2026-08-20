@@ -1,31 +1,31 @@
 {
- "target_date": "2026-08-18",
- "generated_at": "2026-08-19T19:55:37+09:00",
- "jiai": "強気(25日線・75日線の上)",
+ "target_date": "2026-08-19",
+ "generated_at": "2026-08-20T19:58:12+09:00",
+ "jiai": "弱気(75日線の下)",
  "rows": [
   {
-   "judge": "watch",
+   "judge": "signal",
    "code": "6728",
    "name": "アルバック",
    "sector": "半導体製造装置",
-   "kairi": -14.6
+   "kairi": -17.7
   },
   {
    "judge": "watch",
-   "code": "4704",
-   "name": "トレンドマイクロ",
-   "sector": "セキュリティ",
-   "kairi": -13.88
+   "code": "6920",
+   "name": "レーザーテック",
+   "sector": "半導体製造装置",
+   "kairi": -14.18
   },
   {
    "judge": "watch",
-   "code": "4751",
-   "name": "サイバーエージェント",
-   "sector": "広告IT",
-   "kairi": -11.7
+   "code": "4901",
+   "name": "富士フイルム",
+   "sector": "化学",
+   "kairi": -12.04
   }
  ],
- "signals_today_date": "2026-08-19",
+ "signals_today_date": "2026-08-20",
  "is_halt": false,
  "signals_today_count": 0,
  "signal_of_day": null
