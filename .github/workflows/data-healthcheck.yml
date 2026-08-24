@@ -31,7 +31,10 @@ jobs:
           from datetime import datetime, timezone, timedelta
           JST = timezone(timedelta(hours=9))
           now = datetime.now(JST)
-          today = now.date()
+          # 23:43のcronがGitHub側の遅延で日付をまたぐと、金曜更新の日次データが
+          # 月曜0時に「1営業日前」と誤検知される（2026-08-24 Issue #321で実際に発生）。
+          # 「その晩のチェック」として評価するため、7時間引いた時点の日付を基準にする。
+          today = (now - timedelta(hours=7)).date()
 
           def bizdays_between(d1, d2):
               """d1→d2 の営業日数（土日を除く。祝日は考慮しない=安全側に厳しめ）"""
