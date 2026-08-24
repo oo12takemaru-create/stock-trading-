@@ -61,14 +61,28 @@ FLAGS = [
 STAGES = [(4, "calm", "平常圏"), (5, "warn", "警戒"), (99, "danger", "危険")]
 
 
-def load():
-    raw = yf.download(list(TICKERS.values()), start=START, auto_adjust=False,
-                      progress=False, threads=True)
-    px = raw["Close"].rename(columns={v: k for k, v in TICKERS.items()})
-    px = px.reindex(columns=list(TICKERS))
-    # 日本の営業日を基準に。他市場が休みの日は前日値（=実際にその日見られる情報）
-    px = px[px["n225"].notna()].ffill()
-    return px.dropna(subset=["n225"])
+def load(tries=3):
+    # threads=False: yfinanceのSQLiteキャッシュが並列アクセスで
+    # "database is locked" になり1銘柄だけ欠けることがある（2026-08-24にCIで2連続発生）。
+    # 5銘柄なので直列でも十分速い。さらに空振り時はリトライする。
+    import time
+    last_len = 0
+    for i in range(tries):
+        raw = yf.download(list(TICKERS.values()), start=START, auto_adjust=False,
+                          progress=False, threads=False)
+        px = raw["Close"].rename(columns={v: k for k, v in TICKERS.items()})
+        px = px.reindex(columns=list(TICKERS))
+        # 日本の営業日を基準に。他市場が休みの日は前日値（=実際にその日見られる情報）
+        px = px[px["n225"].notna()].ffill()
+        px = px.dropna(subset=["n225"])
+        # 全列が実データを持っているか（1銘柄でも全欠損なら取得失敗扱い）
+        if len(px) > 2000 and all(px[c].notna().sum() > 1000 for c in TICKERS):
+            return px
+        last_len = len(px)
+        print(f"取得不完全（{i+1}/{tries}回目・{last_len}行）→ リトライ", file=sys.stderr)
+        time.sleep(20 * (i + 1))
+    print(f"リトライしても取得できず（{last_len}行）", file=sys.stderr)
+    sys.exit(1)
 
 
 def features(px):
