@@ -1,5 +1,5 @@
 {
- "updated": "2026-08-25T18:15:28+09:00",
+ "updated": "2026-08-25T22:37:20+09:00",
  "lit": 3,
  "total": 5,
  "judged": 5,
@@ -78,7 +78,7 @@
  "phase": {
   "ok": true,
   "active": true,
-  "vix": 15.8,
+  "vix": 15.81,
   "vix_band": "平時",
   "vix_band_desc": "市場は落ち着いている",
   "vix_peak": 20.66,
