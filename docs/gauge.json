@@ -1,5 +1,5 @@
 {
- "updated": "2026-08-28T04:20:00+09:00",
+ "updated": "2026-08-28T07:39:16+09:00",
  "lit": 3,
  "total": 5,
  "judged": 5,
@@ -27,7 +27,7 @@
    "no": 2,
    "label": "割高（CAPE）",
    "on": true,
-   "value": "42.0倍",
+   "value": "42.3倍",
    "criterion": "25超",
    "detail": "長期平均17の約2.5倍。観測史上、40を超えたのは2000年のITバブルだけ。",
    "asof": "2026-08-28",
@@ -78,14 +78,14 @@
  "phase": {
   "ok": true,
   "active": true,
-  "vix": 14.68,
+  "vix": 14.51,
   "vix_band": "平時",
   "vix_band_desc": "市場は落ち着いている",
   "vix_peak": 16.5,
-  "vix_off_peak": -11.0,
+  "vix_off_peak": -12.1,
   "vix_peak_days": 23,
   "vix_rising": false,
-  "adr": 115.1,
+  "adr": 114.7,
   "adr_oversold": false,
   "drawdown": -8.4,
   "peak_date": "2026-06-25",
@@ -130,7 +130,7 @@
   ],
   "stage_key": "early",
   "stage": "初期",
-  "message": "VIXが14.7（平時）まで上昇し、騰落レシオは115でまだ極端な水準に達していません。本震の直後にあたります。",
+  "message": "VIXが14.5（平時）まで上昇し、騰落レシオは115でまだ極端な水準に達していません。本震の直後にあたります。",
   "action": "焦って買い向かう場面ではありません。VIXが高いだけで「そろそろ底」と判断するのが、最大の過ちです。"
  },
  "book": {
