@@ -442,6 +442,25 @@ body{
     </div>
   </div>
 
+  <!-- 🆕 2026-08-28: 実質レバレッジ・メーター(信用2倍運用の安全装置・全タブ共通) -->
+  <!--   枠数でなく「建玉総額÷自己資金」で管理する。強セクターは1枠=資金の30%になるため、
+         10枠でも実質3倍に達しうる(=追証濃厚ライン)。それを構造的に防ぐための計器。 -->
+  <div class="card" id="leverage-card" style="display:none;">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>🎚 実質レバレッジ</span>
+      <span style="font-size:10px;color:#9fb2cc;font-weight:400;">
+        上限
+        <select id="lev-cap-select" onchange="setLeverageCap(this.value)"
+                style="background:#0a1426;border:1px solid #22375a;color:#eaf1fb;border-radius:6px;padding:2px 5px;font-size:11px;font-family:inherit;">
+          <option value="1.0">1.0倍(現物のみ)</option>
+          <option value="1.4">1.4倍</option>
+          <option value="2.0">2.0倍</option>
+        </select>
+      </span>
+    </div>
+    <div id="leverage-body"></div>
+  </div>
+
   <!-- ========================================= -->
   <!-- TAB 1: TODAY -->
   <!-- ========================================= -->
@@ -2004,6 +2023,96 @@ function renderAccountBalance() {
   pnlEl.textContent = pnlSign + '¥' + Math.round(totalPnl).toLocaleString();
   pnlEl.style.color = pnlColor;
   changeEl.innerHTML = `初期¥${initialCapital.toLocaleString()} → <span style="color:${pnlColor};">${pnlSign}${changePct.toFixed(2)}%</span> / クローズ${closed.length}件`;
+  try { renderLeverageMeter(); } catch (e) {}
+}
+
+// ============================================
+// 🎚 実質レバレッジ・メーター (2026-08-28・信用2倍運用の安全装置)
+//   実質レバ = 建玉総額 ÷ 自己資金。★枠数では管理できない:
+//   セクターリスク調整で強セクター(証券/人材/半導体製造装置等)は1枠=資金の30%
+//   (リスク1%×1.5 ÷ 損切5%)。10枠すべて強セクターだと建玉300%=実質3倍となり、
+//   検証で「追証濃厚につき禁止」とした水準に意図せず到達してしまう。
+//   自己資金 = 初期資金 + 確定損益 + 含み損益(OPEN)
+// ============================================
+const LEV_CAP_KEY = 'leverage_cap';
+function leverageCap() {
+  const v = parseFloat(localStorage.getItem(LEV_CAP_KEY) || '2.0');
+  return (isFinite(v) && v > 0) ? v : 2.0;
+}
+function setLeverageCap(v) {
+  localStorage.setItem(LEV_CAP_KEY, String(v));
+  try { renderLeverageMeter(); } catch (e) {}
+  try { renderMorningOrders(); } catch (e) {}
+}
+function computeLeverage() {
+  const initialCapital = parseInt(localStorage.getItem('capital') || '1000000');
+  const trades = loadTrades();
+  const realized = trades.filter(t => t.status === 'CLOSED')
+    .reduce((s, t) => s + (t.pnl || 0), 0);
+  const opens = trades.filter(t => t.status === 'OPEN');
+  let position = 0, unrealized = 0, unpriced = 0;
+  opens.forEach(t => {
+    const sh = Number(t.shares) || 0;
+    const entry = Number(t.entry_price) || 0;
+    const cur = priceOf(t.ticker);
+    const px = (cur != null) ? cur : entry;
+    if (cur == null) unpriced++;
+    position += sh * px;
+    unrealized += sh * (px - entry);
+  });
+  const equity = initialCapital + realized + unrealized;
+  const cap = leverageCap();
+  return { equity, position, unrealized, cap, opens: opens.length, unpriced,
+           lev: equity > 0 ? position / equity : 0,
+           room: equity * cap - position };
+}
+function renderLeverageMeter() {
+  const card = document.getElementById('leverage-card');
+  const el = document.getElementById('leverage-body');
+  if (!card || !el) return;
+  const sel = document.getElementById('lev-cap-select');
+  if (sel) sel.value = String(leverageCap().toFixed(1));
+  const L = computeLeverage();
+  if (L.opens === 0 && L.cap >= 2.0) {
+    // 建玉ゼロでも上限だけは見せる(2倍運用時は常時意識するため)
+    el.innerHTML = `<div style="font-size:12px;color:#9fb2cc;padding:4px 0;">
+      建玉なし。自己資金 <strong style="color:#eaf1fb;">¥${Math.round(L.equity).toLocaleString()}</strong>
+      → 上限${L.cap.toFixed(1)}倍で <strong style="color:#56d364;">¥${Math.round(L.room).toLocaleString()}</strong> まで建てられます。</div>`;
+    card.style.display = '';
+    return;
+  }
+  if (L.opens === 0) { card.style.display = 'none'; return; }
+
+  const lev = L.lev, cap = L.cap;
+  const over = lev > cap + 0.001;
+  const near = !over && lev >= cap * 0.9;
+  const col = over ? '#f85149' : (near ? '#d29922' : (lev <= 1.0 ? '#56d364' : '#e7c061'));
+  const pos = Math.max(0, Math.min(100, lev / 3.0 * 100));   // メーターは0〜3.0倍
+  const capPos = Math.max(0, Math.min(100, cap / 3.0 * 100));
+  const note = over
+    ? `⚠ 上限${cap.toFixed(1)}倍を超過。新規は見送り、決済で建玉を落としてください`
+    : (near ? `上限${cap.toFixed(1)}倍に接近。新規は1枠が限度`
+            : `新規余力 あと ¥${Math.round(L.room).toLocaleString()}`);
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px;">
+      <span style="font-size:28px;font-weight:800;letter-spacing:-.02em;color:${col};">${lev.toFixed(2)}倍</span>
+      <span style="font-size:11px;color:#9fb2cc;">建玉 ¥${Math.round(L.position).toLocaleString()} ÷ 自己資金 ¥${Math.round(L.equity).toLocaleString()}</span>
+    </div>
+    <div style="position:relative;height:9px;border-radius:5px;background:linear-gradient(90deg,#2ea043 0%,#2ea043 28%,#e7c061 38%,#e7c061 60%,#f85149 72%);opacity:.9;">
+      <div style="position:absolute;left:calc(33.3% - 1px);top:-3px;width:2px;height:15px;background:rgba(255,255,255,.35);"></div>
+      <div style="position:absolute;left:calc(${capPos}% - 1.5px);top:-5px;width:3px;height:19px;background:#fff;opacity:.9;border-radius:2px;"></div>
+      <div style="position:absolute;left:calc(${pos}% - 2.5px);top:-4.5px;width:5px;height:18px;background:${col};border:2px solid #fff;border-radius:3px;box-shadow:0 0 9px rgba(255,255,255,.7);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#74879f;margin-top:4px;">
+      <span>0</span><span>1.0倍(現物満額)</span><span>2.0倍</span><span>3.0倍(追証圏)</span>
+    </div>
+    <div style="font-size:11.5px;color:${over ? '#f85149' : (near ? '#d29922' : '#9fb2cc')};margin-top:7px;font-weight:${over ? '700' : '400'};">${note}</div>
+    <div style="font-size:10.5px;color:#6e7681;margin-top:5px;">
+      保有${L.opens}件 / 含み ${L.unrealized >= 0 ? '+' : ''}¥${Math.round(L.unrealized).toLocaleString()}
+      ${L.unpriced ? ` <span style="color:#d29922;">(${L.unpriced}件は現在値未取得のため取得単価で計算)</span>` : ''}
+    </div>`;
+  card.style.display = '';
 }
 
 // ============================================
@@ -4374,7 +4483,21 @@ function renderMorningOrders() {
   // ── ② 今日の逆指値買い(ブレイク監視) ──
   const watch = (watchlistData && Array.isArray(watchlistData.items)) ? watchlistData.items : [];
   if (watch.length) {
-    let buyRows = '';
+    // 🎚 建玉が上限に達していたら、新規セクションの冒頭で止める(2倍運用の安全装置)
+    let levWarn = '';
+    try {
+      const L = computeLeverage();
+      if (L.opens > 0 && L.lev > L.cap + 0.001) {
+        levWarn = `<div style="background:#5a1f1f;border:1px solid #f85149;border-radius:8px;padding:9px 11px;margin:6px 0;font-size:11.5px;color:#ffa198;line-height:1.6;">
+          <strong style="color:#f85149;">⛔ 建玉が上限${L.cap.toFixed(1)}倍を超過中(現在${L.lev.toFixed(2)}倍)</strong><br>
+          今日の新規は見送り。まず決済して建玉を落としてください。</div>`;
+      } else if (L.opens > 0 && L.room < (L.equity * 0.2)) {
+        levWarn = `<div style="background:#3a2a10;border:1px solid #d29922;border-radius:8px;padding:9px 11px;margin:6px 0;font-size:11.5px;color:#e3b341;line-height:1.6;">
+          ⚠ 新規余力はあと <strong>¥${Math.round(Math.max(0, L.room)).toLocaleString()}</strong>(現在${L.lev.toFixed(2)}倍 / 上限${L.cap.toFixed(1)}倍)。
+          全部は建てられません。上から順に。</div>`;
+      }
+    } catch (e) {}
+    let buyRows = levWarn;
     watch.forEach(w => {
       const key = 'w_' + (w.ticker || '');
       const isChecked = !!done[key];
@@ -4449,6 +4572,7 @@ function renderImprovements() {
   try { renderMonthlyStats(); } catch (e) {}
   try { updateFreshness(); } catch (e) {}
   try { renderMorningOrders(); } catch (e) {}
+  try { renderLeverageMeter(); } catch (e) {}
 }
 
 // ============================================
