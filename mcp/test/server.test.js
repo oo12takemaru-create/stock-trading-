@@ -112,6 +112,79 @@ test("get_anomaly_summary: gauge.json + crash.json", async () => {
   assert.ok(d.ignition_meter.history.length > 0);
 });
 
+test("get_anomaly_summary: ジンクス50本(anomaly_results.json)", async () => {
+  const p = (await call("get_anomaly_summary", {})).structuredContent;
+  const j = p.jinx_verification;
+  assert.equal(j.total, 50, "50本読めていない");
+  assert.equal(j.matched, 50);
+  assert.equal(j.items.length, 50);
+  assert.ok(j.judgment_legend["○"], "判定記号の凡例がない");
+  assert.equal(Object.values(j.judgment_counts).reduce((a, b) => a + b, 0), 50);
+
+  // 引数なし = 一覧モード(判定のみ・軽い)
+  for (const it of j.items) {
+    assert.ok(it.name && it.category, `欠けた項目: ${it.id}`);
+    assert.ok(it.judgment in j.judgment_legend, `未知の判定記号: ${it.judgment}`);
+    assert.equal(typeof it.verified, "boolean");
+    assert.equal(it.metrics, undefined, "一覧モードで統計値が出ている");
+    assert.equal(it.saying, undefined);
+  }
+  assert.ok(j.note.includes("name"), "一覧モードの案内がない");
+
+  // 絞り込むと統計値が付く
+  const one = (await call("get_anomaly_summary", { name: "セルインメイ" })).structuredContent.jinx_verification.items[0];
+  assert.ok(Array.isArray(one.metrics) && one.metrics.length === 2);
+  assert.equal(one.verified, true);
+  assert.ok(one.definition);
+  for (const m of one.metrics) {
+    assert.ok(["full", "recent10"].includes(m.period));
+    assert.equal(typeof m.n, "number");
+    assert.ok(m.win_rate === null || typeof m.win_rate === "number");
+  }
+  // 生データの素通し禁止(企画書 §9)。格言本文・図のパス・年代別の内訳は出さない
+  assert.equal(one.saying, undefined);
+  assert.equal(one.chart, undefined);
+  assert.equal(one.extra, undefined);
+  assert.equal(one.metrics[0].std, undefined);
+
+  // detail=true で年代別・対照群が付く
+  const d = (await call("get_anomaly_summary", { detail: true })).structuredContent.jinx_verification;
+  assert.ok(d.items.some((x) => x.extra && Object.keys(x.extra).length > 0));
+  assert.ok(d.items.every((x) => Array.isArray(x.metrics)));
+  assert.equal(typeof d.items[0].metrics[0].control_mean, "number");
+  // 検証できなかった4本も落とさずに返す
+  assert.equal(d.items.filter((x) => !x.verified).length, 4);
+});
+
+test("get_anomaly_summary: name で絞り込める", async () => {
+  const one = (await call("get_anomaly_summary", { name: "セルインメイ" })).structuredContent.jinx_verification;
+  assert.equal(one.matched, 1);
+  assert.equal(one.items[0].name, "セルインメイ");
+  assert.equal(one.total, 50);
+
+  const cat = (await call("get_anomaly_summary", { name: "曜日" })).structuredContent.jinx_verification;
+  assert.ok(cat.matched > 1, "カテゴリ部分一致が効いていない");
+
+  const none = (await call("get_anomaly_summary", { name: "存在しないジンクス" })).structuredContent.jinx_verification;
+  assert.equal(none.matched, 0);
+  assert.equal(none.available_names.length, 50);
+});
+
+test("ジンクス検証データに推奨語が残らない(saying は出力しない)", async () => {
+  // 元データの saying(書籍の格言本文)には「儲かる」「売れ」等が含まれる。
+  // 出力に含めていないこと + 万一含めても scrub が効くことの両方を確認する。
+  const raw = JSON.parse(await readFile(path.join(DOCS, "anomaly_results.json"), "utf8"));
+  assert.equal(raw.length, 50);
+  assert.ok(raw.some((x) => hasNg(String(x.saying || ""))), "テスト前提の変化: 元データにNG語が無い");
+
+  for (const args of [{}, { detail: true }, { name: "ハロウィン" }]) {
+    const r = await call("get_anomaly_summary", args);
+    assert.equal(hasNg(r.content[0].text), false, `推奨語が残っている: ${JSON.stringify(args)}`);
+    assert.ok(r.structuredContent.disclaimer.length > 20);
+  }
+  assert.equal(hasNg(scrubText(raw.find((x) => hasNg(String(x.saying || ""))).saying)), false);
+});
+
 test("list_tools_guide", async () => {
   const p = (await call("list_tools_guide")).structuredContent;
   assert.equal(p.tools.length, 4);

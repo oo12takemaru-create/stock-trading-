@@ -14,6 +14,83 @@ const REGIME_LABEL = {
 const BNF_RULE =
   "終値の25日移動平均線からの乖離率が -15% 以下(書籍『BNFに学ぶ』掲載の基本ルール。終値ベースで未来情報は使わない)";
 
+// ジンクス(アノマリー)50本の検証結果 docs/anomaly_results.json を読むための定数。
+// 生成側は `株式投資開発/jinx_verification/`(このリポジトリの外)。MCP は読むだけ。
+const JINX_LEGEND = {
+  "◎": "今も有効(全期間・直近10年とも統計的に有意)",
+  "○": "昔は有効(全期間では有意だが直近10年では消えた)",
+  "▲": "最近になって現れた(全期間では有意でないが直近10年では有意)",
+  "△": "誤差の範囲(方向は言い伝えどおりだが有意でない)",
+  "×": "迷信(方向が逆、または無関係)",
+  "?": "判定保留(標本が15未満で統計判定に耐えない)",
+  "→": "本書の対象外(姉妹書で検証)",
+};
+
+const JINX_METHOD =
+  "日経平均株価などの公開価格データ(61年8か月・15,154営業日)を用いた機械検証。" +
+  "p値はウェルチのt検定(該当率の検証は1標本t検定)。「直近10年」は2016年8月〜2026年8月。" +
+  "配当・手数料・税金は考慮していない。検証不能・代用データを使った項目は note に記載。";
+
+const JINX_SOURCE =
+  "書籍『株のジンクス・アノマリー全50本を61年で全検証』(ASIN B0HGRKBZP6)の検証データ";
+
+// 小数の桁を落とす(統計値の見た目を揃え、返却量も減らす)
+const r2 = (v, d = 2) => (typeof v === "number" && Number.isFinite(v) ? Number(v.toFixed(d)) : null);
+
+function jinxMetric(m, detail) {
+  const o = {
+    period: m.period, // full = 全期間 / recent10 = 直近10年
+    n: m.n,
+    win_rate: r2(m.win_rate),
+    mean: r2(m.mean, 3),
+    diff_vs_control: r2(m.diff, 3),
+    p: r2(m.p, 4),
+    significant: typeof m.p === "number" && Number.isFinite(m.p) ? m.p < 0.05 : null,
+  };
+  if (detail) {
+    o.median = r2(m.median, 3);
+    o.std = r2(m.std, 3);
+    o.control_n = m.ctrl_n ?? null;
+    o.control_mean = r2(m.ctrl_mean, 3);
+  }
+  return o;
+}
+
+// 返すのは判定結果と統計値のみ。価格系列・財務値は返さない(企画書 §9)。
+// saying(格言の本文)は推奨語を含むため出力に含めない。name と definition で同定できる。
+function jinxItem(x, detail, compact) {
+  // 一覧(全50本)は判定だけの軽い形にする。統計値は name で絞り込むか detail=true で返す。
+  if (compact) {
+    return {
+      id: x.id,
+      name: x.name,
+      category: x.category,
+      judgment: x.judgment,
+      verified: Array.isArray(x.metrics) && x.metrics.length > 0,
+    };
+  }
+  const o = {
+    id: x.id,
+    name: x.name,
+    category: x.category,
+    judgment: x.judgment,
+    judgment_label: JINX_LEGEND[x.judgment] || "",
+    definition: x.definition,
+    unit: x.unit,
+    expected_direction: x.expect > 0 ? "up" : x.expect < 0 ? "down" : "none",
+    // データが取得できず検証できなかった項目・姉妹書送りの項目は metrics が空。理由は note にある
+    verified: Array.isArray(x.metrics) && x.metrics.length > 0,
+    metrics: (x.metrics || []).map((m) => jinxMetric(m, detail)),
+  };
+  if (x.note) o.note = x.note;
+  if (detail && x.extra && Object.keys(x.extra).length) {
+    o.extra = Object.fromEntries(
+      Object.entries(x.extra).map(([k, v]) => [k, typeof v === "number" ? r2(v, 4) : v]),
+    );
+  }
+  return o;
+}
+
 // ---- ツール定義(tools/list で返す) ----------------------------------------
 export const TOOL_DEFS = [
   {
@@ -60,16 +137,25 @@ export const TOOL_DEFS = [
   },
   {
     name: "get_anomaly_summary",
-    title: "暴落前兆の検証結果(傾斜計5項目+着火メーター7項目)",
+    title: "アノマリー検証結果(ジンクス50本)+暴落前兆(傾斜計5・着火メーター7)",
     description:
-      "書籍『暴落は、減衰する』の5つの前兆(逆イールド・CAPE・信用膨張・過熱・引き締め)の点灯状況と、過去26年のデータで検証した着火メーター(7フラグ・20営業日以内に-10%が起きた割合)を返す。detail=true で各項目の書籍上の根拠と統計表も含める。",
+      "日本株の言い伝え(アノマリー/ジンクス)50本を61年分の日経平均データで検証した結果(判定・勝率・平均リターン・標本数・p値)を返す。" +
+      "name を渡すとその名前を含むものだけに絞り込める(例: セルインメイ, 節分天井, 干支)。" +
+      "あわせて、5つの暴落前兆(逆イールド・CAPE・信用膨張・過熱・引き締め)の点灯状況と、着火メーター(7フラグ・20営業日以内に-10%が起きた過去の割合)の現在値も返す。" +
+      "detail=true で年代別の内訳・統計表・書籍上の根拠を含める。返すのは判定結果と統計値のみで、価格系列や財務値は含まない。",
     inputSchema: {
       type: "object",
       properties: {
+        name: {
+          type: "string",
+          description:
+            "アノマリー名またはカテゴリの部分一致で絞り込む(例: セルインメイ / 節分 / 曜日 / 都市伝説)。省略すると全50本の要約を返す",
+        },
         detail: {
           type: "boolean",
           default: false,
-          description: "各項目の書籍上の根拠(book)と着火メーターの統計表・履歴を含めるか",
+          description:
+            "年代別の内訳(extra)・中央値/標準偏差/対照群・書籍上の根拠(book)・着火メーターの統計表と履歴を含めるか",
         },
       },
       additionalProperties: false,
@@ -177,7 +263,13 @@ async function getMarketRegime(args, { load }) {
 
 async function getAnomalySummary(args, { load, env }) {
   const detail = !!args.detail;
-  const [g, c] = await Promise.all([load("gauge.json"), load("crash.json")]);
+  const q = typeof args.name === "string" ? args.name.trim() : "";
+  const [g, c, jinxRaw] = await Promise.all([
+    load("gauge.json"),
+    load("crash.json"),
+    // ジンクス50本。無くても他の2つは返せるようにする(任意データ扱い)
+    load("anomaly_results.json").catch(() => null),
+  ]);
 
   const gauges = (g.gauges || []).map((x) => {
     const o = {
@@ -251,11 +343,47 @@ async function getAnomalySummary(args, { load, env }) {
     out.ignition_meter.stats = c.stats;
     out.ignition_meter.history = (c.history || []).slice(-30).map((x) => ({ date: x.d, score: x.s }));
   }
-  // 別途ジンクス/アノマリー検証JSONがある場合は ANOMALY_URL で差し込める(構造はそのまま返す)
+  // ジンクス(アノマリー)50本の検証結果。docs/anomaly_results.json を読むだけ。
+  const all = Array.isArray(jinxRaw) ? jinxRaw : null;
+  if (all) {
+    const key = q.toLowerCase();
+    const hits = key
+      ? all.filter(
+          (x) =>
+            String(x.name || "").toLowerCase().includes(key) ||
+            String(x.category || "").toLowerCase().includes(key),
+        )
+      : all;
+    const compact = !q && !detail;
+    const counts = {};
+    for (const x of all) counts[x.judgment] = (counts[x.judgment] || 0) + 1;
+    out.jinx_verification = {
+      source: JINX_SOURCE,
+      method: JINX_METHOD,
+      total: all.length,
+      judgment_legend: JINX_LEGEND,
+      judgment_counts: counts,
+      categories: [...new Set(all.map((x) => x.category))],
+      query: q || null,
+      matched: hits.length,
+      items: hits.map((x) => jinxItem(x, detail, compact)),
+    };
+    if (compact) {
+      out.jinx_verification.note =
+        "一覧のため判定のみ。勝率・平均リターン・標本数・p値が要るときは name に名前かカテゴリを渡す(部分一致)か、detail=true を指定する";
+    }
+    if (q && hits.length === 0) {
+      out.jinx_verification.available_names = all.map((x) => x.name);
+      out.jinx_verification.hint = "name は部分一致。上の available_names から選び直すか、name を省略して全件を取得する";
+    }
+  } else {
+    out.jinx_verification = { available: false, reason: "検証データ(anomaly_results.json)を取得できなかった" };
+  }
+  // 別配信先で差し替えたい場合は ANOMALY_URL(構造はそのまま返す)
   if (env && env.ANOMALY_URL) {
     try {
       const r = await fetch(env.ANOMALY_URL, { headers: { "user-agent": "ruletrade-mcp/0.1" } });
-      if (r.ok) out.jinx_verification = await r.json();
+      if (r.ok) out.jinx_verification_external = await r.json();
     } catch {
       /* 任意データなので失敗は無視 */
     }
@@ -272,7 +400,9 @@ async function listToolsGuide() {
     data_schedule_jst: {
       get_daily_signals: "平日 19:30 頃更新。前営業日の終値で判定(1営業日遅れ)",
       get_market_regime: "平日 08:00 / 12:00 / 18:00 の本番スキャン後に更新。ザラ場中は15分ごとに現在値を反映",
-      get_anomaly_summary: "傾斜計: 平日 17:23 / 21:23。着火メーター: 平日 16:47 / 19:47 / 22:47",
+      get_anomaly_summary:
+        "傾斜計: 平日 17:23 / 21:23。着火メーター: 平日 16:47 / 19:47 / 22:47。" +
+        "ジンクス50本の検証結果は書籍刊行時点(2026-08)の固定データで、日次更新はしない",
       note: "祝日・データ取得失敗時は前回値が残る(各レスポンスの updated / asof / stale を確認)",
     },
     free_tier_limits: [
@@ -284,6 +414,8 @@ async function listToolsGuide() {
       "status=rule_hit は「公開ルールの条件に機械的に該当した」という事実で、売買の判断ではない",
       "regime は本番システムが戦略を切り替えるための分類で、相場予想ではない",
       "着火メーターの割合は過去データでの発生率。将来の予測ではない",
+      "ジンクスの judgment(◎○▲△×?)は過去データでの統計的有意性の分類で、将来そうなるという意味ではない。judgment_legend に定義がある",
+      "判定が × や ? のものも含めて全50本を返す。「効かなかったこと」の検証結果も同じ重みで扱う",
     ],
     roadmap: {
       planned: "run_rule_backtest(ルールの過去検証を実行)。バックテスト基盤の整備後に有料枠として追加予定",

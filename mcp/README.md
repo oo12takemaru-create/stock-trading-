@@ -8,20 +8,29 @@ AIエージェント(Claude / Cursor / ChatGPT 等)から MCP で読めるよう
 |---|---|---|
 | `get_daily_signals` | free_scanner.json | BNF 25日線乖離ルールの該当/監視(1営業日遅れ・上位3件) |
 | `get_market_regime` | radar.json / market_jiai.json / radar_history.json | 地合い BULLISH〜PANIC・HALT・VIX・日経・履歴 |
-| `get_anomaly_summary` | gauge.json / crash.json | 『暴落は、減衰する』5つの前兆 + 着火メーター(26年検証) |
+| `get_anomaly_summary` | anomaly_results.json / gauge.json / crash.json | ジンクス50本の検証結果(61年・判定/勝率/p値。`name` で絞り込み)+ 『暴落は、減衰する』5つの前兆 + 着火メーター(26年検証) |
 | `list_tools_guide` | (静的) | 使い方・更新時刻・遅延・免責・今後の予定 |
 
 法務線は人向けサイトと同一:
 - 推奨語(推奨/おすすめ/買うべき/儲かる 等 `src/legal.js` の `NG_WORDS`)は出力から伏せ字にする
 - 全レスポンスに `disclaimer` キーを常設
 - 価格・株数・利確/損切ライン・本番の調整済み閾値は出さない(free_scanner.json 生成時点で既に落ちている)
+- ジンクス検証は判定結果と統計値(勝率・平均・標本数・p値)のみ。格言の本文(`saying`)は推奨語を含むため出力しない
+
+## データの出どころ
+
+`docs/*.json` は既存の生成側(Python)が毎日書き出しているもの。MCP は読むだけで、生成側は一切触らない。
+
+`docs/anomaly_results.json` だけは日次ではなく **書籍刊行時点(2026-08)の固定データ**。
+元は `株式投資開発/jinx_verification/results/results.json`(このリポジトリの外)で、
+JSON 非対応の `NaN` を `null` に置換したコピー。更新するときは同じ手順でコピーし直す。
 
 ## エンドポイント
 
 | パス | 内容 |
 |---|---|
 | `POST /mcp` | MCP Streamable HTTP(JSON-RPC・ステートレス) |
-| `GET /health` | 4つのJSONが読めるか確認 |
+| `GET /health` | 5つのJSONが読めるか確認 |
 | `GET /` | 概要 |
 
 ## デプロイ(どちらか一方でOK・スマホのブラウザから完結)
@@ -52,7 +61,7 @@ AIエージェント(Claude / Cursor / ChatGPT 等)から MCP で読めるよう
 | 変数 | 用途 |
 |---|---|
 | `DATA_BASE` | JSONの取得元(既定: GitHub raw の `docs/`)。リポジトリ非公開化時に差し替え |
-| `ANOMALY_URL` | ジンクス/アノマリー検証JSONを別途公開したら指定。`get_anomaly_summary` の `jinx_verification` にそのまま入る |
+| `ANOMALY_URL` | 検証JSONを別配信先に置く場合に指定。`get_anomaly_summary` の `jinx_verification_external` にそのまま入る(通常は不要。既定は `docs/anomaly_results.json`) |
 | `LOG_WEBHOOK` | 呼び出しログ(1行JSON)をPOSTする先。GAS/Slack/Sheets 等で集計したい場合 |
 | `CACHE_TTL_MS` | インスタンス内キャッシュ(既定 60000) |
 
@@ -63,7 +72,7 @@ AIエージェント(Claude / Cursor / ChatGPT 等)から MCP で読めるよう
 
 ```bash
 cd mcp
-npm test        # 実際の docs/*.json をフィクスチャに13テスト(推奨語ゼロ検査を含む)
+npm test        # 実際の docs/*.json をフィクスチャに16テスト(推奨語ゼロ検査を含む)
 node dev.js     # http://localhost:8787/mcp
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/mcp -H 'content-type: application/json' \

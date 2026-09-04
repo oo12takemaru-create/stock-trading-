@@ -165,10 +165,12 @@ export async function handle(request, env = {}, ctx) {
     if (path.endsWith("/health")) {
       const loader = makeLoader(env);
       const checks = {};
-      for (const f of ["radar.json", "free_scanner.json", "gauge.json", "crash.json"]) {
+      for (const f of ["radar.json", "free_scanner.json", "gauge.json", "crash.json", "anomaly_results.json"]) {
         try {
           const d = await loader.load(f);
-          checks[f] = { ok: true, updated: d.updated || d.generated_at || null };
+          checks[f] = Array.isArray(d)
+            ? { ok: true, items: d.length }
+            : { ok: true, updated: d.updated || d.generated_at || null };
         } catch (e) {
           checks[f] = { ok: false, error: String(e.message || e) };
         }

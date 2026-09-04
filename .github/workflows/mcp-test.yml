@@ -3,7 +3,7 @@ name: MCP Server Test (ruletrade-mcp)
 # mcp/ 配下の変更時に、実際の docs/*.json をフィクスチャにしてツール4本と法務線(推奨語ゼロ)を検証する。
 on:
   push:
-    paths: ["mcp/**", "docs/free_scanner.json", "docs/radar.json", "docs/gauge.json", "docs/crash.json"]
+    paths: ["mcp/**", "docs/free_scanner.json", "docs/radar.json", "docs/gauge.json", "docs/crash.json", "docs/anomaly_results.json"]
   pull_request:
     paths: ["mcp/**"]
   workflow_dispatch:

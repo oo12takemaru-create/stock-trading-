@@ -19,7 +19,7 @@
 | 項目 | 状態 |
 |---|---|
 | コード | `mcp/` 配下に完成。依存パッケージゼロ(Node 20+ の標準機能のみ) |
-| テスト | `cd mcp && npm test` → 13本すべて合格(実際の docs/*.json をフィクスチャに使用) |
+| テスト | `cd mcp && npm test` → 16本すべて合格(実際の docs/*.json をフィクスチャに使用) |
 | 本番データでの動作 | ローカル dev サーバーから GitHub raw の JSON を読んで4本とも正常応答を確認済み |
 | CI | `.github/workflows/mcp-test.yml` を追加(mcp/ 変更時に自動テスト) |
 | デプロイ | **未実施**(本人作業) |
@@ -39,7 +39,7 @@ mcp/
 ├── vercel.json        Vercel 用 rewrite
 ├── wrangler.toml      Cloudflare 用(observability=有効。Analytics Engine はコメントアウト)
 ├── dev.js             ローカル確認用 http サーバー(node dev.js → :8787)
-├── test/server.test.js 13テスト
+├── test/server.test.js 16テスト
 ├── package.json
 ├── README.md          デプロイ手順・接続方法・環境変数
 └── HANDOFF.md         このファイル
@@ -54,10 +54,22 @@ mcp/
 |---|---|---|---|
 | `get_daily_signals` | `docs/free_scanner.json` | `strategy`(bnfのみ), `include_watch` | judge=signal→`rule_hit`、watch→`watch` に言い換え。価格・株数は元JSONに無い |
 | `get_market_regime` | `docs/radar.json`, `docs/market_jiai.json`, `docs/radar_history.json` | `history_days`(0〜60) | 銘柄名なし・件数のみ |
-| `get_anomaly_summary` | `docs/gauge.json`, `docs/crash.json` | `detail` | 『暴落は、減衰する』5前兆 + 着火メーター7フラグ |
+| `get_anomaly_summary` | `docs/anomaly_results.json`, `docs/gauge.json`, `docs/crash.json` | `name`, `detail` | ジンクス50本の検証結果 + 『暴落は、減衰する』5前兆 + 着火メーター7フラグ |
 | `list_tools_guide` | なし(静的) | なし | 更新時刻・遅延・制限・免責・ロードマップ |
 
-エンドポイント: `POST /mcp`(MCP本体)、`GET /health`(4JSONの疎通)、`GET /`(概要)。`GET /mcp` は仕様どおり 405。
+エンドポイント: `POST /mcp`(MCP本体)、`GET /health`(5JSONの疎通)、`GET /`(概要)。`GET /mcp` は仕様どおり 405。
+
+### 4-1. ジンクス検証データ(2026-09-04 追加)
+
+- 実体: `docs/anomaly_results.json`(50本の配列・52KB)。**日次更新ではなく書籍刊行時点の固定データ**。
+- 生成側は `株式投資開発/jinx_verification/`(別フォルダ・git管理外)。**MCP はコピーを読むだけで生成側は触らない**。
+  コピー時に JSON 非対応の `NaN`(5箇所)を `null` に置換している。
+- 返すのは判定結果と統計値のみ(`name/category/judgment/definition/win_rate/mean/n/p` 等)。
+  **`saying`(格言の本文)は「儲かる」「売れ」等の推奨語を含むため出力しない**(伏せ字だらけになるのを避けるため)。
+  `chart`(図のパス)・`expect` の生値も出さない。
+- `name` 引数で名前/カテゴリの部分一致絞り込み。引数なしの一覧は判定のみの軽い形(全件+統計値だと約38K文字になるため)。
+- 検証不能・姉妹書送りの4本(決算またぎ / 優待の新設 / オリンピック / サザエさん効果)は `metrics` が空。
+  落とさずに `verified: false` + `note`(理由)を付けて返す。
 
 ## 5. 法務線の実装
 
@@ -74,17 +86,22 @@ mcp/
 
 ## 7. 未決事項(家で確認が必要)
 
-1. **「ジンクス本の検証結果」の所在。** リポジトリ内に該当JSONは無い。現状 `get_anomaly_summary` は gauge.json + crash.json で代替している。
-   - 検証JSONが見つかったら: (a) `docs/` に置いて `.gitignore` に例外を追加し tools.js で読む、または (b) 別URLで公開して環境変数 `ANOMALY_URL` を設定(そのまま `jinx_verification` キーに同梱される)。
-2. **デプロイ先の選択。** 推奨は Cloudflare(ログ保持・無料枠)。手順は README.md の「デプロイ」。
-3. **リポジトリを非公開化する予定の有無。** 非公開化すると raw URL が読めなくなるので、その時は `DATA_BASE` を別配信先(Pages 等)に向ける。
+1. ~~「ジンクス本の検証結果」の所在。~~ **解決(2026-09-04)**。選択肢 (a) を採用。
+   `株式投資開発/jinx_verification/results/results.json` を `docs/anomaly_results.json` としてコピーし、
+   `.gitignore` に `!docs/anomaly_results.json` を追加、`tools.js` の `get_anomaly_summary` から読んでいる。
+   `ANOMALY_URL` は別配信先に置きたい場合の予備として残置(キー名は `jinx_verification_external` に変更)。
+2. **デプロイ先の選択。** → Cloudflare Workers に決定(2026-09-04・ログ保持のため)。手順は README.md の「デプロイ」。
+   ⚠️ **デプロイ前に main へマージすること。** `DATA_BASE` の既定は GitHub raw の `main/docs` を指すので、
+   `docs/anomaly_results.json` が main に無いと `/health` が 503 になる。
+3. **リポジトリを非公開化する予定の有無。** → 当面は公開のまま(2026-09-04 決定)。
+   非公開化すると raw URL が読めなくなるので、その時は `DATA_BASE` を別配信先(Pages 等)に向ける。
 
 ## 8. 家での再開手順
 
 ```bash
 git fetch origin claude/rule-trade-mcp-free-launch-136is2
 git checkout claude/rule-trade-mcp-free-launch-136is2
-cd mcp && npm test            # 13 pass を確認
+cd mcp && npm test            # 16 pass を確認
 node dev.js                   # 別ターミナルで
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/mcp -H 'content-type: application/json' \
@@ -96,11 +113,11 @@ Claude Code に渡す一言:
 
 ## 9. 公開までの残タスク(順番どおり)
 
-- [ ] ジンクス検証JSONを特定して `get_anomaly_summary` を正式対応(または ANOMALY_URL で差し込み)
-- [ ] Cloudflare or Vercel にデプロイ(Root directory = `mcp`)→ `/health` が `"ok": true`
+- [x] ジンクス検証JSONを特定して `get_anomaly_summary` を正式対応(2026-09-04・`docs/anomaly_results.json` として同梱)
+- [ ] **main へマージ(PR)** ← デプロイより先。raw main を読むため
+- [ ] Cloudflare にデプロイ(Root directory = `mcp`)→ `/health` が `"ok": true`
 - [ ] Claude Code から接続して4本の出力文言を目視: `claude mcp add --transport http ruletrade https://<host>/mcp`
 - [ ] claude.ai のカスタムコネクタでも接続確認(設定 → コネクタ → URL に `/mcp`)
-- [ ] main へマージ(PR)
 - [ ] 人向けサイトに MCP の案内を1行追加(URL と「投資助言ではない」旨)
 - [ ] 1週間後に呼び出しログを集計(ツール別回数・クライアント別)→ 有料化判断の材料
 
