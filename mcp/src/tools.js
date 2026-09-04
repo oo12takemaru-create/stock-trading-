@@ -4,6 +4,13 @@ import { DISCLAIMER } from "./legal.js";
 export const SERVER_NAME = "ruletrade-mcp";
 export const SERVER_VERSION = "0.1.0";
 
+// 正規URL。ruletrade.jp(Vercel)から Cloudflare Workers へ rewrite している。
+// Worker 側から見た url.origin は workers.dev のままなので、定数で持つ。
+// 配信先を変えるときは vercel.json の1行と、ここ(または環境変数 PUBLIC_ORIGIN)だけ直す。
+export const CANONICAL_ORIGIN = "https://ruletrade.jp";
+export const CANONICAL_ENDPOINT = `${CANONICAL_ORIGIN}/mcp`;
+export const HOME_URL = "https://ruletrade.jp/";
+
 const REGIME_LABEL = {
   BULLISH: "強気",
   NEUTRAL: "中立",
@@ -179,7 +186,12 @@ export const TOOL_DEFS = [
 
 // ---- 各ツールの実装 ------------------------------------------------------
 function meta(extra) {
-  return { disclaimer: DISCLAIMER, source_site: "https://kaburadar.jp", ...extra };
+  return {
+    disclaimer: DISCLAIMER,
+    source_site: HOME_URL,          // ルール・検証の公開元
+    data_site: "https://kaburadar.jp", // 日次データ(地合い・傾斜計・着火メーター)の公開元
+    ...extra,
+  };
 }
 
 async function getDailySignals(args, { load }) {
@@ -400,7 +412,13 @@ async function getAnomalySummary(args, { load, env }) {
 
 async function listToolsGuide() {
   return meta({
-    server: { name: SERVER_NAME, version: SERVER_VERSION, tier: "free" },
+    server: {
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
+      tier: "free",
+      endpoint: CANONICAL_ENDPOINT,
+      homepage: HOME_URL,
+    },
     what_this_is:
       "kaburadar.jp / ruletrade.jp が公開している検証済みルールの実行結果(JSON)を、AIエージェントから読める形に変換するだけのサーバー。売買エンジンや発注機能は持たない。",
     tools: TOOL_DEFS.map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -433,7 +451,7 @@ async function listToolsGuide() {
       policy: "推奨・おすすめ等の表現は出力から除外する。免責は全レスポンスに常設する。",
       license: "個人利用向け。再配布・商用利用は要相談",
     },
-    contact: "https://kaburadar.jp",
+    contact: HOME_URL,
   });
 }
 

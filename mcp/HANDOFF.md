@@ -19,11 +19,11 @@
 | 項目 | 状態 |
 |---|---|
 | コード | `mcp/` 配下に完成。依存パッケージゼロ(Node 20+ の標準機能のみ) |
-| テスト | `cd mcp && npm test` → 16本すべて合格(実際の docs/*.json をフィクスチャに使用) |
+| テスト | `cd mcp && npm test` → 18本すべて合格(実際の docs/*.json をフィクスチャに使用) |
 | 本番データでの動作 | ローカル dev サーバーから GitHub raw の JSON を読んで4本とも正常応答を確認済み |
 | CI | `.github/workflows/mcp-test.yml` を追加(mcp/ 変更時に自動テスト) |
-| デプロイ | **未実施**(本人作業) |
-| main マージ | **未実施** |
+| デプロイ | **公開済み**(2026-09-04 Cloudflare Workers)。**正規URL = `https://ruletrade.jp/mcp`** |
+| main マージ | 済(PR #352 ほか) |
 
 ## 3. ファイル構成
 
@@ -33,13 +33,14 @@ mcp/
 │   ├── server.js      MCP Streamable HTTP(JSON-RPC・ステートレス)の実装、ルーティング、呼び出しログ
 │   ├── tools.js       ツール4本の定義(tools/list 用スキーマ)と実装
 │   ├── data.js        GitHub raw から JSON を取得(60秒キャッシュ)。DATA_BASE で差し替え可
-│   └── legal.js       免責文 DISCLAIMER・推奨語リスト NG_WORDS・伏せ字化 scrub()
+│   ├── legal.js       免責文 DISCLAIMER・推奨語リスト NG_WORDS・伏せ字化 scrub()
+│   └── docs.js        GET /llms.txt と GET /openapi.json(エージェント向けの発見用・英語主)
 ├── worker.js          Cloudflare Workers エントリ
 ├── api/[[...path]].js Vercel Functions エントリ(全パスを rewrite で集約)
 ├── vercel.json        Vercel 用 rewrite
 ├── wrangler.toml      Cloudflare 用(observability=有効。Analytics Engine はコメントアウト)
 ├── dev.js             ローカル確認用 http サーバー(node dev.js → :8787)
-├── test/server.test.js 16テスト
+├── test/server.test.js 18テスト
 ├── package.json
 ├── README.md          デプロイ手順・接続方法・環境変数
 └── HANDOFF.md         このファイル
@@ -57,7 +58,7 @@ mcp/
 | `get_anomaly_summary` | `docs/anomaly_results.json`, `docs/gauge.json`, `docs/crash.json` | `name`, `detail` | ジンクス50本の検証結果 + 『暴落は、減衰する』5前兆 + 着火メーター7フラグ |
 | `list_tools_guide` | なし(静的) | なし | 更新時刻・遅延・制限・免責・ロードマップ |
 
-エンドポイント: `POST /mcp`(MCP本体)、`GET /health`(5JSONの疎通)、`GET /`(概要)。`GET /mcp` は仕様どおり 405。
+エンドポイント: `POST /mcp`(MCP本体)、`GET /health`(5JSONの疎通)、`GET /llms.txt`、`GET /openapi.json`、`GET /`(概要)。`GET /mcp` は仕様どおり 405。
 
 ### 4-1. ジンクス検証データ(2026-09-04 追加)
 
@@ -70,6 +71,23 @@ mcp/
 - `name` 引数で名前/カテゴリの部分一致絞り込み。引数なしの一覧は判定のみの軽い形(全件+統計値だと約38K文字になるため)。
 - 検証不能・姉妹書送りの4本(決算またぎ / 優待の新設 / オリンピック / サザエさん効果)は `metrics` が空。
   落とさずに `verified: false` + `note`(理由)を付けて返す。
+
+### 4-2. 正規URLと配信経路(2026-09-05)
+
+```
+利用者 → https://ruletrade.jp/mcp  (Vercel 静的サイト・site/vercel.json の rewrite)
+                 ↓ プロキシ
+         https://ruletrade-mcp.oo12takemaru.workers.dev/mcp  (Cloudflare Workers 実体)
+```
+
+- **案内する URL は常に `https://ruletrade.jp/mcp`。`*.workers.dev` は案内しない**(テストで機械検査している)。
+  Worker を引っ越しても `site/vercel.json` の2行を直すだけで、レジストリ登録も利用者側も変わらない。
+- **DNS は変更していない**(2026-08-31 の DNS 移管失敗を繰り返さないため)。Cloudflare のカスタムドメインも使わない。
+- Vercel の rewrite 経由だと Worker から見た `url.origin` は workers.dev のままなので、
+  **URL をレスポンスに書くときは `src/tools.js` の `CANONICAL_ORIGIN` / `CANONICAL_ENDPOINT` / `HOME_URL` を使う**。
+  リクエストのホストから組み立ててはいけない。
+- `/mcp/health`・`/mcp/llms.txt`・`/mcp/openapi.json` は rewrite の2本目(`/mcp/(.*)` → Worker の `/$1`)で届く。
+- 呼び出しログは Worker 側にそのまま残る(プロキシしてもクライアント情報は失われない)。
 
 ## 5. 法務線の実装
 
@@ -101,7 +119,7 @@ mcp/
 ```bash
 git fetch origin claude/rule-trade-mcp-free-launch-136is2
 git checkout claude/rule-trade-mcp-free-launch-136is2
-cd mcp && npm test            # 16 pass を確認
+cd mcp && npm test            # 18 pass を確認
 node dev.js                   # 別ターミナルで
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/mcp -H 'content-type: application/json' \
@@ -114,11 +132,13 @@ Claude Code に渡す一言:
 ## 9. 公開までの残タスク(順番どおり)
 
 - [x] ジンクス検証JSONを特定して `get_anomaly_summary` を正式対応(2026-09-04・`docs/anomaly_results.json` として同梱)
-- [ ] **main へマージ(PR)** ← デプロイより先。raw main を読むため
-- [ ] Cloudflare にデプロイ(Root directory = `mcp`)→ `/health` が `"ok": true`
+- [x] main へマージ(PR #352)
+- [x] Cloudflare にデプロイ → `/health` が `"ok": true`(2026-09-04)
 - [ ] Claude Code から接続して4本の出力文言を目視: `claude mcp add --transport http ruletrade https://<host>/mcp`
-- [ ] claude.ai のカスタムコネクタでも接続確認(設定 → コネクタ → URL に `/mcp`)
-- [ ] 人向けサイトに MCP の案内を1行追加(URL と「投資助言ではない」旨)
+- [x] Claude Code から接続確認(2026-09-05・`https://ruletrade.jp/mcp` で ✔ Connected)
+- [ ] claude.ai のカスタムコネクタでも接続確認(設定 → コネクタ → URL に `https://ruletrade.jp/mcp`)= **本人作業**
+- [x] 人向けサイトに MCP の案内(`system.html`・`scanner.html`・`site/llms.txt`)
+- [ ] MCP レジストリ登録 = **本人作業**(登録内容の案は `mcp/registry/` にある)
 - [ ] 1週間後に呼び出しログを集計(ツール別回数・クライアント別)→ 有料化判断の材料
 
 ## 10. 触らないもの

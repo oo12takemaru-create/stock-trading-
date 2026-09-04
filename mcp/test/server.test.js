@@ -244,12 +244,71 @@ test("データ取得失敗は isError=true で返す(サーバーは落ちな�
 test("GET / と /health と /mcp(405)", async () => {
   const root = await handle(new Request("https://x.test/"), {});
   assert.equal(root.status, 200);
-  assert.equal((await root.json()).endpoint, "https://x.test/mcp");
+  // 案内する URL は常に正規URL。Vercel の rewrite 経由だと Worker から見た
+  // オリジンは workers.dev のままなので、リクエストのホストを混ぜてはいけない
+  const rootBody = await root.json();
+  assert.equal(rootBody.endpoint, "https://ruletrade.jp/mcp");
+  assert.equal(rootBody.health, "https://ruletrade.jp/mcp/health");
+  assert.equal(rootBody.site, "https://ruletrade.jp/");
   const h = await handle(new Request("https://x.test/health"), {});
   assert.equal(h.status, 200);
   assert.equal((await h.json()).ok, true);
   const m = await handle(new Request("https://x.test/mcp"), {});
   assert.equal(m.status, 405);
+});
+
+test("案内する URL が正規URL(ruletrade.jp)に統一されている", async () => {
+  // initialize の serverInfo
+  const { body } = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  assert.equal(body.result.serverInfo.websiteUrl, "https://ruletrade.jp/");
+
+  // list_tools_guide
+  const g = (await call("list_tools_guide")).structuredContent;
+  assert.equal(g.server.endpoint, "https://ruletrade.jp/mcp");
+  assert.equal(g.server.homepage, "https://ruletrade.jp/");
+  assert.equal(g.contact, "https://ruletrade.jp/");
+
+  // 全ツールに source_site / data_site が付く
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+    const p = (await call(name)).structuredContent;
+    assert.equal(p.source_site, "https://ruletrade.jp/", name);
+    assert.equal(p.data_site, "https://kaburadar.jp", name);
+  }
+
+  // workers.dev を案内していない(配信先が変わっても利用者側が壊れないようにするため)
+  for (const name of ["list_tools_guide", "get_daily_signals"]) {
+    const t = (await call(name)).content[0].text;
+    assert.equal(t.includes("workers.dev"), false, `${name} が workers.dev を案内している`);
+  }
+});
+
+test("llms.txt と openapi.json(エージェント向けの発見用)", async () => {
+  const t = await handle(new Request("https://x.test/llms.txt"), {});
+  assert.equal(t.status, 200);
+  assert.match(t.headers.get("content-type"), /^text\/plain/);
+  const txt = await t.text();
+  assert.ok(txt.includes("https://ruletrade.jp/mcp"), "正規URLが書かれていない");
+  assert.equal(txt.includes("workers.dev"), false, "workers.dev を案内している");
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+    assert.ok(txt.includes(name), `${name} が載っていない`);
+  }
+  assert.ok(/not investment advice/i.test(txt), "英語の免責がない");
+  assert.equal(hasNg(txt), false, "llms.txt に推奨語がある");
+
+  const o = await handle(new Request("https://x.test/openapi.json"), {});
+  assert.equal(o.status, 200);
+  assert.match(o.headers.get("content-type"), /^application\/json/);
+  const spec = await o.json();
+  assert.equal(spec.openapi, "3.1.0");
+  assert.equal(spec.servers[0].url, "https://ruletrade.jp");
+  assert.ok(spec.paths["/mcp"].post, "/mcp の POST が記述されていない");
+  assert.equal(spec.paths["/mcp"].get.responses["405"] !== undefined, true);
+  // ツール4本ぶんの引数スキーマが載っている
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+    assert.ok(spec.components.schemas[`${name}_arguments`], `${name} のスキーマがない`);
+  }
+  assert.ok(spec.components.schemas.ToolResult.required.includes("disclaimer"));
+  assert.equal(hasNg(JSON.stringify(spec)), false, "openapi.json に推奨語がある");
 });
 
 test("バッチ要求", async () => {
