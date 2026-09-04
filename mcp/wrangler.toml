@@ -1,0 +1,18 @@
+name = "ruletrade-mcp"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+# 呼び出しログ(console.log の1行JSON)を Workers Logs に残す
+[observability]
+enabled = true
+
+# 任意: 集計用に Analytics Engine を使う場合はコメントを外す(無料枠あり)
+# [[analytics_engine_datasets]]
+# binding = "CALLS"
+# dataset = "ruletrade_mcp_calls"
+
+# 任意の環境変数(ダッシュボードの Settings > Variables でも設定可)
+# [vars]
+# DATA_BASE = "https://raw.githubusercontent.com/oo12takemaru-create/stock-trading-/main/docs"
+# ANOMALY_URL = ""      # ジンクス検証JSONを別途公開したら差し込む
+# LOG_WEBHOOK = ""      # 呼び出しログを外部(GAS/Slack等)にPOSTしたい場合

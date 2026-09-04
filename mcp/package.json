@@ -1,0 +1,14 @@
+{
+  "name": "ruletrade-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ルールトレード MCP(無料版) — kaburadar.jp の公開JSONを読むだけの変換層",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "dev": "node dev.js",
+    "dev:cf": "wrangler dev",
+    "deploy:cf": "wrangler deploy"
+  }
+}

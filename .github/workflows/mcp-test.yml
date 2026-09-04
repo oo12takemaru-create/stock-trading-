@@ -1,0 +1,24 @@
+name: MCP Server Test (ruletrade-mcp)
+
+# mcp/ 配下の変更時に、実際の docs/*.json をフィクスチャにしてツール4本と法務線(推奨語ゼロ)を検証する。
+on:
+  push:
+    paths: ["mcp/**", "docs/free_scanner.json", "docs/radar.json", "docs/gauge.json", "docs/crash.json"]
+  pull_request:
+    paths: ["mcp/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm test
+        working-directory: mcp

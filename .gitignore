@@ -52,3 +52,9 @@ signal.json
 Thumbs.db
 
 .vercel
+
+# MCP サーバー(mcp/)の設定JSONはコミット対象
+!mcp/package.json
+!mcp/vercel.json
+mcp/node_modules/
+mcp/.wrangler/
