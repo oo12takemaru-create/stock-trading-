@@ -26,6 +26,8 @@ ENV/
 !docs/free_scanner.json
 # 遅延なしの地合い専用JSON(指示書§8-2・jiai.htmlが優先取得する)
 !docs/market_jiai.json
+# ジンクス(アノマリー)50本の検証結果。MCP の get_anomaly_summary が読む
+!docs/anomaly_results.json
 # 🔒 trades.json / stops.json は非公開リポジトリ(stock-trading-private)管理。
 #    公開リポジトリには絶対コミットしない(例外を作らないこと)
 cost_tax_analysis_result.csv
@@ -52,3 +54,9 @@ signal.json
 Thumbs.db
 
 .vercel
+
+# MCP サーバー(mcp/)の設定JSONはコミット対象
+!mcp/package.json
+!mcp/vercel.json
+mcp/node_modules/
+mcp/.wrangler/
