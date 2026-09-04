@@ -38,10 +38,13 @@ PAGES = "https://oo12takemaru-create.github.io/stock-trading-"
 DOCS = Path("docs")
 
 # モデルは環境変数で差し替え可能(コストと品質のトレードオフ)
-#   claude-opus-5    $5 / $25 per 1M tokens (既定・最高品質)
-#   claude-sonnet-5  $3 / $15 (2026-08-31まで導入価格 $2 / $10)
-#   claude-haiku-4-5 $1 / $5  (最安)
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-opus-5"
+#   claude-fable-5-1 (既定)
+#   claude-opus-5
+#   claude-sonnet-5
+#   claude-haiku-4-5 (最安)
+# 1日1本なのでコスト差は無視できる。表示名は kaburadar-ai/publish.py の
+# MODEL_LABEL と ai.html の表記に必ず揃えること。
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-1"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
 
 RSS_FEEDS = [
@@ -437,10 +440,24 @@ def call_gemini(prompt, key):
     return _extract_json(text)
 
 
+# APIのモデルIDをそのまま出すと「Claude claude-opus-5」のような二重表記になるので、
+# 表示用の名前に変換する。ここに無いIDはIDのまま出す（嘘の名前を作らない）。
+MODEL_NAMES = {
+    "claude-fable-5-1": "Claude Fable 5.1",
+    "claude-opus-5":    "Claude Opus 5",
+    "claude-sonnet-5":  "Claude Sonnet 5",
+    "claude-haiku-4-5": "Claude Haiku 4.5",
+}
+
+
+def model_label(mid):
+    return MODEL_NAMES.get(mid, mid) + " (Anthropic)"
+
+
 def pick_provider():
     ak = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if ak:
-        return "Claude " + ANTHROPIC_MODEL, lambda p: call_anthropic(p, ak)
+        return model_label(ANTHROPIC_MODEL), lambda p: call_anthropic(p, ak)
     gk = os.environ.get("GEMINI_API_KEY", "").strip()
     if gk:
         return "Gemini " + GEMINI_MODEL, lambda p: call_gemini(p, gk)
