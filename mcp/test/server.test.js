@@ -141,6 +141,16 @@ test("get_anomaly_summary: ジンクス50本(anomaly_results.json)", async () =>
     assert.equal(typeof m.n, "number");
     assert.ok(m.win_rate === null || typeof m.win_rate === "number");
   }
+
+  // p値は有効数字で丸める。固定小数だと 1e-8 が 0 になり「p=0」を読ませてしまう
+  const all = (await call("get_anomaly_summary", { detail: true })).structuredContent.jinx_verification.items;
+  for (const it of all) {
+    for (const m of it.metrics) {
+      // p=0 を許すのは、元データ側でアンダーフローしていて注記を付けた場合だけ
+      if (m.p === 0) assert.ok(m.p_note, `${it.name}(${m.period}) の p が注記なしで 0`);
+      else assert.ok(m.p === null || (m.p > 0 && m.p <= 1), `${it.name}(${m.period}) の p が範囲外: ${m.p}`);
+    }
+  }
   // 生データの素通し禁止(企画書 §9)。格言本文・図のパス・年代別の内訳は出さない
   assert.equal(one.saying, undefined);
   assert.equal(one.chart, undefined);

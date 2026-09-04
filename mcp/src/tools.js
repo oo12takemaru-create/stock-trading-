@@ -37,6 +37,10 @@ const JINX_SOURCE =
 // 小数の桁を落とす(統計値の見た目を揃え、返却量も減らす)
 const r2 = (v, d = 2) => (typeof v === "number" && Number.isFinite(v) ? Number(v.toFixed(d)) : null);
 
+// p値は 1e-8 のような極端に小さい値を取る。固定小数で丸めると 0 になり
+// 「p=0」という有り得ない値をエージェントに読ませてしまうので、有効数字で丸める。
+const rp = (v) => (typeof v === "number" && Number.isFinite(v) ? Number(v.toPrecision(3)) : null);
+
 function jinxMetric(m, detail) {
   const o = {
     period: m.period, // full = 全期間 / recent10 = 直近10年
@@ -44,9 +48,12 @@ function jinxMetric(m, detail) {
     win_rate: r2(m.win_rate),
     mean: r2(m.mean, 3),
     diff_vs_control: r2(m.diff, 3),
-    p: r2(m.p, 4),
+    p: rp(m.p),
     significant: typeof m.p === "number" && Number.isFinite(m.p) ? m.p < 0.05 : null,
   };
+  // 元データ側で p が浮動小数の下限を下回って 0 になっている項目がある。
+  // 「p=0」と読ませないよう、値は素通ししたうえで意味を添える。
+  if (m.p === 0) o.p_note = "元データで 0。厳密な 0 ではなく、倍精度で表せないほど小さい値";
   if (detail) {
     o.median = r2(m.median, 3);
     o.std = r2(m.std, 3);
