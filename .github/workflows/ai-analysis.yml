@@ -41,6 +41,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
 
+      # スタンスの骨格は機械が決める。AIより先に必ず作る
+      - name: Build 3-axis score
+        run: python -X utf8 score3.py docs/score3.json
+
       - name: Generate AI analysis
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -62,7 +66,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/ai_analysis.json docs/x/x_card.png docs/x/x_post.txt
+          git add -f docs/ai_analysis.json docs/score3.json docs/x/x_card.png docs/x/x_post.txt
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

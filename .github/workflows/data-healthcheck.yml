@@ -52,6 +52,7 @@ jobs:
               ("docs/heatmap.json",       "ヒートマップ/出来高", 0),
               ("docs/radar.json",         "地合い判定",         0),
               ("docs/ai_analysis.json",   "AI朝刊",             0),
+              ("docs/score3.json",       "3軸スコア",          0),
               ("docs/cot.json",           "投機筋(COT)",        6),
               ("docs/investor_flow.json", "投資部門別",         6),
               ("docs/tenbagger.json",     "十倍株スキャナー",   6),

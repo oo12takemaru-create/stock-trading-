@@ -268,11 +268,32 @@ def fetch_rss(max_per_feed=8):
     return out
 
 
+def score3_lines():
+    """3軸スコア(score3.json)。判定の骨格はここで機械的に決まっている。
+    取得できなかった場合は「なし」と明記する（黙って中立にしない）。"""
+    d = load_site_json("score3.json")
+    if not d:
+        return ["(3軸スコアを取得できませんでした。この場合は従来どおりデータから判断してください)"]
+    out = [f"合計スコア: {d['total']:+d} / -6〜+6 → 機械の判定は「{d['stance_jp']}」({d['stance']})"]
+    for ax in d.get("axes", []):
+        out.append(f"  [軸] {ax['label']}: {ax['score']:+d}")
+        for t in ax.get("notes", []):
+            out.append(f"      - {t}")
+    stages = " / ".join(f"{x['jp']}は{x['min']:+d}以上" for x in d.get("stages", [])[:-1])
+    out.append(f"段階の境目: {stages}")
+    if not d.get("inputs_ok", True):
+        out.append("※ 入力データの一部が欠けています。スコアの信頼度は低めに扱ってください")
+    return out
+
+
 def build_inputs(dst):
     now = datetime.now(JST)
     prev, prev_lines = prev_analysis(dst)
     parts = [
         f"# AI朝刊 入力データ ({now.strftime('%Y-%m-%d %H:%M')} JST)",
+        "",
+        "## ★機械が決めた今日のスタンス(3軸スコア)",
+        *score3_lines(),
         "",
         "## 市場の値動き",
         *fetch_market(),
@@ -305,16 +326,27 @@ def build_inputs(dst):
 
 PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロアナリストです。個人トレーダー向けに、今朝の市況分析を日本語で作成してください。
 
+# あなたの役割(ここが最重要)
+今日のスタンスは**すでに3軸スコアで機械的に決まっています**。あなたの仕事は次の2つだけです。
+1. 明確なイベントリスクがある場合に限り、機械の判定を**1段階だけ下げる**(下方修正)
+2. 判定の根拠と転換条件を、データの数字を引用して文章にする
+
+- **上方修正は禁止です。** 機械の判定より強気な側に動かしてはいけません
+- 下方修正するのは「今日〜数日以内に結果が出る具体的なイベント」がある場合だけです
+  (例: 当日夜の米雇用統計、日銀会合の結果、SQ当日)。「なんとなく不安」では下げないこと
+- 下方修正した場合は stance_shift に理由を必ず書きます。しなかった場合は空文字にします
+- 5段階は attack(強気) > lean_attack(やや強気) > neutral(中立) > lean_defense(やや守り) > defense(守り)
+
 # 厳守事項(違反は機械検証で弾かれます)
 - 個別銘柄名・証券コードは絶対に出さない。言及はセクター・業種単位まで
 - 「買うべき」「売るべき」「必ず上がる」「確実に上がる」等の断定・売買指示は書かない
 - 与えられた客観データにない事実を創作しない。「〜の可能性」「〜になりやすい」の表現を使う
 
 # 書き方の方針
-- 当サイト独自の素材を積極的に織り込む: 投機筋ポジションの偏り(巻き戻しリスク)、海外投資家の売買転換、
-  前営業日の資金流入セクター(sectorsの根拠に使える)、先物ギャップ(today_watchで寄り付き想定として使う)
-- 資金流入データはセクター単位で言及する。個別銘柄名は入力に含まれていても絶対に出力しない
-- stance_reasonやbodyでは、必ず入力データの具体的な数字を引用する
+- stance_reason と各bodyでは、必ず入力データの**具体的な数字を引用**する
+- 3軸のうち、判定を主に決めた軸がどれかに触れる
+- 当サイト独自の素材を積極的に織り込む: 投機筋ポジションの偏り、海外投資家の売買転換、
+  前営業日の資金流入セクター、先物ギャップ(today_watchで寄り付き想定として使う)
 - reviewは、前回分析が入力にある場合は必須。外れた時こそ正直に書く(信頼の源泉)
 
 # 今朝の客観データ
@@ -326,8 +358,11 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
 
 {{
   "headline": "今日の相場を一言で(30字以内)",
-  "stance": "attack | neutral | defense のいずれか(attack=リスクを取りやすい環境, neutral=中立, defense=守りを固めたい環境)",
-  "stance_reason": "そのスタンスの根拠を2〜3文で。データの数字を引用する。システムの地合い判定と矛盾する場合はその理由も説明する",
+  "stance": "attack | lean_attack | neutral | lean_defense | defense のいずれか。機械の判定と同じか、1段階下げたもの",
+  "stance_shift": "機械の判定から下げた場合はその理由を1文で。下げていない場合は空文字",
+  "stance_reason": "そのスタンスの根拠を2〜3文で。3軸スコアの数字と、実際の市場データの数字を引用する",
+  "turn_attack": "どうなったら攻めに転換できるかを1行で。具体的な数値の条件にする(例: 日経が25日線の66,000円を回復し、先物ギャップがプラスに戻れば)",
+  "turn_defense": "どうなったら守りに回るべきかを1行で。具体的な数値の条件にする",
   "review": {{"prev_date": "前回の日付", "prev_stance": "前回のstance", "result": "前回の見立てが実際どうだったかを1〜2文で正直に検証。市場データの数字で答え合わせする。当たった・外れた・まだ判定できない、を率直に"}},
   "today_watch": "今日どこを見るべきか(チェックポイント)を1〜2文。先物ベースの寄り付き想定・大型イベントの時刻・注目している数字を具体的に",
   "world_flow": [
@@ -344,6 +379,26 @@ world_flowは2〜4個、sectorsは3〜5個。JSONのみを出力すること。"
 
 # ---------------------------------------------------------------- 検証
 
+# 強気→守りの順。添字が大きいほど守り寄り（上方修正の検出に使う）
+STANCE_ORDER = ["attack", "lean_attack", "neutral", "lean_defense", "defense"]
+
+
+def enforce_no_upgrade(data, machine_stance):
+    """AIが機械判定より強気にした場合は機械判定に戻す。
+    引き継ぎ書の設計どおり、AIに許すのは下方修正だけ。"""
+    if not machine_stance or machine_stance not in STANCE_ORDER:
+        return None
+    ai = data.get("stance")
+    if ai not in STANCE_ORDER:
+        data["stance"] = machine_stance
+        return f"stanceが不正だったので機械判定({machine_stance})に戻した"
+    if STANCE_ORDER.index(ai) < STANCE_ORDER.index(machine_stance):
+        data["stance"] = machine_stance
+        data["stance_shift"] = ""
+        return f"AIが上方修正({ai})したので機械判定({machine_stance})に戻した"
+    return None
+
+
 BANNED_PATTERNS = [
     r"\d{4}\.T", r"（\d{4}）", r"\(\d{4}\)",  # 証券コード
     r"買うべき", r"売るべき", r"必ず上が", r"確実に上が",
@@ -353,14 +408,15 @@ BANNED_PATTERNS = [
 def validate(data):
     if not isinstance(data, dict):
         return "dictでない"
-    for k in ("headline", "stance", "stance_reason", "world_flow", "sectors", "caution", "today_watch"):
+    for k in ("headline", "stance", "stance_reason", "world_flow", "sectors", "caution",
+              "today_watch", "turn_attack", "turn_defense"):
         if k not in data:
             return f"キー欠落: {k}"
     if data.get("review"):
         for k in ("prev_date", "prev_stance", "result"):
             if k not in data["review"]:
                 return f"reviewのキー欠落: {k}"
-    if data["stance"] not in ("attack", "neutral", "defense"):
+    if data["stance"] not in STANCE_ORDER:
         return f"stance不正: {data['stance']}"
     if not (1 <= len(data["world_flow"]) <= 6) or not (1 <= len(data["sectors"]) <= 8):
         return "配列サイズ不正"
@@ -478,6 +534,14 @@ def main():
     now = datetime.now(JST)
     date_str = now.strftime("%Y-%m-%d")
 
+    # 機械判定を先に確定させておく（AIの結果と別々に採点するため）
+    s3 = load_site_json("score3.json") or {}
+    machine = s3.get("stance")
+    if machine:
+        print(f"機械判定: {s3.get('stance_jp')}({machine}) 合計{s3.get('total'):+d}")
+    else:
+        print("score3.json を取得できず。AIの判定をそのまま使う", file=sys.stderr)
+
     inputs, prev = build_inputs(dst)
     print(f"入力データ: {len(inputs)}文字")
     if len(inputs) < 300:
@@ -505,10 +569,21 @@ def main():
         print(f"AI分析の生成に失敗: {err}", file=sys.stderr)
         sys.exit(1)
 
+    # 上方修正は許さない（AIに許すのは1段階の下方修正だけ）
+    fixed = enforce_no_upgrade(data, machine)
+    if fixed:
+        print(f"補正: {fixed}", file=sys.stderr)
+
     entry = {
         "date": date_str,
         "updated": now.isoformat(timespec="seconds"),
         "model": label,
+        # 機械判定とAI判定を別々に残す。成績表でどちらが効いているかを検証できるようにする
+        "machine_stance": machine,
+        "machine_total": s3.get("total"),
+        "machine_axes": [{"label": a.get("label"), "score": a.get("score")}
+                         for a in s3.get("axes", [])],
+        "stance_corrected": fixed or "",
         **data,
     }
 
@@ -526,7 +601,8 @@ def main():
     out = {"latest": entry, "history": history}
     Path(dst).parent.mkdir(parents=True, exist_ok=True)
     Path(dst).write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"AI分析を出力: {date_str} stance={data['stance']} sectors={len(data['sectors'])}")
+    print(f"AI分析を出力: {date_str} 機械={machine} → AI={data['stance']} "
+          f"sectors={len(data['sectors'])}")
 
 
 if __name__ == "__main__":
