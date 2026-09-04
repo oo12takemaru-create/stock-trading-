@@ -1,0 +1,73 @@
+name: AI Weekly (kaburadar.jp)
+
+# 週末版のAI朝刊。土曜=今週の答え合わせ / 日曜=来週の想定。
+# 平日版(ai-analysis.yml)とは別ジョブにしてある。週末版がコケても平日の朝刊は止めない。
+#
+# 土日は市場が動かないので、材料はすべて「金曜引け時点」の数値。
+# 答え合わせの採点(勝率・○×)は weekly.py が機械的に計算し、AIには理由の文章しか書かせない。
+# こうしないとAIが自分の成績を都合よく書ける。
+on:
+  schedule:
+    - cron: '10 23 * * 5,6'   # 23:10 UTC(金・土) = 8:10 JST(土・日)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'sat=答え合わせ / sun=来週の想定 (空なら実行日から自動判定)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-weekly
+  cancel-in-progress: false
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 実行日(JST)から土曜版/日曜版を決める。手動実行時は入力を優先
+      - name: Decide mode
+        id: mode
+        run: |
+          M="${{ github.event.inputs.mode }}"
+          if [ -z "$M" ]; then
+            D=$(TZ='Asia/Tokyo' date +%u)   # 6=土, 7=日
+            if [ "$D" = "6" ]; then M=sat; elif [ "$D" = "7" ]; then M=sun; else
+              echo "平日に起動されました。週末版は作りません"; echo "skip=1" >> $GITHUB_OUTPUT; exit 0
+            fi
+          fi
+          echo "mode=$M" >> $GITHUB_OUTPUT
+          echo "モード: $M"
+
+      - name: Generate weekend edition
+        if: steps.mode.outputs.skip != '1'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+        run: python -X utf8 weekly.py ${{ steps.mode.outputs.mode }} docs/ai_weekly.json
+
+      - name: Commit ai_weekly.json
+        if: steps.mode.outputs.skip != '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/ai_weekly.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🗓️ 週末版AI(${{ steps.mode.outputs.mode }})を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git pull --rebase origin main
+          git push
