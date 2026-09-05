@@ -1,7 +1,7 @@
 # レジストリ登録の要件と登録内容の案
 
 作成: 2026-09-05（起動文 `起動文_実務_MCP公開後仕上げ_2026-09-05.md` Step 5）
-状態: **未登録。実際の登録操作は本人が行う。**
+状態: **未登録。名前空間は `jp.ruletrade/mcp`（ドメイン認証）に決定（2026-09-05 Fable）。鍵は生成済み。TXT追加・認証・登録は本人が行う。**
 
 ---
 
@@ -44,9 +44,11 @@
 
 ---
 
-## 2. 判断が必要な点（Fable に相談）
+## 2. 名前空間の決定（2026-09-05 Fable）
 
-**名前空間をどちらにするか。**
+**`jp.ruletrade/mcp`（ドメイン認証）に決定。** apex への TXT 追加は許可された。
+理由: 起動文の「DNS変更禁止」は 08-31 のネームサーバー移管を指しており、DNSレコード設定画面で TXT を1本足す操作は別物（Resend の DKIM で実績あり）。
+以下は判断に使った材料（記録として残す）。
 
 起動文 §3 の「やらないこと」に **`Cloudflare カスタムドメイン・DNS 変更`** があり、§4 の止める条件に
 **「レジストリの要件が『独自ドメインの所有確認』を含む」** がある。ドメイン認証はまさにこれに当たる。
@@ -58,10 +60,8 @@
 | 後から変更 | **名前は識別子なので、後で変えると別サーバー扱いになる**。利用者の設定は URL 基準なので実害は小さいが、登録は取り直し |
 | リスク | 無し | DNS操作（2026-08-31 に移管失敗の経験あり）。ただし**TXTレコードの追加は移管とは別物で、既存のA/CNAMEには触れない** |
 
-**実務側の所感**: `jp.ruletrade/mcp` の方が資産として良い。TXT レコードの追加は既存レコードを触らないので 08-31 の失敗とは性質が違う。
-ただし DNS を触るかどうかは起動文が明示的に禁じているので、**ここは判断を仰ぐ**。
-
-**GitHub 認証で先に登録して後から変える**のは勧めない。名前が識別子なので、登録し直しになる。
+**採用しなかった方（`server.github.json`）は残してある。** ドメイン認証が通らなかった場合の退避先。
+ただし**名前は識別子なので、後から切り替えると登録し直しになる**（利用者側は URL 基準なので実害は小さい）。
 
 ---
 
@@ -112,24 +112,26 @@ npx @modelcontextprotocol/mcp-publisher login github
 npx @modelcontextprotocol/mcp-publisher publish
 ```
 
-**B-2. ドメイン認証にする場合（DNS の TXT を1本足す）**
+**B-2. ドメイン認証（2026-09-05 Fable の決定でこちらを採用）**
 
-先に鍵を作って TXT レコードの文字列を出す（**`key.pem` は秘密鍵。git に入れないこと**）:
-```
-cd "D:\マイドキュメント\Claude\Projects\stock-trading\mcp\registry"
-openssl genpkey -algorithm Ed25519 -out key.pem
-```
-その後、出てきた公開鍵から作った `v=MCPv1; k=ed25519; p=...` という値を
-**`ruletrade.jp` の apex に TXT レコードとして追加**する（サブドメインやセレクタ配下ではダメ）。
-既存の A / CNAME / MX には触らない。反映を待ってから:
+**鍵は生成済み。手順は `集客サイト企画/TXT追加手順_MCPレジストリ_2026-09-05.md` にまとめてある。**
+
+- 秘密鍵の置き場: `D:\マイドキュメント\Claude\Projects\集客サイト企画\_secrets\`
+  (`mcp_registry_key.pem` と hex 版 `mcp_registry_private_hex.txt`)。
+  **この公開リポジトリの中には置かない。** `集客サイト企画` は git 管理外のフォルダ。
+- DNS に入れる公開鍵(apex の TXT・ホスト名は空欄): `_secrets/txt_value.txt`
+- ⚠️ TXT は **apex に置く**。`_mcp-auth` などセレクタ配下では認証が通らない(SPF と同じ配置。DKIM とは違う)。
+- CLI は Homebrew が Windows で使えないので **リリースバイナリ**を使う:
+  `https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_windows_amd64.tar.gz`
+- `--private-key` は**ファイルパスではなく 64桁の hex**(`--private-key-file` というフラグは存在しない)。
+
 ```
 copy server.dns.json server.json
-npx @modelcontextprotocol/mcp-publisher login dns --domain ruletrade.jp --private-key-file key.pem
-npx @modelcontextprotocol/mcp-publisher publish
+.\mcp-publisher.exe login dns --domain=ruletrade.jp --private-key=<64桁のhex>
+.\mcp-publisher.exe publish
 ```
 
-※ 鍵生成と TXT 文字列の組み立てのコマンドは、その時点の公式手順を実務チャットで再確認してから実行すること
-（レジストリは preview 版で、手順が変わる可能性がある）。
+※ レジストリは preview 版なので、手順が変わっていないか実行前に確認すること。
 
 ### C. 登録後にやること
 
