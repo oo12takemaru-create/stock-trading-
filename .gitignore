@@ -60,3 +60,9 @@ Thumbs.db
 !mcp/vercel.json
 mcp/node_modules/
 mcp/.wrangler/
+
+# レジストリ登録用の JSON はコミット対象。秘密鍵は絶対に入れない
+!mcp/registry/server.github.json
+!mcp/registry/server.dns.json
+*.pem
+mcp/registry/server.json

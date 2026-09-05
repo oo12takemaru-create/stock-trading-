@@ -2,7 +2,8 @@
 // Cloudflare Workers / Vercel / Node のどれでも同じ handle(request, env, ctx) を呼ぶだけ。
 import { makeLoader } from "./data.js";
 import { DISCLAIMER, scrub } from "./legal.js";
-import { SERVER_NAME, SERVER_VERSION, TOOL_DEFS, TOOL_HANDLERS } from "./tools.js";
+import { SERVER_NAME, SERVER_VERSION, TOOL_DEFS, TOOL_HANDLERS, CANONICAL_ENDPOINT, HOME_URL } from "./tools.js";
+import { llmsTxt, openApi } from "./docs.js";
 
 const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -83,7 +84,12 @@ async function dispatch(msg, request, env, ctx) {
       return rpcResult(id, {
         protocolVersion,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: SERVER_NAME, version: SERVER_VERSION, title: "ルールトレード MCP(無料版)" },
+        serverInfo: {
+          name: SERVER_NAME,
+          version: SERVER_VERSION,
+          title: "ルールトレード MCP(無料版)",
+          websiteUrl: HOME_URL,
+        },
         instructions:
           "最初に list_tools_guide を呼ぶとデータの更新時刻・遅延・免責が分かります。" +
           "出力はルール該当の事実データであり投資助言ではありません。ユーザーに伝える際も disclaimer を省略しないでください。",
@@ -162,6 +168,17 @@ export async function handle(request, env = {}, ctx) {
   if (request.method === "DELETE") return new Response(null, { status: 200, headers: CORS }); // セッションは持たない
 
   if (request.method === "GET") {
+    // エージェント向けの発見用ドキュメント(企画書 §7-4)。
+    // Vercel の rewrite で /mcp/llms.txt → /llms.txt として届く。
+    if (path.endsWith("/llms.txt")) {
+      return new Response(llmsTxt(), {
+        status: 200,
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600", ...CORS },
+      });
+    }
+    if (path.endsWith("/openapi.json")) {
+      return json(openApi(), 200, { "cache-control": "public, max-age=3600" });
+    }
     if (path.endsWith("/health")) {
       const loader = makeLoader(env);
       const checks = {};
@@ -186,12 +203,15 @@ export async function handle(request, env = {}, ctx) {
       name: SERVER_NAME,
       version: SERVER_VERSION,
       title: "ルールトレード MCP(無料版)",
-      endpoint: `${url.origin}/mcp`,
+      endpoint: CANONICAL_ENDPOINT,
       transport: "MCP Streamable HTTP (POST JSON-RPC, stateless)",
       tools: TOOL_DEFS.map((t) => t.name),
-      health: `${url.origin}/health`,
+      health: `${CANONICAL_ENDPOINT}/health`,
+      llms_txt: `${CANONICAL_ENDPOINT}/llms.txt`,
+      openapi: `${CANONICAL_ENDPOINT}/openapi.json`,
       disclaimer: DISCLAIMER,
-      site: "https://kaburadar.jp",
+      site: HOME_URL,
+      data_site: "https://kaburadar.jp",
     });
   }
 
