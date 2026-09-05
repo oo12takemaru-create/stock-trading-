@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "jp.ruletrade/mcp",
-  "title": "Rule Trade — Japanese equity verification layer",
-  "description": "Returns what happened when published, mechanical rules were applied to Japanese equities: daily rule matches, market regime, and 50 market anomalies tested over 61 years. Statistics and verdicts only — no price data, no financials, no recommendations.",
+  "title": "Rule Trade - Japanese equity verification layer",
+  "description": "Japanese equity verification layer. Rule matches, market regime, 50 anomalies tested over 61 years.",
   "version": "0.1.0",
   "websiteUrl": "https://ruletrade.jp/",
   "repository": {
