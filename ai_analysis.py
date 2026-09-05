@@ -196,6 +196,29 @@ def flow_ranking_lines():
     return lines
 
 
+def sector_universe_lines():
+    """採点に使える業種名。AIにはこの中から match を選ばせる。
+
+    セクターの風向きを後から機械採点するには、AIが書いた自由な名前
+    （「銀行・証券・その他金融」など）を業種名に対応づける必要がある。
+    名前から推測して対応づけると、対応づけ次第で成績が動いてしまう。
+    だからAI自身にその場で選ばせて、記録として残す。
+    銘柄数が3未満の業種は平均に意味がないので候補から外す。
+    """
+    d = load_site_json("heatmap.json")
+    if not d:
+        return []
+    cnt = {}
+    for i in d.get("items", []):
+        if i.get("s"):
+            cnt[i["s"]] = cnt.get(i["s"], 0) + 1
+    names = sorted([k for k, v in cnt.items() if v >= 3])
+    if not names:
+        return []
+    return ["採点に使える業種名（sectorsのmatchはこの中からそのままコピーすること）:",
+            "  " + " / ".join(names)]
+
+
 def upcoming_events():
     today = datetime.now(JST).date()
     lines = []
@@ -306,6 +329,7 @@ def build_inputs(dst):
         "",
         "## 前営業日に資金が流入したセクター(出来高急増×上昇・当サイト集計)",
         *flow_ranking_lines(),
+        *sector_universe_lines(),
         "",
         "## 今後7日以内の大型イベント(日本時間)",
         *upcoming_events(),
@@ -369,12 +393,13 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
     {{"theme": "大きな流れのタイトル(金利・地政学・為替など)", "body": "それが日本株にどう効きそうかを1〜2文で"}}
   ],
   "sectors": [
-    {{"name": "セクター名", "bias": "up | down | watch", "reason": "理由を1文で"}}
+    {{"name": "セクター名（読み手向けの呼び名。複数業種をまとめてよい）", "bias": "up | down | watch", "match": ["採点用の業種名。上の『採点に使える業種名』から一字一句そのままコピーする。複数可。該当が無ければ空配列"], "reason": "理由を1文で"}}
   ],
   "caution": "今日特に気をつけたいことを1〜2文で"
 }}
 
-world_flowは2〜4個、sectorsは3〜5個。JSONのみを出力すること。"""
+world_flowは2〜4個、sectorsは3〜5個。
+sectorsのmatchは翌日の答え合わせに使います。**一覧に無い名前を書かないでください**（書くと採点対象から外れます）。JSONのみを出力すること。"""
 
 
 # ---------------------------------------------------------------- 検証
@@ -420,6 +445,15 @@ def validate(data):
         return f"stance不正: {data['stance']}"
     if not (1 <= len(data["world_flow"]) <= 6) or not (1 <= len(data["sectors"]) <= 8):
         return "配列サイズ不正"
+    # 一覧に無い業種名は落とす。採点の時点で弾くより、記録に残る時点で正しくしておく
+    allowed = set()
+    for ln in sector_universe_lines():
+        if ln.startswith("  "):
+            allowed.update(x.strip() for x in ln.strip().split(" / "))
+    if allowed:
+        for sec in data["sectors"]:
+            m = sec.get("match")
+            sec["match"] = [x for x in m if x in allowed] if isinstance(m, list) else []
     blob = json.dumps(data, ensure_ascii=False)
     for pat in BANNED_PATTERNS:
         if re.search(pat, blob):
