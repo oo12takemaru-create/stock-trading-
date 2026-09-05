@@ -293,6 +293,17 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
     assert.ok(txt.includes(name), `${name} が載っていない`);
   }
   assert.ok(/not investment advice/i.test(txt), "英語の免責がない");
+  // ツール一覧は英語で書く(英語圏のエージェントに読ませるためのファイルなので、
+  // TOOL_DEFS の日本語 title を流用しない)
+  const toolBlock = txt.split("## What you can get")[1].split("##")[0];
+  assert.equal(/[ぁ-んァ-ン一-龥]/.test(toolBlock), false, "ツール一覧に日本語が混ざっている");
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+    const line = toolBlock.split("\n").find((l) => l.startsWith("- " + `\`${name}\`` + " — "));
+    assert.ok(line, `${name} の行がない`);
+    const desc = line.split(" — ")[1] || "";
+    assert.ok(desc.trim().length > 30, `${name} の英語説明が短すぎる: ${desc}`);
+    assert.equal(/[ぁ-んァ-ン一-龥]/.test(desc), false, `${name} の説明に日本語`);
+  }
   assert.equal(hasNg(txt), false, "llms.txt に推奨語がある");
 
   const o = await handle(new Request("https://x.test/openapi.json"), {});

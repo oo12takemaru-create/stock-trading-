@@ -16,8 +16,26 @@ const DISCLAIMER_EN =
   "not a solicitation, and not a recommendation to buy or sell any security. " +
   "No future return is promised. Free-tier data is delayed by one trading day.";
 
+// llms.txt は英語圏のエージェントに読ませるためのもの。TOOL_DEFS の title は
+// 日本語なので流用せず、英語の1行説明をここに持つ(ツールを増やしたらここも足す)。
+const TOOL_LINES_EN = {
+  get_daily_signals:
+    "Stocks that matched the published mean-reversion rule (25-day moving-average deviation), " +
+    "plus near-miss watch candidates. One trading day delayed, top 3 by deviation.",
+  get_market_regime:
+    "Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, " +
+    "VIX, Nikkei 225, and optional daily history. No stock names.",
+  get_anomaly_summary:
+    "50 Japanese market anomalies tested over 61 years - verdict, win rate, mean return, sample size, " +
+    "p-value. Filter by `name`. Plus five crash-precursor gauges and a 7-flag ignition meter.",
+  list_tools_guide:
+    "Update times (JST), data delays, free-tier limits, disclaimer, and roadmap. Call this first.",
+};
+
 export function llmsTxt() {
-  const tools = TOOL_DEFS.map((t) => `- \`${t.name}\` — ${t.title}`).join("\n");
+  const tools = TOOL_DEFS.map(
+    (t) => `- \`${t.name}\` — ${TOOL_LINES_EN[t.name] || t.title}`,
+  ).join("\n");
   return `# Rule Trade MCP (ruletrade-mcp)
 
 > A verification layer for Japanese equities. It returns *what already happened* when
