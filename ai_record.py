@@ -47,6 +47,8 @@ def collect_ai_stances():
             if entry and entry.get("date") and entry.get("stance"):
                 stances.setdefault(entry["date"], {
                     "stance": entry["stance"],
+                    # 機械単独の判定。2026-09-05に記録を始めたので、それ以前の日には無い
+                    "machine": entry.get("machine_stance"),
                     "headline": entry.get("headline", "")[:60],
                 })
 
@@ -68,13 +70,60 @@ def collect_ai_stances():
     return stances
 
 
-def n225_closes():
+def n225_prices():
+    """日付 → (始値, 終値)。始値が要るのは資産曲線のため（下の build_curve のコメント参照）"""
     import yfinance as yf
     import pandas as pd
-    d = yf.download("^N225", period="6mo", progress=False, auto_adjust=False)["Close"].dropna()
-    if isinstance(d, pd.DataFrame):
-        d = d.iloc[:, 0]
-    return {i.strftime("%Y-%m-%d"): float(v) for i, v in d.items()}
+    df = yf.download("^N225", period="6mo", progress=False,
+                     auto_adjust=False, threads=False)
+    out = {}
+    for col in ("Open", "Close"):
+        d = df[col].dropna()
+        if isinstance(d, pd.DataFrame):
+            d = d.iloc[:, 0]
+        for i, v in d.items():
+            out.setdefault(i.strftime("%Y-%m-%d"), {})[col] = float(v)
+    return {k: v for k, v in out.items() if "Open" in v and "Close" in v}
+
+
+def n225_closes_from(prices):
+    return {k: v["Close"] for k, v in prices.items()}
+
+
+# スタンス → その日どれだけ持つか。攻め=全部、中立=半分、守り=現金
+EXPOSURE = {"attack": 1.0, "lean_attack": 0.75, "neutral": 0.5,
+            "lean_defense": 0.25, "defense": 0.0}
+
+
+def build_curve(stances, prices):
+    """スタンスに従った場合の資産曲線。
+
+    ■ なぜ「寄り→引け」なのか
+      スタンスは寄り付き前に公開される。だから実際に取れるのは寄り付き以降だけで、
+      前日終値→当日始値の窓（オーバーナイトのギャップ）は取りようがない。
+      成績表の○×は終値→終値で見ているが、資産曲線でそれを使うと
+      「取れなかった値動き」を成績に含めることになるので、ここは寄り→引けで計算する。
+
+    ■ 比較相手も同じ土俵にそろえる
+      日経側も「毎日寄りに買って引けに売る」で計算する。買って持ちっぱなしの
+      日経と比べると、除いたギャップの分だけ不公平になるため。
+
+    ■ 売買コスト・スリッページは含めていない（ページにも明記する）
+    """
+    ai, base, rows = 100.0, 100.0, []
+    for d in sorted(stances):
+        px = prices.get(d)
+        if not px:
+            continue
+        intraday = px["Close"] / px["Open"] - 1
+        ex = EXPOSURE.get(stances[d]["stance"])
+        if ex is None:
+            continue
+        ai *= 1 + ex * intraday
+        base *= 1 + intraday
+        rows.append({"d": d, "ai": round(ai, 2), "n225": round(base, 2),
+                     "ex": ex, "id": round(intraday * 100, 2)})
+    return rows
 
 
 def build_returns(closes):
@@ -108,7 +157,8 @@ def aggregate(rows, up_keys, down_keys):
 
 
 def main():
-    closes = n225_closes()
+    prices = n225_prices()
+    closes = n225_closes_from(prices)
     same, nxt = build_returns(closes)
 
     # ── AI朝刊（当日リターンで採点）──
@@ -118,7 +168,28 @@ def main():
         if d in same:
             ai_rows.append({"d": d, "s": stances[d]["stance"],
                             "h": stances[d]["headline"], "ret": round(same[d], 2)})
-    ai_stats = aggregate(ai_rows, up_keys={"attack"}, down_keys={"defense"})
+    UP = {"attack", "lean_attack"}
+    DN = {"defense", "lean_defense"}
+    ai_stats = aggregate(ai_rows, up_keys=UP, down_keys=DN)
+
+    # ── 二重採点: 機械単独 vs AI修正後 ──
+    # AIを挟む意味があるのかを数字で見るため。両方が揃っている日だけを対象にする
+    dual_rows = []
+    for d in sorted(stances):
+        m = stances[d].get("machine")
+        if m and d in same:
+            dual_rows.append({"d": d, "m": m, "a": stances[d]["stance"],
+                              "ret": round(same[d], 2)})
+    dual = {
+        "n": len(dual_rows),
+        "since": dual_rows[0]["d"] if dual_rows else None,
+        "changed": sum(1 for r in dual_rows if r["m"] != r["a"]),
+        "machine": aggregate([{"s": r["m"], "ret": r["ret"]} for r in dual_rows], UP, DN),
+        "ai": aggregate([{"s": r["a"], "ret": r["ret"]} for r in dual_rows], UP, DN),
+        "rows": dual_rows[-40:],
+    }
+
+    curve = build_curve(stances, prices)
 
     # ── 地合い判定（翌営業日リターンで採点。当日だと先読みになるため）──
     reg_rows = []
@@ -138,14 +209,26 @@ def main():
         "method": {
             "ai": "AI朝刊は寄り付き前（6:30）に公開されるため、その日の日経平均の騰落率（終値÷前営業日終値）と機械照合。採点にAIは関与しません。",
             "regime": "地合い判定は日中に更新されるため、先読みを避けて翌営業日の騰落率と照合。",
-            "win": "方向一致率＝attack/BULLISHの日に上昇、defense/BEARISHの日に下落した割合。中立は方向を持たないため一致率の対象外。",
+            "win": "方向一致率＝強気寄り（attack/lean_attack/BULLISH）の日に上昇、守り寄り（defense/lean_defense/BEARISH/PANIC）の日に下落した割合。中立は方向を持たないため一致率の対象外。",
             "min_n": 30,
         },
         "ai": {"n": len(ai_rows), "stats": ai_stats, "rows": ai_rows[-40:]},
         "regime": {"n": len(reg_rows), "stats": reg_stats, "rows": reg_rows[-40:]},
+        "dual": dual,
+        "curve": {
+            "exposure": EXPOSURE,
+            "note": ("スタンスは寄り付き前に出るので、実際に取れるのは寄り→引けだけです。"
+                     "前日終値→当日始値のギャップは取りようがないため、資産曲線からは除いています。"
+                     "比較する日経も同じ「毎日寄りに買って引けに売る」で計算しています。"
+                     "売買コスト・スリッページ・税は含んでいません。"),
+            "rows": curve,
+        },
     }
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"OK ai_record.json: AI {len(ai_rows)}日 / 地合い {len(reg_rows)}日")
+    print(f"OK ai_record.json: AI {len(ai_rows)}日 / 地合い {len(reg_rows)}日 / "
+          f"二重採点 {dual['n']}日（うちAIが変更 {dual['changed']}日）/ 曲線 {len(curve)}点")
+    if curve:
+        print(f"  資産曲線: スタンス追随 {curve[-1]['ai']} vs 日経(日中) {curve[-1]['n225']}（開始=100）")
     for name, st in (("AI", ai_stats), ("地合い", reg_stats)):
         for s, g in sorted(st.items()):
             print(f"  {name} {s:8s} n={g['n']:>3} 平均{g['avg']:+.2f}% 一致率{g['win'] if g['win'] is not None else '—'}")
