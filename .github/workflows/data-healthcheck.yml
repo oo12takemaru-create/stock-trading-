@@ -63,6 +63,8 @@ jobs:
               ("docs/shinyo.json",        "信用取引の需給",     6),
               ("docs/shinyo_meigara.json","銘柄別信用残",       6),
               ("docs/ai_record.json",     "AI・地合いの成績表", 2),
+              ("docs/sector_record.json", "セクター答え合わせ", 2),
+              ("docs/ai_weekly.json",     "週末版AI",           8),
           ]
           problems = []
           rows = []
