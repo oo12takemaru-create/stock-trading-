@@ -3,3 +3,7 @@ cache/
 out/
 __pycache__/
 tests/*_result.csv
+
+# ★リポジトリ直下の .gitignore に *.json があるため、設定ファイルは明示的に戻す。
+#   これが無いと GitHub Actions で FileNotFoundError になる（2026-09-06 に実際に踏んだ）。
+!thresholds.json

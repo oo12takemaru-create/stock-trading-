@@ -50,6 +50,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
+          # ★ python ... | tee は tee の終了コードになるので、失敗が success になる。
+          #    pipefail を付けて Python の失敗をそのまま落とす（2026-09-06 に実際に踏んだ）。
+          set -o pipefail
           python precompute/update_metrics.py \
             --days "${{ github.event.inputs.days || '5' }}" \
             | tee update.log
@@ -61,6 +64,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
+          # ★ python ... | tee は tee の終了コードになるので、失敗が success になる。
+          #    pipefail を付けて Python の失敗をそのまま落とす（2026-09-06 に実際に踏んだ）。
+          set -o pipefail
           python precompute/build_portfolio.py | tee -a update.log
 
       - name: Write summary
