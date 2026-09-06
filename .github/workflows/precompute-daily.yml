@@ -19,7 +19,7 @@ on:
         default: '5'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: precompute-metrics
@@ -68,6 +68,50 @@ jobs:
           #    pipefail を付けて Python の失敗をそのまま落とす（2026-09-06 に実際に踏んだ）。
           set -o pipefail
           python precompute/build_portfolio.py | tee -a update.log
+
+      # 規定値の調整域（企画書v2 §4-2 の1,260通り）を先に計算しておく。
+      # 会員がスライダーを動かした瞬間に返るのはこの範囲（引継ぎ.md §19 相談④）。
+      # ★キャッシュのキーは TypeScript 側（params.ts）と一致している必要がある。
+      #   ズレるとエラーにならず「毎回遅い」だけなので、
+      #   precompute/tests/verify_cache_key.py で確かめること。
+      - name: Warm preset adjustment cache
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          python precompute/warm_cache.py | tee -a update.log
+
+      # 公開数字を1枚の JSON にして GitHub Pages で配る。
+      # 静的サイト（ruletrade.jp）と会員アプリ /dashboard がこの同じ値を見る
+      # ＝「一つの定義・一つの数字」（引継ぎ.md §19・起動文 2-4c）。
+      - name: Publish portfolio_stats.json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python precompute/export_portfolio_json.py
+            git add -f docs/portfolio_stats.json
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "📊 公開数字を更新（portfolio_stats.json）"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
 
       - name: Write summary
         if: always()
