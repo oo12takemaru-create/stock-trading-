@@ -1,0 +1,77 @@
+name: Precompute Metrics (月初・全期間)
+
+# 月に1回、全銘柄×10年を取り直して前計算テーブルを作り直す。
+# yfinance の調整済み株価は分割・配当で過去にさかのぼって変わるため、
+# 日次差分だけでは古い行がずれたままになる。それを月1回まとめて直す。
+#   毎月1日 UTC 20:00 = 翌2日 JST 05:00
+on:
+  schedule:
+    - cron: '0 20 1 * *'
+  workflow_dispatch:
+    inputs:
+      years:
+        description: '何年ぶん計算するか'
+        required: false
+        default: '10'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: precompute-metrics
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Rebuild daily_metrics / market_condition / sectors
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python precompute/build_metrics.py \
+            --years "${{ github.event.inputs.years || '10' }}" \
+            | tee build.log
+
+      - name: Rebuild preset portfolio result
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python precompute/build_portfolio.py | tee -a build.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## 前計算テーブル 全期間の再計算" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 実行時刻: $(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M') JST" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -30 build.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: precompute-build-log
+          path: build.log
+          retention-days: 30

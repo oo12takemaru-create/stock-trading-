@@ -1,0 +1,5 @@
+# 取得した株価のキャッシュと出力（作り直せるのでコミットしない）
+cache/
+out/
+__pycache__/
+tests/*_result.csv
