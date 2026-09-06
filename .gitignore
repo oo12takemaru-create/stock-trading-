@@ -66,3 +66,8 @@ mcp/.wrangler/
 !mcp/registry/server.dns.json
 *.pem
 mcp/registry/server.json
+
+# 公開する成果物は *.json の除外から戻す（GitHub Pages で配るため）。
+# ★ここに書き忘れると、ワークフローが「変更なし」で静かに素通りする。
+#   2026-09-06 に precompute/thresholds.json で同じ罠を踏んだ。
+!docs/portfolio_stats.json
