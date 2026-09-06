@@ -16,7 +16,7 @@ CSV / Parquet を書き出すだけのツール。計算そのものは pipeline
     market_condition.parquet / market_condition.csv
     sectors.csv / precompute_log.txt
 
-Parquet を書くので pyarrow が要る（本番バッチ側は不要）。
+Parquet を書くので pyarrow が要る（**このツールだけ**。本番バッチと GitHub Actions は不要）。
 """
 from __future__ import annotations
 

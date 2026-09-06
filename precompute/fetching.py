@@ -5,9 +5,13 @@
 同じ期間の再実行ではダウンロードしない。
 
 キャッシュの場所:
-  cache/prices/adj/<TICKER>.parquet   auto_adjust=True  （既存エンジンと同じ取得方法）
-  cache/prices/raw/<TICKER>.parquet   auto_adjust=False （日次スキャナと同じ取得方法）
-  cache/global/<adj|raw>/<TICKER>.parquet
+  cache/prices/adj/<TICKER>.csv   auto_adjust=True  （既存エンジンと同じ取得方法）
+  cache/prices/raw/<TICKER>.csv   auto_adjust=False （日次スキャナと同じ取得方法）
+  cache/global/<adj|raw>/<TICKER>.csv
+
+★形式は CSV。Parquet だと pyarrow が要るが、GitHub Actions の requirements.txt には
+  入っていない（既存18本のワークフローが使っていないので足したくない）。
+  1銘柄10年で 200KB 程度なので CSV で困らない。（2026-09-06 に実際に踏んだ）
 
 再取得したいときは --refresh を付けるか、cache/ を消す。
 """
@@ -33,7 +37,7 @@ def _cache_path(ticker, auto_adjust, kind="prices"):
     d = os.path.join(CACHE_DIR, kind, sub)
     os.makedirs(d, exist_ok=True)
     safe = ticker.replace("^", "_IDX_").replace("/", "_")
-    return os.path.join(d, safe + ".parquet")
+    return os.path.join(d, safe + ".csv")
 
 
 def _normalize(df):
@@ -77,7 +81,7 @@ def load_cached(ticker, auto_adjust, kind="prices"):
     if not os.path.exists(p):
         return None
     try:
-        return _normalize(pd.read_parquet(p))
+        return _normalize(pd.read_csv(p, index_col=0, parse_dates=True))
     except Exception:
         return None
 
@@ -85,7 +89,7 @@ def load_cached(ticker, auto_adjust, kind="prices"):
 def save_cache(ticker, df, auto_adjust, kind="prices"):
     if df is None or len(df) == 0:
         return
-    df.to_parquet(_cache_path(ticker, auto_adjust, kind), index=True)
+    df.to_csv(_cache_path(ticker, auto_adjust, kind), index=True)
 
 
 def download_batch(tickers, start, end, auto_adjust, retries=2, pause=1.0):
