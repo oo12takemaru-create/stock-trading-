@@ -68,14 +68,10 @@ jobs:
       # ★キャッシュのキーは TypeScript 側（params.ts）と一致している必要がある。
       #   ズレるとエラーにならず「毎回遅い」だけなので、
       #   precompute/tests/verify_cache_key.py で確かめること。
-      - name: Warm preset adjustment cache
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -o pipefail
-          python precompute/warm_cache.py | tee -a build.log
-
+      # ★順序（2026-09-06 Fable）★
+      # 公開数字の JSON は、調整域のキャッシュ温めに依存させない。
+      # 月次は全期間の再計算のあとなので、まず JSON を出してから温める。
+      # （温めは「再計算 → 温め直し」の順を守る必要があるので、月次でも最後）
       # 公開数字を1枚の JSON にして GitHub Pages で配る。
       # 静的サイト（ruletrade.jp）と会員アプリ /dashboard がこの同じ値を見る
       # ＝「一つの定義・一つの数字」（引継ぎ.md §19・起動文 2-4c）。
@@ -106,6 +102,16 @@ jobs:
           done
           echo "::error::3回試行してもpushできませんでした"
           exit 1
+
+      # 調整域のキャッシュ温め（最後に回す。ここが落ちても公開数字は出ている）
+      # 月次の全期間再計算のあとにキャッシュを作り直す（起動文 §1-1 の順序）。
+      - name: Warm preset adjustment cache
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          python precompute/warm_cache.py | tee -a build.log
 
       - name: Write summary
         if: always()
