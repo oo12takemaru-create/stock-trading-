@@ -29,6 +29,18 @@ import yfinance as yf  # noqa: E402
 
 from config import CACHE_DIR  # noqa: E402
 
+# yfinance はタイムゾーン情報を SQLite に貯める。既定の場所は共有なので、
+# 同じマシンで別のワークフローと重なると OperationalError('database is locked')
+# になり、その銘柄だけ取得に失敗する。
+# 2026-09-06 にこれで ^GSPC が落ち、相場環境の判定が丸ごと変わった（§19-2）。
+# 実行ごとに独立した場所を使わせて、そもそも競合させない。
+try:
+    _TZ_DIR = os.path.join(CACHE_DIR, "yf_tz")
+    os.makedirs(_TZ_DIR, exist_ok=True)
+    yf.set_tz_cache_location(_TZ_DIR)
+except Exception:  # 古い yfinance にこの関数が無くても止めない
+    pass
+
 OHLCV = ["Open", "High", "Low", "Close", "Volume"]
 
 
@@ -124,6 +136,31 @@ def download_batch(tickers, start, end, auto_adjust, retries=2, pause=1.0):
             break
         time.sleep(pause * (attempt + 1))
     return result
+
+
+def refetch_one(ticker, start, end, auto_adjust, attempts=4, pause=3.0, log=print):
+    """1銘柄だけを、間隔を空けて単独で取り直す。
+
+    `database is locked` のような一過性の失敗はまとめ取りの再試行では抜けにくい。
+    threads を使わず1本ずつ・待ち時間を伸ばして粘る。
+    取れたら DataFrame、ダメなら None。
+    """
+    for i in range(attempts):
+        time.sleep(pause * (i + 1))
+        try:
+            raw = yf.download(ticker, start=start, end=end, progress=False,
+                              auto_adjust=auto_adjust, threads=False)
+        except Exception as e:
+            log("    再取得 %d/%d 失敗: %s" % (i + 1, attempts, e))
+            continue
+        if raw is None or len(raw) == 0:
+            log("    再取得 %d/%d: 空の応答" % (i + 1, attempts))
+            continue
+        df = _normalize(raw)
+        if df is not None and len(df) > 0:
+            log("    再取得 %d/%d 成功（%d 行）" % (i + 1, attempts, len(df)))
+            return df
+    return None
 
 
 def get_prices(tickers, start, end, auto_adjust=True, kind="prices",
