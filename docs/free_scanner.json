@@ -1,6 +1,6 @@
 {
  "target_date": "2026-09-03",
- "generated_at": "2026-09-04T23:29:23+09:00",
+ "generated_at": "2026-09-08T00:59:15+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -25,8 +25,8 @@
    "kairi": -10.43
   }
  ],
- "signals_today_date": "2026-09-04",
+ "signals_today_date": "2026-09-08",
  "is_halt": false,
- "signals_today_count": 1,
+ "signals_today_count": 0,
  "signal_of_day": null
 }
