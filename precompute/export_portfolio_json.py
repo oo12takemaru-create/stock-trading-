@@ -191,6 +191,57 @@ def build(row: dict) -> dict:
     }
 
 
+# 前回公開値との乖離の許容幅（2026-09-06 Fable 相談⑥）。
+# 2026-09-06 に ^GSPC の取得失敗で相場環境が壊れ、トレードが 1,820→1,038 件、
+# 勝率 52.4→53.4% の別物が公開された。数字は「良く」見えたので気づきにくい。
+# 1日で越えるはずのない幅を置き、越えたら**公開しない**（前回のJSONを残す）。
+DRIFT_TRADES_PCT = 10.0   # トレード数の増減
+DRIFT_WIN_RATE_PT = 3.0   # 勝率の増減（ポイント）
+DRIFT_UNIVERSE_DROP = 5   # 実際に計算に使えた銘柄数の「減り」
+
+
+def load_previous(path):
+    """前回公開した JSON。無ければ None（初回は乖離検査をしない）。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def drift_errors(new, prev) -> list:
+    """前回公開値と比べて、1日では起きないはずの変化がないか見る。"""
+    if not prev:
+        return []
+    errs = []
+
+    pt, nt = prev.get("trades"), new.get("trades")
+    if isinstance(pt, int) and pt > 0 and isinstance(nt, int):
+        change = abs(nt - pt) / pt * 100
+        if change > DRIFT_TRADES_PCT:
+            errs.append(
+                "トレード数が %d → %d（%.1f%% 変化）。許容は ±%.0f%%"
+                % (pt, nt, change, DRIFT_TRADES_PCT)
+            )
+
+    pw, nw = prev.get("win_rate"), new.get("win_rate")
+    if isinstance(pw, (int, float)) and isinstance(nw, (int, float)):
+        if abs(nw - pw) > DRIFT_WIN_RATE_PT:
+            errs.append(
+                "勝率が %.1f%% → %.1f%%（%.1fpt 変化）。許容は ±%.0fpt"
+                % (pw, nw, nw - pw, DRIFT_WIN_RATE_PT)
+            )
+
+    pu, nu = prev.get("universe_effective"), new.get("universe_effective")
+    if isinstance(pu, int) and isinstance(nu, int) and pu - nu > DRIFT_UNIVERSE_DROP:
+        errs.append(
+            "計算に使えた銘柄が %d → %d（%d 減）。許容は %d まで"
+            % (pu, nu, pu - nu, DRIFT_UNIVERSE_DROP)
+        )
+
+    return errs
+
+
 def validate(d) -> list:
     """公開前の自己点検。1件でも引っかかったら書き出さない。"""
     errs = []
@@ -250,11 +301,32 @@ def validate(d) -> list:
     return errs
 
 
+def _write_summary(errs, payload, prev):
+    """GitHub Actions のジョブ要約に出す（ログを開かなくても気づけるように）。"""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("## 公開数字の更新を止めました\n\n")
+            f.write("前回の `docs/portfolio_stats.json` をそのまま残しています。\n\n")
+            for e in errs:
+                f.write("- %s\n" % e)
+            if prev:
+                f.write("\n| | 前回 | 今回 |\n|---|---|---|\n")
+                for k in ("trades", "win_rate", "pf", "max_dd_pct", "universe_effective"):
+                    f.write("| %s | %s | %s |\n" % (k, prev.get(k), payload.get(k)))
+    except OSError:
+        pass
+
+
 def main():
     p = argparse.ArgumentParser(description="公開数字を docs/portfolio_stats.json に出す")
     p.add_argument("--env-file", default="")
     p.add_argument("--out", default=OUT_PATH)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--allow-drift", action="store_true",
+                   help="前回値との乖離検査を通す（値が本当に変わったと分かっているとき）")
     p.add_argument("--from-json", default="",
                    help="Supabase の代わりに portfolio_results 行の JSON ファイルから作る（検証用）")
     args = p.parse_args()
@@ -281,10 +353,24 @@ def main():
     payload = build(rows[0])
 
     errs = validate(payload)
+
+    # 前回公開値との乖離（相談⑥）。閾値を越えたら**前回のJSONをそのまま残す**。
+    # 空ファイルや途中まで書いたファイルを作らないため、書き出し前に判定する。
+    prev = load_previous(args.out)
+    drift = drift_errors(payload, prev)
+    if drift and not args.allow_drift:
+        errs.extend(drift)
+        errs.append(
+            "前回値から大きく動いています。入力データの欠損を疑ってください"
+            "（^GSPC が取れないと相場環境が壊れます）。"
+            "意図した変化なら --allow-drift を付けて実行してください。"
+        )
+
     if errs:
-        log("検証に失敗したので書き出しません:")
+        log("::error::公開数字の検証に失敗したので書き出しません（前回のJSONを残します）")
         for e in errs:
             log("  - " + e)
+        _write_summary(errs, payload, prev)
         return 1
 
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"

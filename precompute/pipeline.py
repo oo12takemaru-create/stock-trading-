@@ -13,6 +13,7 @@ import pandas as pd
 
 import config
 import metrics
+import fetching
 from fetching import get_prices
 from universe import JAPAN_STOCKS
 
@@ -47,7 +48,30 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
                                     auto_adjust=auto_adjust, kind="global",
                                     refresh=refresh, log=log)
     if gfail:
-        log("  ★グローバル指数の取得に失敗: %s（相場環境の判定精度が落ちる）" % gfail)
+        # ★ここで止める理由（2026-09-06 に実際に踏んだ・§19-2）★
+        # 相場環境(regime)は ^N225 と ^GSPC から決まる。^GSPC が欠けると
+        # BULLISH が一度も立たず、BULLISH でしか動かないモメンタム戦略が
+        # 丸ごと消える。実際に 1,820件→1,038件・PF1.54→1.78 と、
+        # 「精度が落ちる」ではなく**別物の数字**が公開された。
+        # まず単独で粘って取り直し、それでもダメなら計算せずに止める。
+        log("  ★グローバル指数の取得に失敗: %s → 単独で取り直します" % gfail)
+        still = []
+        for t in gfail:
+            df = fetching.refetch_one(t, start, end, auto_adjust, log=log)
+            if df is None:
+                still.append(t)
+            else:
+                fetching.save_cache(t, df, auto_adjust, "global")
+                global_data[t] = df
+        if still:
+            raise SystemExit(
+                "グローバル指数 %s を取得できませんでした。\n"
+                "  相場環境の判定がこれに依存しているため、欠けたまま計算すると"
+                "別物の数字になります。公開しないでここで止めます。\n"
+                "  時間をおいて再実行してください（一過性の失敗であることが多い）。"
+                % ", ".join(still)
+            )
+        log("  ★取り直しに成功しました: %s" % ", ".join(gfail))
 
     log("[2/4] 個別株を取得")
     prices, failed = get_prices(tickers, start, end, auto_adjust=auto_adjust,
