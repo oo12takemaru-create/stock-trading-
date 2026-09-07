@@ -17,6 +17,11 @@ on:
         description: '直近何営業日ぶんを upsert するか'
         required: false
         default: '5'
+      allow_drift:
+        description: '前回公開値との乖離検査を通す（壊れた値から復旧するときだけ true）'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -74,6 +79,10 @@ jobs:
       # ★キャッシュのキーは TypeScript 側（params.ts）と一致している必要がある。
       #   ズレるとエラーにならず「毎回遅い」だけなので、
       #   precompute/tests/verify_cache_key.py で確かめること。
+      # ★allow_drift について★
+      # 乖離検査（前回公開値と比べて trades ±10% 等）は、壊れた値が一度
+      # 公開されると「正しい値に戻す」方向も止めてしまう。
+      # 復旧のときだけ手動実行で allow_drift=true を選ぶ。既定は false。
       # ★順序（2026-09-06 Fable）★
       # 公開数字の JSON は、調整域のキャッシュ温めに依存させない。
       # 温めは 40〜50分かかるが、JSON に必要なのは Rebuild までなので
@@ -94,7 +103,7 @@ jobs:
           for i in 1 2 3; do
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
-            python precompute/export_portfolio_json.py
+            python precompute/export_portfolio_json.py ${{ inputs.allow_drift && '--allow-drift' || '' }}
             git add -f docs/portfolio_stats.json
             if git diff --staged --quiet; then
               echo "変更なし → 完了"
