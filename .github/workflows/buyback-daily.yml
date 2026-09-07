@@ -1,0 +1,69 @@
+name: Buyback Daily (kaburadar.jp)
+
+# 自社株買い開示の数値化。2段構えの後半。
+#   前半: Cloudflare Worker "kaburadar-buyback" が10分ごとにTDnetの一覧をKVへ貯める
+#   後半: ここで Worker の JSON を読み、新規分のPDFから数値を抜く
+# Actionsのcronは数時間遅れることがあるが、一覧はWorker側に残っているので取りこぼさない。
+#
+# daily-signal.yml には一切触らない（上書き事故の教訓で独立させている）。
+on:
+  schedule:
+    - cron: '10 10 * * 1-5'   # 10:10 UTC = 19:10 JST（平日）
+  workflow_dispatch:
+    inputs:
+      max_pdf:
+        description: '1回で読むPDFの上限（初回の取り込みを分けたいとき）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: buyback-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q pymupdf
+
+      # 分類はWorker(JS)とActions(Python)の2箇所にある。ズレたらここで落とす
+      - name: Test classifier
+        run: python -X utf8 tests/test_classify.py
+
+      - name: Build buyback JSON
+        env:
+          BUYBACK_MAX_PDF: ${{ github.event.inputs.max_pdf }}
+        run: |
+          if [ -n "$BUYBACK_MAX_PDF" ]; then
+            python -X utf8 buyback_daily.py
+          else
+            BUYBACK_MAX_PDF=260 python -X utf8 buyback_daily.py
+          fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/buyback.json docs/buyback_history.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🏦 自社株買いデータを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git pull --rebase origin main
+          git push

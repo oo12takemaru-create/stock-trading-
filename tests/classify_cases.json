@@ -1,0 +1,142 @@
+[
+ {
+  "title": "自己株式取得に係る事項の決定に関するお知らせ",
+  "type": "decision",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式立会外買付取引（ToSTNeT-3）による自己株式の買付けに係る事項の決定に関するお知らせ",
+  "type": "decision",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式の取得及び自己株式立会外買付取引（ToSTNeT-3）による自己株式の買付けに係る事項の決定に関するお知らせ",
+  "type": "decision",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式の取得に係る事項の決定に関するお知らせ",
+  "type": "decision",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得及び自己株式立会外買付取引（ＴｏＳＴＮｅＴ－３）による自己株式の買付けに関するお知らせ",
+  "type": "tostnet3",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式立会外買付取引（ToSTNeT-3）による自己株式の買付けに関するお知らせ",
+  "type": "tostnet3",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式立会外買付取引（ToSTNeT-3）による自己株式の買付価格確定のお知らせ",
+  "type": "tostnet3",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式の取得および自己株式立会外買付取引（ToSTNeT-3）による自己株式の買付けに関するお知らせ",
+  "type": "tostnet3",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式の取得状況に関するお知らせ",
+  "type": "progress",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式取得状況に関するお知らせ",
+  "type": "progress",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況（途中経過）（会社法第165条第２項の規定による定款の定めに基づく自己株式の取得）",
+  "type": "progress",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況について",
+  "type": "progress",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況および取得終了に関するお知らせ",
+  "type": "complete",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式立会外買付取引（ToSTNeT-3）による自己株式の取得結果及び自己株式取得終了に関するお知らせ",
+  "type": "complete",
+  "tostnet": true
+ },
+ {
+  "title": "自己株式の取得状況および取得完了に関するお知らせ（会社法第459条第1項の規定による定款の定めに基づく自己株式の取得）",
+  "type": "complete",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況及び取得終了に関するお知らせ",
+  "type": "complete",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況及び取得終了並びに消却株式数に関するお知らせ",
+  "type": "cancel",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得結果および取得終了並びに消却株式数に関するお知らせ",
+  "type": "cancel",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得状況及び取得終了並びに自己株式の消却に関するお知らせ",
+  "type": "cancel",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の消却完了に関するお知らせ",
+  "type": "cancel",
+  "tostnet": false
+ },
+ {
+  "title": "自己株式の取得中止及び取得状況に関するお知らせ",
+  "type": "change",
+  "tostnet": false
+ },
+ {
+  "title": "（訂正）「自己株式取得に係る事項の決定に関するお知らせ」の一部訂正について",
+  "type": "change",
+  "tostnet": false
+ },
+ {
+  "title": "株式分割、株式分割に伴う定款の一部変更、株式分割に伴う自己株式取得に係る事項の一部変更および配当予想の修正に関するお知らせ",
+  "type": "change",
+  "tostnet": false
+ },
+ {
+  "title": "株式分割、株主優待制度の導入、株式分割に伴う定款の一部変更、配当予想の修正および自己株式取得に係る事項の変更に関するお知らせ",
+  "type": "change",
+  "tostnet": false
+ },
+ {
+  "title": "譲渡制限付株式付与のための自己株式の処分の払込完了に関するお知らせ",
+  "type": "other",
+  "tostnet": false
+ },
+ {
+  "title": "譲渡制限付株式報酬としての自己株式の処分に関するお知らせ",
+  "type": "other",
+  "tostnet": false
+ },
+ {
+  "title": "事後交付型業績連動株式報酬としての自己株式の処分に関するお知らせ",
+  "type": "other",
+  "tostnet": false
+ },
+ {
+  "title": "譲渡制限付株式報酬としての自己株式の処分の払込完了に関するお知らせ",
+  "type": "other",
+  "tostnet": false
+ }
+]

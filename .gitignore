@@ -75,3 +75,6 @@ mcp/registry/server.json
 # 自社株買い: TDnetの生ログ保全（TDnetは27営業日で消えるので、消える前に残す）
 !buyback_raw/
 !buyback_raw/*.json
+!docs/buyback.json
+!docs/buyback_history.json
+!tests/classify_cases.json
