@@ -71,3 +71,7 @@ mcp/registry/server.json
 # ★ここに書き忘れると、ワークフローが「変更なし」で静かに素通りする。
 #   2026-09-06 に precompute/thresholds.json で同じ罠を踏んだ。
 !docs/portfolio_stats.json
+
+# 自社株買い: TDnetの生ログ保全（TDnetは27営業日で消えるので、消える前に残す）
+!buyback_raw/
+!buyback_raw/*.json
