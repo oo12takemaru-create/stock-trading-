@@ -1,6 +1,6 @@
 {
- "target_date": "2026-09-03",
- "generated_at": "2026-09-08T00:59:15+09:00",
+ "target_date": "2026-09-07",
+ "generated_at": "2026-09-08T23:42:45+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,21 +8,21 @@
    "code": "7532",
    "name": "パンパシHD",
    "sector": "小売",
-   "kairi": -11.57
+   "kairi": -9.22
   },
   {
    "judge": "watch",
    "code": "6728",
    "name": "アルバック",
    "sector": "半導体製造装置",
-   "kairi": -11.35
+   "kairi": -9.12
   },
   {
    "judge": "watch",
-   "code": "6146",
-   "name": "ディスコ",
-   "sector": "半導体製造装置",
-   "kairi": -10.43
+   "code": "7012",
+   "name": "川崎重工",
+   "sector": "重工業",
+   "kairi": -6.95
   }
  ],
  "signals_today_date": "2026-09-08",
