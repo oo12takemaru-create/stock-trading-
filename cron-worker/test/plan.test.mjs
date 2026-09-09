@@ -29,10 +29,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  *   このファイルは index.js を**文字列として**見ているので、
  *   コメントアウトした行を「まだ有る」と誤認する。
  *   （実際、注入テストで NO_DEDUP のコメントアウトを見逃した）
- *   文字列の中の "//" はこのファイルの対象範囲には出てこない。
+ *   URL の "//" は落とさない（: の直後は除く）。実際 https:// に当たった。
  */
 const stripComments = (t) =>
-  t.split("\n").map((l) => l.replace(/\s*\/\/.*$/, "")).join("\n");
+  t.split("\n").map((l) => l.replace(/(^|[^:])\/\/.*$/, "$1").trimEnd()).join("\n");
 
 const SRC = stripComments(readFileSync(join(HERE, "../src/index.js"), "utf8"));
 const WORKFLOW_DIR = join(HERE, "../../.github/workflows");
@@ -299,4 +299,53 @@ test("daily-signal は 1日3回（朝・昼・夕）で、夕は pipeline-daily 
     P.PLAN.match(/"18:00": \[[^\]]*"pipeline-daily\.yml"/),
     "18:00 に pipeline-daily がありません（夕の担当が居ない）",
   );
+});
+
+/* ─────────────────────────────────────────────
+   会員向けの朝の通知（引継ぎ.md §19 相談⑨）
+   ───────────────────────────────────────────── */
+
+/** MORNING_NOTIFY の中身を拾う */
+function morningNotify() {
+  const head = "const MORNING_NOTIFY = {";
+  const i = SRC.indexOf(head);
+  assert.notEqual(i, -1, "MORNING_NOTIFY を読み取れません");
+  const body = SRC.slice(i, SRC.indexOf("};", i));
+  const get = (k) => (body.match(new RegExp(k + ': "([^"]+)"')) || [])[1];
+  return { at: get("at"), url: get("url"), gate: get("gate") };
+}
+
+test("朝の通知の時刻に cron が発火する", () => {
+  const { at } = morningNotify();
+  assert.match(at, /^\d{2}:(00|30)$/, `${at} は :00 か :30 ではありません`);
+  assert.ok(fires(at, 3), `${at} に cron が発火しません`);
+});
+
+test("朝の通知の関門が実在し、通知より前の時刻に起動される", () => {
+  const { at, gate } = morningNotify();
+  assert.ok(readdirSync(WORKFLOW_DIR).includes(gate), `${gate} が存在しません`);
+
+  const slot = [...P.PLAN.matchAll(/"(\d{2}:\d{2})": \[([^\]]*)\]/g)]
+    .find((m) => m[2].includes(`"${gate}"`));
+  assert.ok(slot, `${gate} が PLAN にありません（関門が走らない）`);
+  assert.ok(
+    slot[1] < at,
+    `関門 ${gate} は ${slot[1]} 起動で、通知 ${at} より後です（結果を待てません）`,
+  );
+});
+
+test("朝の通知は https の会員アプリを叩く", () => {
+  const { url } = morningNotify();
+  assert.match(url, /^https:\/\//, `平文の HTTP です: ${url}`);
+  assert.match(url, /\/api\/cron\//, `想定外の宛先です: ${url}`);
+});
+
+test("朝の通知は関門が success のときだけ叩く", () => {
+  // 「判定できないときは送らない」に倒してあること。
+  // ここを >= や != に書き換えると、古いデータで会員にメールが届く。
+  assert.match(
+    SRC, /if \(r !== "success"\) \{/,
+    "関門の判定が `r !== \"success\"` になっていません（送らない側に倒す）",
+  );
+  assert.match(SRC, /CRON_SECRET/, "CRON_SECRET を使っていません");
 });

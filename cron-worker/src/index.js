@@ -138,6 +138,27 @@ const BACKUP_AT = {
   "21:00": new Set(["pipeline-daily.yml"]),
 };
 
+/**
+ * 会員向けの「朝の通知」を ruletrade-app に叩かせる（引継ぎ.md §19 相談⑨）。
+ *
+ * ■ GitHub のワークフローではなく HTTP を叩く
+ * 送信の中身は会員アプリ（Next.js）側にある。Vercel Pro を買わずに
+ * 時刻どおり叩くため、この Worker から呼ぶ（Fable 決定・選択肢③）。
+ *
+ * ■ gate が**成功していなければ叩かない**
+ * pipeline-morning（07:00）は「前営業日ぶんのデータが揃っているか」の関門。
+ * これが落ちている日に通知を送ると、**古いデータで会員に直接届く**。
+ * 2026-09-06 の事故（^GSPC が取れないまま別物の数字を公開）と同じ形なので、
+ * 判定できないときも含めて**送らない側に倒す**（人にはメールで知らせる）。
+ *   ※ alreadyRanToday() は逆に「判定できなければ走らせる」。
+ *     あちらは二重に走っても害がないが、こちらは会員に届くので逆向きにする。
+ */
+const MORNING_NOTIFY = {
+  at: "07:30", // ※ :00 か :30 だけ（cron の発火時刻）
+  url: "https://ruletrade-app.vercel.app/api/cron/morning-notify",
+  gate: "pipeline-morning.yml", // 07:00 の関門。これが success のときだけ叩く
+};
+
 /** now(UTC) を JST の壁時計に直す */
 function toJst(now) {
   return new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -188,6 +209,100 @@ async function alreadyRanToday(workflow, jstToday, env) {
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * そのワークフローの「当日の結果」を返す。
+ *   "success" / "failure" / "running"（実行中・順待ち）/ "none"（当日の run が無い）
+ *   "unknown"（API が答えない）
+ * 直近の run を新しいものから見て、最初に見つかった当日のものを採る。
+ */
+async function todaysResult(workflow, jstToday, env) {
+  const url =
+    `https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/runs?per_page=10`;
+  try {
+    const res = await fetch(url, { headers: ghHeaders(env) });
+    if (!res.ok) return "unknown";
+    const data = await res.json();
+    for (const run of data.workflow_runs || []) {
+      if (ymd(toJst(new Date(run.created_at))) !== jstToday) continue;
+      if (run.status === "in_progress" || run.status === "queued") return "running";
+      return run.conclusion === "success" ? "success" : "failure";
+    }
+    return "none";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * 会員向けの朝の通知を叩く。gate が success のときだけ。
+ * 送らなかったときは必ずメールで知らせる（黙って止めない）。
+ */
+async function morningNotify(jstToday, env) {
+  const { url, gate } = MORNING_NOTIFY;
+  const why = {
+    failure: `${gate} が失敗しています（前営業日ぶんのデータが揃っていない）`,
+    running: `${gate} がまだ終わっていません（07:00 の回が30分以上かかっている）`,
+    none: `${gate} が今日まだ起動していません`,
+    unknown: `${gate} の結果を GitHub API から確認できません`,
+  };
+
+  const r = await todaysResult(gate, jstToday, env);
+  if (r !== "success") {
+    console.error(`朝の通知を送りません: ${why[r]}`);
+    await notify(
+      "[ルールトレード] 朝の通知を送りませんでした",
+      `${why[r]}。\n\n` +
+        "古いデータで会員に届くのを避けるため、送信を見合わせました。\n" +
+        `GitHub Actions: https://github.com/${REPO}/actions\n` +
+        "直したあと、アプリ側の手動実行で送れます。",
+      env,
+    );
+    return { ok: false, skipped: true, reason: r };
+  }
+
+  if (!env.CRON_SECRET) {
+    console.error("CRON_SECRET が未設定のため朝の通知を叩けません");
+    await notify(
+      "[ルールトレード] cron Worker に CRON_SECRET がありません",
+      `朝の通知（${url}）を叩こうとしましたが、\n` +
+        "CRON_SECRET が未設定のため何もできませんでした。\n" +
+        "npx wrangler secret put CRON_SECRET で登録してください。",
+      env,
+    );
+    return { ok: false, reason: "no-secret" };
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.CRON_SECRET}`,
+        "Content-Type": "application/json",
+        "User-Agent": "ruletrade-cron-worker",
+      },
+      body: JSON.stringify({ date: jstToday }),
+    });
+    const body = (await res.text()).slice(0, 300);
+    if (!res.ok) {
+      console.error(`朝の通知に失敗: ${res.status} ${body}`);
+      await notify(
+        "[ルールトレード] 朝の通知の呼び出しが失敗しました",
+        `${url}\n${res.status}\n${body}\n\n` +
+          "401 なら CRON_SECRET がアプリ側と食い違っています。",
+        env,
+      );
+      return { ok: false, status: res.status };
+    }
+    console.log(`朝の通知を叩きました: ${res.status} ${body}`);
+    return { ok: true, status: res.status };
+  } catch (e) {
+    const msg = String(e).slice(0, 200);
+    console.error("朝の通知で例外:", msg);
+    await notify("[ルールトレード] 朝の通知で例外", `${url}\n${msg}`, env);
+    return { ok: false, reason: "exception" };
   }
 }
 
@@ -274,7 +389,12 @@ export default {
     const today = ymd(jst);
     const { targets, why } = targetsFor(jst);
 
-    if (targets.length === 0) {
+    // 会員向けの朝の通知（HTTP）。ワークフローの起動とは別枠なので、
+    // PLAN が空でも動くように targets の判定より前に置く。
+    // 休場日は送らない（gate も走っていない）。
+    const isMorningNotify = MORNING_NOTIFY.at === key && isTradingDay(jst);
+
+    if (targets.length === 0 && !isMorningNotify) {
       console.log(`JST ${key}: 予定なし`);
       return;
     }
@@ -296,6 +416,13 @@ export default {
     // 東証が閉まっている日は、市場データを作るものを起こさない。
     // 週末バッチ（pipeline-weekly）だけは土曜に動かす。
     const marketOpen = isTradingDay(jst);
+
+    // 朝の通知は gate（pipeline-morning）の結果を見てから叩く。
+    // 送らなかった場合も中で必ずメールを出すので、ここでは結果を見るだけ。
+    if (isMorningNotify) {
+      const r = await morningNotify(today, env);
+      console.log(`JST ${key}: 朝の通知 → ${r.ok ? "送信" : "見送り"}`);
+    }
     const runnable = marketOpen
       ? targets
       : targets.filter((w) => w === "pipeline-weekly.yml");
@@ -358,10 +485,12 @@ export default {
         GH_PAT: Boolean(env.GH_PAT),
         RESEND_API_KEY: Boolean(env.RESEND_API_KEY),
         NOTIFY_TO: Boolean(env.NOTIFY_TO),
+        CRON_SECRET: Boolean(env.CRON_SECRET),
       },
       repo: REPO,
       this_minute: { why, targets },
       intraday: { ...INTRADAY, now_in_range: inIntraday(hhmm(jst)) },
+      morning_notify: MORNING_NOTIFY,
       backup_at: Object.fromEntries(
         Object.entries(BACKUP_AT).map(([k, v]) => [k, [...v]]),
       ),

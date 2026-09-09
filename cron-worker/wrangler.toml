@@ -15,8 +15,10 @@ compatibility_date = "2026-09-09"
 #
 #   Cloudflare の cron は UTC。1本目は毎時なので時差の計算が要らない。
 [triggers]
+#   会員向けの朝の通知（JST 7:30・引継ぎ.md §19 相談⑨）も 1本目から出す。
+#   :30 は既に発火しているので trigger は増やさない（枠は5本しかない）。
 crons = [
-  "0,30 * * * *",        # 常用: PLAN による振り分け
+  "0,30 * * * *",        # 常用: PLAN による振り分け＋朝の通知（7:30）
   "15,45 0-6 * * 1-5",   # ザラ場のみ: realtime-signal を15分間隔にするための補い
 ]
 
@@ -24,3 +26,4 @@ crons = [
 #   npx wrangler secret put GH_PAT
 #   npx wrangler secret put RESEND_API_KEY
 #   npx wrangler secret put NOTIFY_TO
+#   npx wrangler secret put CRON_SECRET
