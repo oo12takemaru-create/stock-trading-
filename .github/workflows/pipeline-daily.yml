@@ -54,37 +54,49 @@ jobs:
   # 3. 地合いの公開（MCP get_market_regime・株レーダーが読む）
   #    従来は daily-signal の workflow_run で連鎖していた。パイプラインでは
   #    needs で順序が保証されるので、そちらに寄せる。
+  #    ※ free-scanner の後ろに置くのは順序の都合ではなく、**同時 push を避けるため**。
+  #      この2本も docs/*.json を main に push する（下の「並列にしてはいけない」参照）。
   radar-publish:
-    needs: daily-signal
+    needs: free-scanner
     uses: ./.github/workflows/radar-publish.yml
     secrets: inherit
 
-  # 4. 派生データ。互いに独立なので並列でよい（上流の成功は共通の前提）
+  # 4. 派生データ。**並列にしてはいけない**（2026-09-09 の実測で判明）
+  #
+  #    5本とも docs/*.json を main に push する。並列にすると rebase の直後・
+  #    push の直前に別のジョブが割り込み、
+  #      ! [remote rejected] main -> main (cannot lock ref 'refs/heads/main')
+  #    で落ちる。実際 crash と kessan-react が同時に落ちた。
+  #    どれか1本でも落ちると precompute が skipped になり、**公開数字が更新されない**。
+  #
+  #    従来は schedule で時間がばらけていたので起きなかった。1本にまとめた副作用。
+  #    互いにデータの依存は無いので、順番はどれでもよい。速さより確実さを取る。
+  #    （各ワークフローの commit ステップは触らない＝単体実行の動きを変えない）
   gauge:
-    needs: [free-scanner, radar-publish]
+    needs: radar-publish
     uses: ./.github/workflows/gauge-daily.yml
     secrets: inherit
   crash:
-    needs: [free-scanner, radar-publish]
+    needs: gauge
     uses: ./.github/workflows/crash-daily.yml
     secrets: inherit
   kessan:
-    needs: [free-scanner, radar-publish]
+    needs: crash
     uses: ./.github/workflows/kessan-daily.yml
     secrets: inherit
   kessan-react:
-    needs: [free-scanner, radar-publish]
+    needs: kessan
     uses: ./.github/workflows/kessan-react-daily.yml
     secrets: inherit
   karauri:
-    needs: [free-scanner, radar-publish]
+    needs: kessan-react
     uses: ./.github/workflows/karauri-daily.yml
     secrets: inherit
 
   # 5. 前計算 → 公開数字 → キャッシュ温め
   #    ここは daily_metrics を触るので、派生データの後ろに置いて負荷を分ける
   precompute:
-    needs: [gauge, crash, kessan, kessan-react, karauri]
+    needs: karauri  # 直列なので、最後まで来ていれば手前は全部成功している
     uses: ./.github/workflows/precompute-daily.yml
     secrets: inherit
 
