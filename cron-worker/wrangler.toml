@@ -1,0 +1,16 @@
+name = "ruletrade-cron"
+main = "src/index.js"
+compatibility_date = "2026-09-09"
+
+# ★Cron Trigger は1本だけ★
+#   無料プランは1 Worker あたり3本まで。時刻ごとに分けると足りないので、
+#   毎時 0分・30分に起こして、Worker の中で JST を見て振り分ける。
+#   起動時刻を足したいときは src/index.js の PLAN に1行足すだけでよく、
+#   ここは触らない。
+#
+#   Cloudflare の cron は UTC だが、この書き方なら時差の計算が要らない。
+[triggers]
+crons = ["0,30 * * * *"]
+
+# 秘密は wrangler secret put で入れる（このファイルには書かない）
+#   npx wrangler secret put GH_PAT
