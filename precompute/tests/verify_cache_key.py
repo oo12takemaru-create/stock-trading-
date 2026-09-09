@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cache_key  # noqa: E402
+from warm_cache import PRESET_RULES_WARM  # noqa: E402
 
 APP_DIR = r"D:\マイドキュメント\Claude\Projects\ruletrade-app"
 DATA_THROUGH = "2026-09-04"
@@ -69,6 +70,36 @@ CASES = [
         dict(conditions=[{"column": "dev_25", "op": "lte", "value": -18}],
              hold_days=2, stop_pct=-5, cost_pct=0,
              regimes=["BULLISH", "NEUTRAL", "BEARISH", "PANIC"]),
+    ),
+    (
+        "規定値: BNF逆張り（warm_cache が温める形）",
+        {"conditions": PRESET_RULES_WARM[0]["conditions"],
+         "exit": {"stop_pct": -5, "ma_revert": 25, "calendar_days": 14, "cost_pct": 0},
+         "preset": True, "max_positions": None,
+         "regime_filter": PRESET_RULES_WARM[0]["regimes"]},
+        dict(conditions=PRESET_RULES_WARM[0]["conditions"],
+             calendar_days=14, stop_pct=-5, ma_revert=25, cost_pct=0,
+             regimes=PRESET_RULES_WARM[0]["regimes"]),
+    ),
+    (
+        "規定値: モメンタム（warm_cache が温める形）",
+        {"conditions": PRESET_RULES_WARM[1]["conditions"],
+         "exit": {"stop_pct": -5, "take_pct": 10, "calendar_days": 10, "cost_pct": 0},
+         "preset": True, "max_positions": None,
+         "regime_filter": PRESET_RULES_WARM[1]["regimes"]},
+        dict(conditions=PRESET_RULES_WARM[1]["conditions"],
+             calendar_days=10, stop_pct=-5, take_pct=10, cost_pct=0,
+             regimes=PRESET_RULES_WARM[1]["regimes"]),
+    ),
+    (
+        "規定値: ミネルヴィニ（warm_cache が温める形）",
+        {"conditions": PRESET_RULES_WARM[2]["conditions"],
+         "exit": {"stop_pct": -9, "calendar_days": 90, "cost_pct": 0},
+         "preset": True, "max_positions": None,
+         "regime_filter": PRESET_RULES_WARM[2]["regimes"]},
+        dict(conditions=PRESET_RULES_WARM[2]["conditions"],
+             calendar_days=90, stop_pct=-9, cost_pct=0,
+             regimes=PRESET_RULES_WARM[2]["regimes"]),
     ),
     (
         "書籍照合モード（内部専用）",

@@ -76,16 +76,68 @@ def entry_sets():
                     }
 
 
+# ─────────────────────────────────────────────────────────
+# 規定値ルール3本（/rules を開いたときに最初に出る成績）
+#
+# ★ここは調整域とは別の族★
+# 調整域は「閾値×MA×出来高×保有日数」の格子だが、規定値は本番 v2.8.0 の
+# 条件そのもの（セクター別閾値・暦日の保有・25日線への戻りなど）で、
+# 格子の中に入っていない。温めておかないと、毎日その日の最初に開いた人が
+# 20秒待つことになる（2026-09-08 に実測）。
+#
+# ★ruletrade-app/src/content/rules-library.ts の requestForRule() と
+#   1つでも違うと、ハッシュがズレて当たらない。**変えるときは両方直す。**
+#   ズレても壊れず「速くならないだけ」なので気づきにくい。
+#   tests/verify_cache_key.py で照合すること。
+PRESET_RULES_WARM = [
+    {
+        "id": "bnf-reversal",
+        "conditions": [
+            {"column": "dev_25", "op": "lte", "threshold_mode": "sector_table"},
+            {"column": "vol_ratio_20", "op": "gte", "value": 1.1},
+            {"column": "bb_pos_1_5", "op": "lte", "value": 100},
+            {"column": "knife_guard", "op": "is_true"},
+        ],
+        "exit": {"stop_pct": -5, "ma_revert": 25, "calendar_days": 14},
+        "regimes": ["PANIC", "BEARISH", "NEUTRAL"],
+    },
+    {
+        "id": "momentum-breakout",
+        "conditions": [
+            {"column": "high_20_ratio", "op": "gte", "value": 100},
+            {"column": "vol_ratio_20", "op": "gte", "value": 1.5},
+            {"column": "dev_200", "op": "gte", "value": 0},
+            {"column": "dev_50", "op": "gte", "value": 0},
+            {"column": "high_52w_ratio", "op": "gte", "value": 95},
+            {"column": "ret_5d", "op": "lte", "value": 12},
+            {"column": "day_change", "op": "lte", "value": 8},
+        ],
+        "exit": {"stop_pct": -5, "take_pct": 10, "calendar_days": 10},
+        "regimes": ["BULLISH"],
+    },
+    {
+        "id": "minervini-template",
+        "conditions": [{"column": "minervini_entry", "op": "is_true"}],
+        "exit": {"stop_pct": -9, "calendar_days": 90},
+        "regimes": ["BULLISH", "NEUTRAL"],
+    },
+]
+
+
 class RpcTimeout(RuntimeError):
     pass
 
 
-def call_rpc(url, key, conds, regimes, hold_days, date_to, retries=2):
+def call_rpc(url, key, conds, regimes, hold_days, date_to, retries=2,
+             stop_pct=None, take_pct=None, calendar_days=None, ma_revert=None):
+    """出口の指定は既定で調整域のもの。規定値ルールを温めるときだけ上書きする。"""
     body = {
         "p_conditions": conds, "p_from": DATE_FROM, "p_to": date_to,
-        "p_hold_days": hold_days, "p_stop_pct": STOP_PCT, "p_take_pct": None,
+        "p_hold_days": hold_days,
+        "p_stop_pct": STOP_PCT if stop_pct is None else stop_pct,
+        "p_take_pct": take_pct,
         "p_regimes": regimes, "p_universe": UNIVERSE, "p_tickers": None,
-        "p_calendar_days": None, "p_ma_revert": None,
+        "p_calendar_days": calendar_days, "p_ma_revert": ma_revert,
         "p_entry_at": "close", "p_exit_style": "close",
     }
     for attempt in range(retries + 1):
@@ -191,6 +243,83 @@ def build_payload(trades, date_from, date_to):
     }
 
 
+def purge_stale_cache(url, key, date_to, dry_run=False):
+    """データの最終日が変わった古いエントリを消す（2026-09-09 Fable 相談⑦）。
+
+    キャッシュの有効性は「時計」ではなく「データの日付」で決める。
+    正規化したパラメータの `to` が daily_metrics の最終日なので、
+    日付が進めばキーが変わって前日の行には当たらなくなる。
+    ただし**残り続けると容量を食う**ので、ここで掃除する。
+
+    月次の全期間再計算のように「日付は同じだが中身が変わる」場合は、
+    このあとの温め直しが同じキーを上書きするので整合が取れる。
+    """
+    if dry_run:
+        log("  （--dry-run のため掃除しません）")
+        return 0
+    # PostgREST の JSON 演算子で「to が今日の最終日でない行」を消す
+    endpoint = "%s/rest/v1/backtest_cache?params->>to=neq.%s" % (url, date_to)
+    req = urllib.request.Request(
+        endpoint, method="DELETE",
+        headers={"apikey": key, "Authorization": "Bearer " + key,
+                 "Prefer": "return=representation", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            deleted = json.loads(r.read() or b"[]")
+        return len(deleted)
+    except Exception as e:  # 掃除に失敗しても温めは続ける
+        log("  ★古いキャッシュの掃除に失敗（続行します）: %s" % str(e)[:120])
+        return 0
+
+
+def warm_presets(url, key, date_to, dry_run=False):
+    """規定値3本を温める。/rules の初回表示がここで決まる。
+
+    戻り値: (保存した件数, 落ちたもののリスト)
+    """
+    rows = []
+    failed = []
+    for r in PRESET_RULES_WARM:
+        ex = r["exit"]
+        t1 = time.time()
+        try:
+            trades = call_rpc(
+                url, key, r["conditions"], r["regimes"], None, date_to,
+                stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
+                calendar_days=ex.get("calendar_days"), ma_revert=ex.get("ma_revert"))
+        except Exception as e:
+            failed.append((r["id"], str(e)[:120]))
+            log("  ★%s を温められませんでした: %s" % (r["id"], str(e)[:120]))
+            continue
+        trades = apply_no_overlap(trades)
+
+        # ★0件は保存しない★
+        # 2026-09-08、閾値表が読めず「エラーも出さず0件」が焼き付いた事故があった。
+        # 規定値が0件になることは本来ありえないので、異常として扱う。
+        if not trades:
+            failed.append((r["id"], "0件が返った（入力データを疑う）"))
+            log("  ★%s が0件でした。保存しません" % r["id"])
+            continue
+
+        p_ = cache_key.normalize(
+            conditions=r["conditions"], hold_days=None,
+            calendar_days=ex.get("calendar_days"), ma_revert=ex.get("ma_revert"),
+            stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
+            cost_pct=COST_PCT, regimes=r["regimes"],
+            date_from=DATE_FROM, date_to=date_to, universe=UNIVERSE)
+        rows.append({
+            "params_hash": cache_key.params_hash(p_),
+            "params": p_,
+            "result": build_payload(trades, DATE_FROM, date_to),
+            "computed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        })
+        log("  %s: %d件 / %.1f秒" % (r["id"], len(trades), time.time() - t1))
+
+    if rows and not dry_run:
+        supabase_io.upsert("backtest_cache", rows, "params_hash", log=lambda *_: None)
+    return len(rows), failed
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="規定値の調整域をキャッシュに温める")
     p.add_argument("--env-file", default="")
@@ -207,6 +336,19 @@ def main():
     t0 = time.time()
 
     date_to = supabase_io.max_value("daily_metrics", "date")
+
+    # ★規定値3本を先に温める★
+    # 調整域（1,260通り・約60〜80分）より先に済ませる。ここが冷えていると
+    # /rules を開いた最初の人が20秒待つので、優先度が高い。
+    # 古い日付のエントリを先に掃除する（キーが変わって当たらなくなった行）
+    log("古いキャッシュを掃除します（データ最終日 %s 以外）" % date_to)
+    purged = purge_stale_cache(url, key, date_to, args.dry_run)
+    log("  %d 件削除" % purged)
+
+    log("規定値3本を温めます（/rules の初回表示）")
+    preset_saved, preset_failed = warm_presets(url, key, date_to, args.dry_run)
+    log("  規定値: 保存 %d 件 / 失敗 %d 件" % (preset_saved, len(preset_failed)))
+
     sets = list(entry_sets())
     if args.limit:
         sets = sets[:args.limit]
@@ -258,8 +400,12 @@ def main():
         supabase_io.upsert("backtest_cache", rows, "params_hash", log=lambda *_: None)
         saved += len(rows)
 
-    log("保存 %d 件 / 見送り %d 件 / 所要 %.1f 分"
-        % (saved, len(skipped), (time.time() - t0) / 60))
+    log("保存 %d 件（うち規定値 %d 件）/ 見送り %d 件 / 所要 %.1f 分"
+        % (saved + preset_saved, preset_saved, len(skipped), (time.time() - t0) / 60))
+    if preset_failed:
+        log("★規定値を温められなかったものがあります（/rules の初回表示が遅くなります）:")
+        for rid, why in preset_failed:
+            log("    %s ― %s" % (rid, why))
     if skipped:
         log("★時間内に終わらず見送った組み合わせ（会員が選ぶとライブ計算になる）:")
         for k in skipped[:20]:
