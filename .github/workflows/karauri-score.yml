@@ -58,5 +58,9 @@ jobs:
             exit 0
           fi
           git commit -m "📉 空売りの答え合わせを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
-          git pull --rebase origin main
-          git push
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1
