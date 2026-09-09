@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from jp_bizday import holidays, is_bizday, next_bizday   # noqa: E402
-from buyback_daily import buy_date_by_rule               # noqa: E402
+from buyback_daily import buy_date_by_rule, rename_tostnet_period   # noqa: E402
 
 NG = 0
 
@@ -66,6 +66,16 @@ CASES = [
 ]
 for d, title, want in CASES:
     eq(buy_date_by_rule({"date": d, "title": title}), want, title[:30])
+
+# ToSTNeT-3 の period_* は親の取得枠の期間なので parent_period_* に改名する。
+# decision / change のものは本物の取得期間なので触らない
+tos = {"type": "tostnet3", "period_from": "2026-01-30", "period_to": "2027-01-29",
+       "extract_note": "欠け: period_from,period_to"}
+dec = {"type": "decision", "period_from": "2026-01-30", "period_to": "2027-01-29"}
+rename_tostnet_period({"a": tos, "b": dec})
+eq(sorted(tos), ["extract_note", "parent_period_from", "parent_period_to", "type"], "tostnet3を改名")
+eq(tos["extract_note"], "欠け: parent_period_from,parent_period_to", "extract_noteの項目名も揃える")
+eq(sorted(dec), ["period_from", "period_to", "type"], "decisionは触らない")
 
 print(f"{'NG ' + str(NG) + '件' if NG else '全て一致 ✓'}")
 sys.exit(1 if NG else 0)

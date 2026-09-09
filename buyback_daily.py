@@ -128,6 +128,30 @@ def fill_buy_date(known, budget):
     return n_pdf, n_rule, unmatched
 
 
+def rename_tostnet_period(known):
+    """ToSTNeT-3 の period_* を parent_period_* に改める（2026-09-09 合意）
+
+    ToSTNeT-3 のPDFに載っている「取得期間」は、その日の買付けの期間ではなく
+    **親の取得枠の期間**（例「2026年1月30日〜2027年1月29日」）。
+    decision の period_* と同じ名前だと買付期間と読み違えるので名前を分ける。
+    その日の買付けは buy_date（単日）で持つ。
+    decision / change の period_* はそのまま（本物の取得期間なので）。
+    既存レコードもこの関数を通るので、走らせるだけで名前が揃う。"""
+    n = 0
+    for r in known.values():
+        if r["type"] != "tostnet3":
+            continue
+        for old, new in (("period_from", "parent_period_from"), ("period_to", "parent_period_to")):
+            if old in r:
+                r[new] = r.pop(old)
+                n += 1
+        if r.get("extract_note"):
+            # 「欠け: period_from,period_to」の項目名も揃える
+            r["extract_note"] = re.sub(r"(?<!parent_)period_(from|to)",
+                                       r"parent_period_\1", r["extract_note"])
+    return n
+
+
 def link_parent(rec, history_index):
     """change / tostnet3 / complete に、同じ銘柄の直近60日の decision を紐づける。
     見つからなければ付けない（無理に結び付けない）"""
@@ -200,6 +224,9 @@ def main():
     # ToSTNeT-3 の買付日を埋める（本文優先・消えたPDFはルール）
     n_pdf, n_rule, unmatched = fill_buy_date(known, budget=int(os.environ.get("BUYBACK_MAX_BUYDATE", "150")))
 
+    # ToSTNeT-3 の期間は親の取得枠のものなので名前を分ける
+    rename_tostnet_period(known)
+
     # 親の決議を紐づける
     by_code = {}
     for h in known.values():
@@ -240,7 +267,8 @@ def main():
         "source": "TDnet（適時開示情報閲覧サービス）の公表資料",
         "note": ("表題から機械的に分類し、決議・ToSTNeT-3・変更のPDFから数値を抜いたもの。"
                  "取れなかった項目は空。推測では埋めていない。"
-                 "progressは毎月の取得状況報告、otherは自己株式の処分など取得以外。"),
+                 "progressは毎月の取得状況報告、otherは自己株式の処分など取得以外。"
+                 "ToSTNeT-3は買付日をbuy_date（単日）で持ち、parent_period_*は親の取得枠の期間。"),
         "types": ["decision", "tostnet3", "progress", "complete", "cancel", "change", "other"],
         "extract_rate": stats(allrows),
         # ToSTNeT-3 の買付日をどこから得たか。pdf=本文に書かれていた / rule=制度から機械的に決めた
