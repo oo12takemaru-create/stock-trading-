@@ -79,6 +79,15 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
     for t in final:
         yearly.setdefault(t.exit_date.year, []).append(t)
 
+    # 日別の発生件数（公開成績ページ /p/preset の「発生カレンダー」用）。
+    # 数え方は **建てた日**（entry_date）。exit_date で数えると「いつ出たか」ではなく
+    # 「いつ終わったか」のカレンダーになり、意味が変わる。
+    # 制約を通ったあと（final）で数えるので、画面の件数と成績の母集団が一致する。
+    daily_entries = {}
+    for t in final:
+        k = t.entry_date.strftime("%Y-%m-%d")
+        daily_entries[k] = daily_entries.get(k, 0) + 1
+
     result = {
         "summary": pe.calc_stats(final),
         "unconstrained_signals": len(all_trades),
@@ -90,6 +99,9 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
             {"year": y, **pe.calc_stats(v)} for y, v in sorted(yearly.items())
         ],
         "exit_reasons": pe.exit_reason_counts(final),
+        # {"2016-09-12": 3, ...}。**該当が1件も無い日は入れない**（0を並べない）。
+        # 10年で約2,400キー・数十KB。jsonb にそのまま入る大きさ
+        "daily_entries": dict(sorted(daily_entries.items())),
         "period": {"from": start, "to": end},
         "basis": {
             "universe": "daily_scanner_v2_8_0.py の STOCKS（%d銘柄。データが揃うぶんで計算）"
