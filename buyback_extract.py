@@ -62,7 +62,21 @@ RE_AMOUNT = [
 # 「取得期間」「取得する期間」「買付日」（ToSTNeT-3は単日）を拾う
 RE_PERIOD = re.compile(r"取得(?:する)?期間[：:]?(.{0,60})")
 RE_PERIOD2 = re.compile(r"(?:買付(?:け)?日|取得日|買付予定日)[：:]?(.{0,40})")
-RE_METHOD = re.compile(r"取得方法[：:]?(.{0,60})")
+# 「取得方法」は決議内容の表の1項目で、実物では必ず番号付きの見出しになっている:
+#   「(5)取得方法東京証券取引所における市場買付」
+#   「(5)取得の方法:自己株式立会外買付取引(ToSTNeT-3)を含む市場買付」
+#   「2.取得の方法本日(2026年8月28日)の終値にて…買付けの委託を行う」（ToSTNeT-3の型）
+# 見出しの形を要求しないと、本文の「その具体的な取得方法について決議しましたので」に
+# 引っかかってあいさつ文を拾う。2026-09-09 時点で method 177件中78件がこれだった。
+# 見出しの番号は「(5)」「5.」「5」「⑤」と揺れる（PDFから起こすと括弧が落ちることがある）。
+# 項目名も「取得方法」「取得の方法」「株式の取得方法」と揺れる
+RE_METHOD = re.compile(
+    r"(?:[(（]\d{1,2}[)）]|\d{1,2}[.．]?|[①-⑳])"
+    r"(?:自己)?(?:株式)?の?取得(?:の)?方法[：:]?([\s\S]{0,120})")
+# 項目の切れ目。次の番号・注記・参考・以上・句点で切る。
+# 中身の括弧（(ToSTNeT-3) や (証券会社による取引一任方式)）は残したいので、
+# 「括弧なら何でも切る」にはしない
+RE_METHOD_END = re.compile(r"[(（]\d{1,2}[)）]|[(（<＜]?(?:ご)?参考|[(（]注|※|以上|なお|。")
 
 # 2026年9月7日 / 2026年9月7日から / ～11月30日（年が省略される）
 DATE = re.compile(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日")
@@ -112,6 +126,35 @@ def _amount(t):
     return None
 
 
+def extract_method(t):
+    """取得方法。見出しの直後の1項目だけを取り、次の項目に入る手前で切る"""
+    m = RE_METHOD.search(t or "")
+    if not m:
+        return None
+    seg = m.group(1)
+    end = RE_METHOD_END.search(seg)
+    if end:
+        seg = seg[:end.start()]
+    seg = seg.strip("：:・、 ")[:100]
+    # 100字で切ると括弧の途中で終わることがある（「…買付けの委託を行います(その」）。
+    # 対応する閉じ括弧が無い開き括弧は、そこから後ろを落とす
+    depth = 0
+    cut = len(seg)
+    for i, ch in enumerate(seg):
+        if ch in "(（":
+            if depth == 0:
+                cut = i
+            depth += 1
+        elif ch in ")）":
+            if depth:
+                depth -= 1
+            if depth == 0:
+                cut = len(seg)
+    if depth:
+        seg = seg[:cut]
+    return seg.strip("：:・、 ") or None
+
+
 def parse_period(seg):
     """「2026年9月7日~11月30日」→ (from, to)。年が省略された終了日は開始年を継ぐ"""
     ds = DATE.findall(seg or "")
@@ -154,11 +197,7 @@ def extract(data_or_text, year_hint=None):
     # ToSTNeT-3 は単日の買付。開始だけ取れたら同じ日を終了にする
     if pfrom and not pto and re.search(r"立会外買付|ToSTNeT", t, re.I):
         pto = pfrom
-    mm = RE_METHOD.search(t)
-    method = None
-    if mm:
-        # 「取得方法：市場買付（※）〜」の※以降は注記なので落とす
-        method = re.split(r"[(（]※|[(（]注|以上", mm.group(1))[0].strip("：:・ ")[:40] or None
+    method = extract_method(t)
 
     bd = buy_date(t, year_hint)
     out = {

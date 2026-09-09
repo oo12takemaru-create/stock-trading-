@@ -49,6 +49,10 @@ jobs:
       - name: Test business days
         run: python -X utf8 tests/test_bizday.py
 
+      # 「取得方法」は本文のあいさつ文にも出る。見出しの形を要求しているか確かめる
+      - name: Test field extraction
+        run: python -X utf8 tests/test_extract.py
+
       - name: Build buyback JSON
         env:
           BUYBACK_MAX_PDF: ${{ github.event.inputs.max_pdf }}

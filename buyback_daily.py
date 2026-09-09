@@ -39,7 +39,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from buyback_classify import classify, normalize   # noqa: E402
-from buyback_extract import extract                # noqa: E402
+from buyback_extract import extract, extract_method, norm, pdf_text  # noqa: E402
 from jp_bizday import next_bizday                  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
@@ -128,6 +128,45 @@ def fill_buy_date(known, budget):
     return n_pdf, n_rule, unmatched
 
 
+def refresh_method(known, budget):
+    """method を今の抽出器で取り直す（2026-09-09）
+
+    以前は「取得方法」を本文のどこでも拾っていたため、あいさつ文
+    （「その具体的な取得方法について決議しましたので…」）を method にしていた。
+    見出しの直後の1項目だけを取る形に直したので、既存レコードも読み直す。
+
+    TDnetのPDFは27営業日で消える。消えていて確認できないものは、正しいか
+    分からない値を残すより空にする（method_src="lost"）。一度 method_src が
+    付けば読み直さないので、次回以降は素通りする。"""
+    todo = [r for r in known.values()
+            if "extract_ok" in r and "method_src" not in r]
+    todo.sort(key=lambda r: r["date"], reverse=True)
+    changed = emptied = lost = kept = 0
+    for rec in todo[:budget]:
+        before = rec.get("method")
+        try:
+            after = extract_method(norm(pdf_text(fetch_pdf(rec["pdf"]))))
+        except Exception:
+            rec["method_src"] = "lost"          # PDFが消えた。確認できない
+            if before is not None:
+                rec["method"] = None
+                lost += 1
+            time.sleep(0.35)
+            continue
+        rec["method_src"] = "pdf"
+        rec["method"] = after
+        if after is None and before is not None:
+            emptied += 1
+        elif after != before:
+            changed += 1
+        else:
+            kept += 1
+        time.sleep(0.35)
+    return {"置換": changed, "空になった": emptied,
+            "PDF消滅で空にした": lost, "元のまま": kept,
+            "残り": max(0, len(todo) - budget)}
+
+
 def rename_tostnet_period(known):
     """ToSTNeT-3 の period_* を parent_period_* に改める（2026-09-09 合意）
 
@@ -145,10 +184,15 @@ def rename_tostnet_period(known):
             if old in r:
                 r[new] = r.pop(old)
                 n += 1
-        if r.get("extract_note"):
-            # 「欠け: period_from,period_to」の項目名も揃える
-            r["extract_note"] = re.sub(r"(?<!parent_)period_(from|to)",
-                                       r"parent_period_\1", r["extract_note"])
+        note = r.get("extract_note") or ""
+        if note.startswith("欠け:"):
+            # ToSTNeT-3 の期間は親の取得枠のもので、この開示の欠品ではない（合意事項）。
+            # 欠けとして数えると「対象外と決めた項目を欠けと言う」ことになるので外す
+            miss = [x.strip() for x in note.split(":", 1)[1].split(",")]
+            miss = [x for x in miss
+                    if x not in ("period_from", "period_to",
+                                 "parent_period_from", "parent_period_to")]
+            r["extract_note"] = ("欠け: " + ",".join(miss)) if miss else ""
     return n
 
 
@@ -224,6 +268,9 @@ def main():
     # ToSTNeT-3 の買付日を埋める（本文優先・消えたPDFはルール）
     n_pdf, n_rule, unmatched = fill_buy_date(known, budget=int(os.environ.get("BUYBACK_MAX_BUYDATE", "150")))
 
+    # method を今の抽出器で取り直す（見出し直後の1項目に限定した）
+    m_stat = refresh_method(known, budget=int(os.environ.get("BUYBACK_MAX_METHOD", "260")))
+
     # ToSTNeT-3 の期間は親の取得枠のものなので名前を分ける
     rename_tostnet_period(known)
 
@@ -289,6 +336,8 @@ def main():
 
     print(f"OK buyback.json: {len(recent)}件（{lo}以降） / buyback_history.json: {len(allrows)}件")
     print(f"  今回PDFを読んだ: {done}件")
+    if any(m_stat[k] for k in ("置換", "空になった", "PDF消滅で空にした")):
+        print("  method 取り直し: " + " ".join(f"{k}={v}" for k, v in m_stat.items()))
     tos = [r for r in allrows if r["type"] == "tostnet3"]
     src = {}
     for r in tos:

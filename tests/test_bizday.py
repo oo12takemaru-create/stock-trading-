@@ -74,7 +74,8 @@ tos = {"type": "tostnet3", "period_from": "2026-01-30", "period_to": "2027-01-29
 dec = {"type": "decision", "period_from": "2026-01-30", "period_to": "2027-01-29"}
 rename_tostnet_period({"a": tos, "b": dec})
 eq(sorted(tos), ["extract_note", "parent_period_from", "parent_period_to", "type"], "tostnet3を改名")
-eq(tos["extract_note"], "欠け: parent_period_from,parent_period_to", "extract_noteの項目名も揃える")
+# 期間は ToSTNeT-3 では対象外（親の取得枠のもの）なので、欠けとして数えない
+eq(tos["extract_note"], "", "期間の欠けは数えない")
 eq(sorted(dec), ["period_from", "period_to", "type"], "decisionは触らない")
 
 print(f"{'NG ' + str(NG) + '件' if NG else '全て一致 ✓'}")
