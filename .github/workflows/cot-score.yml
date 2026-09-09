@@ -1,0 +1,50 @@
+name: COT Score Weekly (kaburadar.jp)
+
+# 投機筋の答え合わせ（CFTC 10年分）。週1回。
+# cot-weekly.yml（土 08:05 JST）が最新データを取った後に走らせる。
+# 答えは「翌週の予測にはならない」。6商品すべて有意差なし。
+on:
+  schedule:
+    - cron: '40 1 * * 6'   # 01:40 UTC 土 = 10:40 JST 土（cot-weekly の後）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cot-score
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas
+
+      - name: Build cot_score.json
+        run: python -X utf8 cot_score.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/cot_score.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📊 投機筋の答え合わせを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git pull --rebase origin main
+          git push

@@ -78,3 +78,7 @@ mcp/registry/server.json
 !docs/buyback.json
 !docs/buyback_history.json
 !tests/classify_cases.json
+!docs/karauri_score.json
+!docs/cot_score.json
+!karauri_events/
+!karauri_events/*.json

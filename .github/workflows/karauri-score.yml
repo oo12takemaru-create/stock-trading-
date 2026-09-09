@@ -1,0 +1,62 @@
+name: Karauri Score Weekly (kaburadar.jp)
+
+# 機関別の空売り成績（答え合わせ）。週1回。
+# 答えは「当たっていない」。それを隠さず出すためのデータ。
+#
+# JPXの一覧は約70営業日で消えるので、karauri_events/events.json に
+# イベントと算出済みリターンを積んでいく（消える前に貯める）。
+# 既存の karauri_fetch.py / daily-signal.yml には触らない。
+on:
+  schedule:
+    - cron: '20 1 * * 6'   # 01:20 UTC 土 = 10:20 JST 土
+  workflow_dispatch:
+    inputs:
+      max_tickers:
+        description: '1回で株価を取る銘柄数の上限（既定700）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: karauri-score
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas xlrd openpyxl
+
+      - name: Build karauri_score.json
+        env:
+          KARAURI_MAX_TICKERS: ${{ github.event.inputs.max_tickers }}
+        run: |
+          if [ -z "$KARAURI_MAX_TICKERS" ]; then export KARAURI_MAX_TICKERS=700; fi
+          python -X utf8 karauri_score.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/karauri_score.json karauri_events/events.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📉 空売りの答え合わせを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git pull --rebase origin main
+          git push
