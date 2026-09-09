@@ -1,0 +1,78 @@
+name: Pipeline Weekly (週次パイプライン)
+
+# ■ これは何か（2026-09-09・実行基盤の統合）
+# 週末にまとめて回すもの。起動は Cloudflare の Cron Trigger から土曜 9:30 JST。
+# 日次と違って互いの依存は弱いが、同じ時間に並列で走らせると
+# API のレート制限に当たりやすいので、順番に流す。
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-weekly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  # 建玉（CFTC）。取得元が海外なので最初に置く
+  cot:
+    uses: ./.github/workflows/cot-weekly.yml
+    secrets: inherit
+  cot-score:
+    needs: cot
+    uses: ./.github/workflows/cot-score.yml
+    secrets: inherit
+
+  # 信用残（JPX 公表）
+  shinyo:
+    needs: cot
+    uses: ./.github/workflows/shinyo-weekly.yml
+    secrets: inherit
+
+  # 空売りスコア（karauri-daily の蓄積を週次で集計する）
+  karauri-score:
+    needs: shinyo
+    uses: ./.github/workflows/karauri-score.yml
+    secrets: inherit
+
+  # 十倍株候補
+  tenbagger:
+    needs: shinyo
+    uses: ./.github/workflows/tenbagger-weekly.yml
+    secrets: inherit
+
+  # 週次のAI分析。上が揃ってから
+  ai-weekly:
+    needs: [cot-score, karauri-score, tenbagger]
+    uses: ./.github/workflows/ai-weekly.yml
+    secrets: inherit
+
+  summary:
+    if: always()
+    needs: [cot, cot-score, shinyo, karauri-score, tenbagger, ai-weekly]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary
+        run: |
+          {
+            echo "## 週次パイプラインの結果"
+            echo ""
+            echo "| ステップ | 結果 |"
+            echo "|---|---|"
+            echo "| 建玉(COT) | ${{ needs.cot.result }} |"
+            echo "| 建玉スコア | ${{ needs.cot-score.result }} |"
+            echo "| 信用残 | ${{ needs.shinyo.result }} |"
+            echo "| 空売りスコア | ${{ needs.karauri-score.result }} |"
+            echo "| 十倍株 | ${{ needs.tenbagger.result }} |"
+            echo "| 週次AI分析 | ${{ needs.ai-weekly.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if any step failed
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "::error::週次パイプラインのどこかが失敗しました"
+          exit 1

@@ -1,0 +1,131 @@
+name: Pipeline Daily (日次パイプライン)
+
+# ■ これは何か（2026-09-09・実行基盤の統合）
+# 引け後のバッチを**順序付きの1本**にまとめたもの。
+# 起動は Cloudflare の Cron Trigger（cron-worker）から workflow_dispatch で行う。
+# GitHub の schedule は常時2〜5時間遅れるため使わない（引継ぎ.md §19-8）。
+#
+# ■ なぜ順序が要るか
+# 上流が失敗したまま下流が走ると、**壊れた入力で公開してしまう**。
+# 2026-09-06 に ^GSPC が取れないまま計算を続け、別物の数字を公開した事故がある
+# （§19-2 の教訓）。needs: で「上流が成功したときだけ下流へ進む」を骨組みで担保する。
+#
+# ■ 各ワークフローの中身は変えていない
+# それぞれに workflow_call を足しただけ。単体の workflow_dispatch でも今までどおり動く。
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup:
+        # ★予備の回（JST 21:00）は cron-worker が true を付けて叩く★
+        #   本命（18:00）で daily-signal は成功したが下流で落ちた日に、
+        #   予備でもう一度 Issue を立てると同じシグナルが2本届く。
+        #   「二重通知は欠落より悪い」（引継ぎ.md §19-7）のため抜いておく。
+        #   データ（JSON・CSV）は予備でも欠かさず作る。
+        description: '予備の回なら true（人に届く通知を出さない）'
+        required: false
+        default: 'false'
+        type: string
+
+# 同時に2本走らせない（予備の起動と本命が重なっても順番待ちにする）
+concurrency:
+  group: pipeline-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  # 1. 夕方のシグナル判定（終値ベース）。ここが土台
+  daily-signal:
+    uses: ./.github/workflows/daily-signal.yml
+    with:
+      backup: ${{ inputs.backup }}
+    secrets: inherit
+
+  # 2. 無料版スキャナー（ruletrade.jp /scanner・MCP が読む）
+  free-scanner:
+    needs: daily-signal
+    uses: ./.github/workflows/free-scanner.yml
+    secrets: inherit
+
+  # 3. 地合いの公開（MCP get_market_regime・株レーダーが読む）
+  #    従来は daily-signal の workflow_run で連鎖していた。パイプラインでは
+  #    needs で順序が保証されるので、そちらに寄せる。
+  radar-publish:
+    needs: daily-signal
+    uses: ./.github/workflows/radar-publish.yml
+    secrets: inherit
+
+  # 4. 派生データ。互いに独立なので並列でよい（上流の成功は共通の前提）
+  gauge:
+    needs: [free-scanner, radar-publish]
+    uses: ./.github/workflows/gauge-daily.yml
+    secrets: inherit
+  crash:
+    needs: [free-scanner, radar-publish]
+    uses: ./.github/workflows/crash-daily.yml
+    secrets: inherit
+  kessan:
+    needs: [free-scanner, radar-publish]
+    uses: ./.github/workflows/kessan-daily.yml
+    secrets: inherit
+  kessan-react:
+    needs: [free-scanner, radar-publish]
+    uses: ./.github/workflows/kessan-react-daily.yml
+    secrets: inherit
+  karauri:
+    needs: [free-scanner, radar-publish]
+    uses: ./.github/workflows/karauri-daily.yml
+    secrets: inherit
+
+  # 5. 前計算 → 公開数字 → キャッシュ温め
+  #    ここは daily_metrics を触るので、派生データの後ろに置いて負荷を分ける
+  precompute:
+    needs: [gauge, crash, kessan, kessan-react, karauri]
+    uses: ./.github/workflows/precompute-daily.yml
+    secrets: inherit
+
+  # 6. 出来上がりの点検。ここまで全部通ってから見る
+  healthcheck:
+    needs: precompute
+    uses: ./.github/workflows/data-healthcheck.yml
+    with:
+      mode: check
+    secrets: inherit
+
+  # どこかで落ちたら、何が止まったか1か所に残す
+  summary:
+    if: always()
+    needs: [daily-signal, free-scanner, radar-publish, gauge, crash, kessan, kessan-react, karauri, precompute, healthcheck]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary
+        run: |
+          {
+            echo "## 日次パイプラインの結果"
+            echo ""
+            echo "| ステップ | 結果 |"
+            echo "|---|---|"
+            echo "| 1. 夕シグナル | ${{ needs.daily-signal.result }} |"
+            echo "| 2. 無料スキャナー | ${{ needs.free-scanner.result }} |"
+            echo "| 3. 地合い公開 | ${{ needs.radar-publish.result }} |"
+            echo "| 4. 傾斜計 | ${{ needs.gauge.result }} |"
+            echo "| 4. 着火メーター | ${{ needs.crash.result }} |"
+            echo "| 4. 決算 | ${{ needs.kessan.result }} |"
+            echo "| 4. 決算反応 | ${{ needs.kessan-react.result }} |"
+            echo "| 4. 空売り | ${{ needs.karauri.result }} |"
+            echo "| 5. 前計算・公開数字 | ${{ needs.precompute.result }} |"
+            echo "| 6. データ点検 | ${{ needs.healthcheck.result }} |"
+            echo ""
+            echo "skipped は「上流が失敗したので走らせなかった」という意味です。"
+            echo "壊れた入力で公開しないための設計です（引継ぎ.md §19-2）。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if any step failed
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "::error::日次パイプラインのどこかが失敗しました。上の表を見てください"
+          exit 1

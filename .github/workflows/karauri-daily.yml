@@ -9,6 +9,9 @@ on:
     - cron: '37 8 * * 1-5'
     - cron: '37 11 * * 1-5'
     - cron: '37 22 * * 0-4'
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
 
 permissions:

@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: '13 23 * * 5'  # 土 08:13 JST
     - cron: '13 4 * * 6'   # 土 13:13 JST (保険)
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
 
 permissions:

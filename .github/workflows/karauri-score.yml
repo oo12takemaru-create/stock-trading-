@@ -9,6 +9,9 @@ name: Karauri Score Weekly (kaburadar.jp)
 on:
   schedule:
     - cron: '20 1 * * 6'   # 01:20 UTC 土 = 10:20 JST 土
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
     inputs:
       max_tickers:

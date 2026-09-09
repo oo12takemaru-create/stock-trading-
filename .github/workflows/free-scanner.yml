@@ -11,6 +11,9 @@ on:
     # 遅延が小さい日でも大引け（15:00 JST）の後なので終値は確定している。
     - cron: '30 7 * * 1-5'
     - cron: '30 11 * * 1-5'  # 予備: 本命の60分後(JST 20:30)。本命が起動しなかった日の保険
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
 
 permissions:

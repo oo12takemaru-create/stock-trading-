@@ -12,6 +12,21 @@ on:
     # ★3時間前倒し（2026-09-09 Fable 相談⑧）。狙いは JST 18:00
     - cron: '0 6 * * 1-5'    # 夕 18:00 JST(月〜金)
     - cron: '30 10 * * 1-5'  # 予備: 夕方の本命(18:00 JST)の90分後(JST 19:30)。夕の回が起動しなかった日の保険
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
+    inputs:
+      backup:
+        # ★予備の回かどうかを呼び出し元から渡す★
+        #   呼ばれる側の github.event_name は**呼び出し元のイベント**になるため、
+        #   下のガードは workflow_call だと常に「手動実行」に倒れ、
+        #   予備の回でも Issue を立ててしまう（二重通知）。
+        #   REST API 経由の workflow_dispatch では入力が文字列で届くので
+        #   boolean ではなく string にし、'true' で比べる。
+        description: '予備の回なら true（人に届く Issue を出さない）'
+        required: false
+        default: 'false'
+        type: string
   workflow_dispatch:          # 手動実行も可能
     inputs:
       capital:
@@ -68,6 +83,16 @@ jobs:
           #   github.event.schedule なら起動元の cron 式がそのまま入るので、
           #   どれだけ遅れても取り違えない。
           SCHEDULE='${{ github.event.schedule }}'
+          # ★パイプラインの予備起動（backup=true）はここで拾う★
+          #   event_name では workflow_call を見分けられない（呼び出し元の
+          #   イベントが入る）ので、入力で明示する。
+          #   データは作るが Issue は出さない＝予備 cron と同じ扱い。
+          if [ "${{ inputs.backup }}" = "true" ]; then
+            echo "パイプラインの予備起動です。Issue は出しません"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "is_backup=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "手動実行なのでスキップ判定をしません"
             echo "skip=false" >> $GITHUB_OUTPUT

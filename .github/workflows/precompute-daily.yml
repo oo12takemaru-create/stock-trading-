@@ -16,6 +16,9 @@ on:
     #   （乖離検査＝§19 相談⑥ が異常値の公開を止める）。
     - cron: '30 6 * * 1-5'    # 予定 15:30 JST / 狙い 18:30 JST(月〜金)
     - cron: '30 10 * * 1-5'  # 予備: 本命の60分後(JST 19:30)。本命が起動しなかった日の保険
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
     inputs:
       days:
