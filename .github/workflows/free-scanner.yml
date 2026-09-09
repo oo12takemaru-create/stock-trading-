@@ -4,7 +4,12 @@ name: Free Scanner (無料版BNFスキャナー)
 # 無料版は1営業日遅れのデータなので、GitHubのcron遅延があっても実害なし。
 on:
   schedule:
-    - cron: '30 10 * * 1-5'
+    # ★3時間前倒し（2026-09-09 Fable 相談⑧）★
+    # GitHub Actions の schedule は**常時2〜5時間遅れる**（19本すべてで観測。
+    # 中央値 free-scanner 192分・precompute-daily 277分）。分をずらしても効かない。
+    # 狙いの JST 19:30 に走らせるため、予定は JST 16:30 に置く。
+    # 遅延が小さい日でも大引け（15:00 JST）の後なので終値は確定している。
+    - cron: '30 7 * * 1-5'
     - cron: '30 11 * * 1-5'  # 予備: 本命の60分後(JST 20:30)。本命が起動しなかった日の保険
   workflow_dispatch:
 
