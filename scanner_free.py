@@ -353,35 +353,6 @@ def _prev_business_day_from_now():
     return d
 
 
-def _expected_target_date(delay: int):
-    """実行時点で本来 target_date になっているはずの営業日。
-
-    当日の終値が確定するのは 15:00 JST 以降。それより前に走った場合は
-    前営業日までしか使えないので、そこから delay 営業日さかのぼる。
-    **祝日は考慮していない**ため、祝日明けに1営業日ぶん多く「遅れ」と出ることがある。
-    黙って古い日付を出すよりは安全側なので、この粗さで運用する。
-    """
-    now = datetime.now(JST)
-    d = now.date()
-    if now.hour < 15 or d.weekday() >= 5:
-        d = _prev_business_day(d)
-    for _ in range(delay):
-        d = _prev_business_day(d)
-    return d
-
-
-def _business_days_between(actual, expected) -> int:
-    """actual が expected より何営業日ぶん古いか。追いついていれば 0。"""
-    lag = 0
-    d = expected
-    while d > actual:
-        d = _prev_business_day(d)
-        lag += 1
-        if lag > 60:                 # 異常値で回り続けない
-            break
-    return lag
-
-
 # ─────────────────────────────────────────────
 #  メイン
 # ─────────────────────────────────────────────
