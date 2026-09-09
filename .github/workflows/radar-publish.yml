@@ -24,7 +24,7 @@ on:
     workflows: ["Daily Trading Signal (v2.8.1)"]
     types: [completed]
   schedule:
-    - cron: '0 11 * * 1-5'   # 予備: JST 20:00（本命の公開 JST 18:20 前後の約100分後）
+    - cron: '0 8 * * 1-5'    # 予備: 予定 17:00 JST / 狙い 20:00 JST（3時間前倒し）
   workflow_dispatch:
 
 permissions:

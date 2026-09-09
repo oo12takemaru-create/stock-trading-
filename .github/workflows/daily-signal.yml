@@ -9,7 +9,8 @@ on:
   schedule:
     - cron: '0 23 * * 0-4'   # 朝 08:00 JST(月〜金)
     - cron: '0 3 * * 1-5'    # 昼 12:00 JST(月〜金)
-    - cron: '0 9 * * 1-5'    # 夕 18:00 JST(月〜金)
+    # ★3時間前倒し（2026-09-09 Fable 相談⑧）。狙いは JST 18:00
+    - cron: '0 6 * * 1-5'    # 夕 18:00 JST(月〜金)
     - cron: '30 10 * * 1-5'  # 予備: 夕方の本命(18:00 JST)の90分後(JST 19:30)。夕の回が起動しなかった日の保険
   workflow_dispatch:          # 手動実行も可能
     inputs:
@@ -58,23 +59,29 @@ jobs:
           # ★このワークフローは朝(8:00)・昼(12:00)・夕(18:00)の1日3回動くのが正常。
           #   鮮度で判定してよいのは**予備の回だけ**。朝や昼の回でスキップすると
           #   本来の3回運用が壊れる（当日ぶんは朝の時点で既にあるため）。
-          #   予備は JST 19:30 = UTC 10:30 に置いてあるので、その回だけ見る。
-          HOUR_UTC=$(date -u +%H); MIN_UTC=$(date -u +%M)
+          #
+          # ★判定は「実行時刻」ではなく「どの cron で起動したか」で行う★
+          #   以前は UTC 10〜13時台を予備とみなしていたが、schedule は常時
+          #   2〜5時間遅れる（2026-09-09 に19本すべてで観測）。本命の夕を
+          #   UTC 06:00 に前倒しすると、4時間遅れれば UTC 10時台に起動し、
+          #   **本命が予備と誤判定されて朝の記録を見てスキップされる**。
+          #   github.event.schedule なら起動元の cron 式がそのまま入るので、
+          #   どれだけ遅れても取り違えない。
+          SCHEDULE='${{ github.event.schedule }}'
           if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "手動実行なのでスキップ判定をしません"
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "is_backup=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          # 予備の回（UTC 10:30 前後）以外は必ず実行する。
-          # schedule は数時間遅れることがあるので、幅を持たせて 10〜13時台を予備とみなす
-          if [ "$HOUR_UTC" -lt 10 ] || [ "$HOUR_UTC" -gt 13 ]; then
-            echo "本命の回（朝/昼/夕）なので必ず実行します（UTC ${HOUR_UTC}:${MIN_UTC}）"
+          if [ "$SCHEDULE" != "30 10 * * 1-5" ]; then
+            echo "本命の回（朝/昼/夕）なので必ず実行します（cron: $SCHEDULE）"
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "is_backup=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           # ここから先は予備の回。人に届くもの（Issue）は出さない。
+          echo "予備の回です（cron: $SCHEDULE）"
           echo "is_backup=true" >> $GITHUB_OUTPUT
           if python check_freshness.py --target signals_log; then
             echo "当日ぶんは取得済み。以降のステップを飛ばします"
