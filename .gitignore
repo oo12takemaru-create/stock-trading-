@@ -82,3 +82,6 @@ mcp/registry/server.json
 !docs/cot_score.json
 !karauri_events/
 !karauri_events/*.json
+
+# score3_lite の中間データ（週次キャッシュ・計算結果CSV）はコミットしない
+precompute/cache/

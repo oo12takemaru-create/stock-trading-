@@ -145,6 +145,22 @@ jobs:
           echo "::error::3回試行してもpushできませんでした"
           exit 1
 
+      # 3軸スコアの縮約版（score3_lite）を当日ぶんだけ計算して入れる。
+      # ビルダーの地合いフィルタが使う唯一の相場指標なので、
+      # 公開数字（portfolio_stats.json）より後・キャッシュ温めより前に置く。
+      # ★先に supabase/patch_2026-09-09_score3_lite.sql を流しておくこと★
+      #   列が無いと upsert が 400 で落ちる。
+      # --years 2: 移動平均と52週高値のウォームアップに1.2年ぶん余分に取る設計なので
+      #            2年で直近の値は10年計算と一致する（毎日10年を回さない）
+      - name: Update score3_lite (3軸スコアの縮約版)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          python precompute/score3_hist.py --years 2 --days 5             --out score3_lite_recent.csv --upsert | tee -a update.log
+
       # 調整域のキャッシュ温め（最後に回す。ここが落ちても公開数字は出ている）
       # スライダーの体感を良くするためのもので、正しさには関わらない。
       - name: Warm preset adjustment cache
