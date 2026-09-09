@@ -1,0 +1,13 @@
+{
+  "name": "ruletrade-cron",
+  "private": true,
+  "description": "GitHub Actions の schedule 遅延（常時2〜5時間）を避けるため、Cloudflare の Cron Trigger から workflow_dispatch を叩く",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
