@@ -8,7 +8,12 @@ name: Data Healthcheck (kaburadar.jp)
 # 傾斜計・着火が「まだ走っていないだけ」で誤検知した。
 on:
   schedule:
-    - cron: '43 14 * * *'
+    - cron: '43 14 * * *'          # 23:43 JST: その日の全ジョブ終了後にIssueで通知
+    # ★翌朝 7:00 JST (= 前日 22:00 UTC) の締めチェック（指示書 §14-2 / Fable 2026-09-09）
+    #   予備 cron でも埋まらなかった場合に、**ジョブを失敗させて**気づけるようにする。
+    #   23:43 の回は Issue を立てるだけで success のままなので、
+    #   Actions の一覧を見ても異常が分からなかった（2026-09-05 の欠落が4日間放置された）。
+    - cron: '0 22 * * 0-4'         # 朝 07:00 JST(月〜金)
   workflow_dispatch:
 
 permissions:
@@ -17,6 +22,9 @@ permissions:
 
 jobs:
   check:
+    # 23:43 の回だけ。朝7:00の回でここを動かすと、tol=0（当日更新必須）の判定が
+    # 「前日の夜に更新済み＝1営業日前」を古いとみなして誤ってIssueを立てる。
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 14 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -108,3 +116,42 @@ jobs:
           title: "⚠️ 株レーダー: データ更新が止まっています"
           content-filepath: report.md
           labels: data-alert
+
+
+  # ─────────────────────────────────────────────
+  #  翌朝の締めチェック（指示書 §14-2 / 引継ぎ.md §19「発見 2026-09-09」）
+  #
+  #  上の check ジョブは Issue を立てるだけで、ジョブ自体は success になる。
+  #  そのため Actions の一覧を眺めても異常に気づけず、2026-09-05 に
+  #  free-scanner が起動しなかったことが4日間放置された。
+  #
+  #  こちらは **前営業日ぶんが無ければジョブを失敗させる**。
+  #  本命 cron → 予備 cron でも埋まらなかった、という最後の砦。
+  # ─────────────────────────────────────────────
+  morning-gate:
+    # 朝7:00の回だけ動かす（23:43 の回は上の check だけでよい）
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 22 * * 0-4'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 前営業日ぶんが揃っているか
+        run: |
+          fail=0
+          for t in free_scanner market_jiai radar portfolio_stats signals_log; do
+            if python check_freshness.py --target "$t"; then
+              echo "  OK"
+            else
+              echo "::error::$t が前営業日ぶんまで更新されていません（本命・予備とも取りこぼした可能性）"
+              fail=1
+            fi
+            echo "---"
+          done
+          exit $fail
