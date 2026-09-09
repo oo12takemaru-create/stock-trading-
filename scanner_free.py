@@ -181,10 +181,22 @@ def load_today_signals(csv_path: str, today: str) -> dict | None:
     seen_before = set(df[has_ticker & (df["scan_date"] < today)]["ticker"])
     fresh = sig[~sig["ticker"].isin(seen_before)]
 
-    if len(fresh) == 0:
+    # ★不変条件(指示書 §13・2026-09-06)★
+    #   signals_today_count >= 1 なら signal_of_day は必ず非null。
+    #   0件なら count=0 かつ null。両者は同じ集合(sig)から決める。
+    #
+    #   直った不具合: 当日のシグナルが「繰り越し銘柄」だけの日に
+    #   count=1 / signal_of_day=null となり、サイトが
+    #   「本日、シグナルはありません」と件数1に矛盾する表示をしていた
+    #   (実例 2026-09-04: 日本製鉄5401 が 09-03 昼にも出ていた)。
+    #
+    #   初出を優先する設計(§10-4)は維持する。初出が無い日は繰り越しの最早1件を出し、
+    #   carried_over: true を立ててサイト側が表現を変えられるようにする。
+    if len(sig) == 0:
         out["signal_of_day"] = None
     else:
-        r = fresh.iloc[0]
+        carried = len(fresh) == 0
+        r = (sig if carried else fresh).iloc[0]
         out["signal_of_day"] = {
             "scan_date":      today,
             "strategy":       r["strategy"],
@@ -193,7 +205,16 @@ def load_today_signals(csv_path: str, today: str) -> dict | None:
             "name":           r["name"],
             "sector":         r["sector"],
             "reason":         clean_reason(r["info"]),
+            # true = その銘柄は前営業日以前にも条件を満たしていた(当日が初出ではない)
+            "carried_over":   bool(carried),
         }
+
+    # 日付の意味が違う2つを取り違えないための注記(指示書 §13-3)
+    out["note"] = (
+        "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。"
+        "signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。"
+        "signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
+    )
     return out
 
 
@@ -284,7 +305,66 @@ def scan(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
         "jiai": jiai_label(n225["Close"]),
         "nikkei_close": round(float(n225["Close"].iloc[-1]), 2),
     }
+
+    # ★target_date が古いことを機械で分かるようにする(指示書 §14-2・2026-09-09)★
+    #
+    #   target_date は「取得できた日経の最新営業日から delay 営業日前」なので、
+    #   ロジックとしては常に正しい。古くなるのは**このスクリプトが走った時刻**の問題。
+    #
+    #   実例(2026-09-05〜09-08):
+    #     ・9/5(金)のスケジュール実行が GitHub Actions 側で**起動しなかった**
+    #     ・9/7ぶんの実行が5時間半遅れて 9/8 00:59 JST に起動した
+    #     ・その時点で取れる日経の最新終値は 9/4(金)だったので target_date=09-03
+    #   結果、9/4 の生成分と同じ 09-03 が 4日間そのまま残った。
+    #
+    #   サイト側は「1営業日遅れの仕様」と「更新が止まっている」を区別できないので、
+    #   **実行時点で本来あるべき対象日**と比べた遅れを出す。
+    expected = _expected_target_date(delay)
+    lag = _business_days_between(data_date.date(), expected)
+    result["target_date_expected"] = expected.strftime("%Y-%m-%d")
+    result["target_date_lag_days"] = lag
+    result["target_date_stale"] = bool(lag > 0)
+    for k in ("target_date_expected", "target_date_lag_days", "target_date_stale"):
+        jiai_live[k] = result[k]
+
     return result, jiai_live
+
+
+def _prev_business_day(d):
+    """土日を飛ばして1営業日戻る(祝日は考慮しない)。"""
+    d -= timedelta(days=1)
+    while d.weekday() >= 5:          # 土(5)・日(6)
+        d -= timedelta(days=1)
+    return d
+
+
+def _expected_target_date(delay: int):
+    """実行時点で本来 target_date になっているはずの営業日。
+
+    当日の終値が確定するのは 15:00 JST 以降。それより前に走った場合は
+    前営業日までしか使えないので、そこから delay 営業日さかのぼる。
+    **祝日は考慮していない**ため、祝日明けに1営業日ぶん多く「遅れ」と出ることがある。
+    黙って古い日付を出すよりは安全側なので、この粗さで運用する。
+    """
+    now = datetime.now(JST)
+    d = now.date()
+    if now.hour < 15 or d.weekday() >= 5:
+        d = _prev_business_day(d)
+    for _ in range(delay):
+        d = _prev_business_day(d)
+    return d
+
+
+def _business_days_between(actual, expected) -> int:
+    """actual が expected より何営業日ぶん古いか。追いついていれば 0。"""
+    lag = 0
+    d = expected
+    while d > actual:
+        d = _prev_business_day(d)
+        lag += 1
+        if lag > 60:                 # 異常値で回り続けない
+            break
+    return lag
 
 
 # ─────────────────────────────────────────────
