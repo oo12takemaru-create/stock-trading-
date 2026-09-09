@@ -2,15 +2,25 @@ name = "ruletrade-cron"
 main = "src/index.js"
 compatibility_date = "2026-09-09"
 
-# ★Cron Trigger は1本だけ★
-#   無料プランは1 Worker あたり3本まで。時刻ごとに分けると足りないので、
-#   毎時 0分・30分に起こして、Worker の中で JST を見て振り分ける。
+# ★Cron Trigger は2本だけ★
+#   無料プランはアカウントあたり5本まで。時刻ごとに1本ずつ割り当てると
+#   足りない（実際の時間帯は9系統ある）ので、原則1本で起こして
+#   Worker の中で JST を見て振り分ける。
 #   起動時刻を足したいときは src/index.js の PLAN に1行足すだけでよく、
 #   ここは触らない。
 #
-#   Cloudflare の cron は UTC だが、この書き方なら時差の計算が要らない。
+#   2本目はザラ場だけの例外。realtime-signal は15分間隔で動くのが仕様
+#   （引継ぎ.md §21）で、:00/:30 の1本では表現できないため :15/:45 を足す。
+#   UTC 0-6時 = JST 9-15時、月〜金。JST の祝日判定は Worker 側で行う。
+#
+#   Cloudflare の cron は UTC。1本目は毎時なので時差の計算が要らない。
 [triggers]
-crons = ["0,30 * * * *"]
+crons = [
+  "0,30 * * * *",        # 常用: PLAN による振り分け
+  "15,45 0-6 * * 1-5",   # ザラ場のみ: realtime-signal を15分間隔にするための補い
+]
 
 # 秘密は wrangler secret put で入れる（このファイルには書かない）
 #   npx wrangler secret put GH_PAT
+#   npx wrangler secret put RESEND_API_KEY
+#   npx wrangler secret put NOTIFY_TO

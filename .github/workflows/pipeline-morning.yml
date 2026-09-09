@@ -1,0 +1,27 @@
+name: Pipeline Morning (朝の関門)
+
+# ■ これは何か（2026-09-09・実行基盤の統合）
+# 「前営業日ぶんのデータが揃っているか」を JST 7:00 に見る関門。
+# 揃っていなければ**ジョブを失敗させる**ので、GitHub の通知で気づける。
+# 起動は Cloudflare の Cron Trigger（cron-worker）から。
+#
+# 中身は data-healthcheck.yml の morning-gate をそのまま呼ぶだけ。
+# 判定の物差しは check_freshness.py に一本化してある（引継ぎ.md §19-6）。
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-morning
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  morning-gate:
+    uses: ./.github/workflows/data-healthcheck.yml
+    with:
+      mode: morning
+    secrets: inherit

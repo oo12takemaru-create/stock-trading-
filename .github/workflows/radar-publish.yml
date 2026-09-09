@@ -25,6 +25,9 @@ on:
     types: [completed]
   schedule:
     - cron: '0 8 * * 1-5'    # 予備: 予定 17:00 JST / 狙い 20:00 JST（3時間前倒し）
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
 
 permissions:

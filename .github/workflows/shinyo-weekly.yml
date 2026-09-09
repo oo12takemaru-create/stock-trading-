@@ -7,6 +7,9 @@ name: Shinyo Weekly (kaburadar.jp)
 on:
   schedule:
     - cron: '7 10 * * 2,3,4'
+  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
+  # 既存の schedule / workflow_dispatch はそのまま残す
+  workflow_call:
   workflow_dispatch:
 
 permissions:

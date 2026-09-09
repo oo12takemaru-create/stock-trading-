@@ -14,6 +14,16 @@ on:
     #   23:43 の回は Issue を立てるだけで success のままなので、
     #   Actions の一覧を見ても異常が分からなかった（2026-09-05 の欠落が4日間放置された）。
     - cron: '0 22 * * 0-4'         # 朝 07:00 JST(月〜金)
+  # pipeline-*.yml から呼ぶ（2026-09-09・実行基盤）。
+  # このファイルは check と morning-gate の2ジョブを持ち、今までは
+  # github.event.schedule の値で振り分けていた。workflow_call だと
+  # event.schedule が無く**両方走ってしまう**ので、mode で選ばせる。
+  workflow_call:
+    inputs:
+      mode:
+        description: 'check（データ点検）か morning（前営業日ぶんの関門）か'
+        required: true
+        type: string
   workflow_dispatch:
 
 permissions:
@@ -24,7 +34,17 @@ jobs:
   check:
     # 23:43 の回だけ。朝7:00の回でここを動かすと、tol=0（当日更新必須）の判定が
     # 「前日の夜に更新済み＝1営業日前」を古いとみなして誤ってIssueを立てる。
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '43 14 * * *'
+    #
+    # ★github.event_name では workflow_call を見分けられない★
+    #   呼ばれる側から見た event_name は**呼び出し元のイベント**（パイプラインは
+    #   workflow_dispatch）になる。'workflow_call' という値には決してならない。
+    #   そのため判定は inputs.mode の有無で行う。
+    #   schedule と素の workflow_dispatch では inputs.mode は空文字になる。
+    if: >-
+      inputs.mode == 'check'
+      || (inputs.mode == ''
+          && (github.event_name == 'workflow_dispatch'
+              || github.event.schedule == '43 14 * * *'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -111,13 +131,27 @@ jobs:
           cat report.md >> $GITHUB_STEP_SUMMARY
           if grep -q "要対応" report.md; then echo "stale=true" >> $GITHUB_OUTPUT; else echo "stale=false" >> $GITHUB_OUTPUT; fi
 
-      - name: Open issue when stale
-        if: steps.chk.outputs.stale == 'true'
+      # ★パイプラインから呼ばれたとき（mode: check）は Issue を立てない★
+      #   23:43 の回と合わせて同じ内容の Issue が1日2本立つ。
+      #   「二重通知は欠落より悪い」（引継ぎ.md §19-7）の原則に反する。
+      - name: Open issue when stale (単独実行の回だけ)
+        if: steps.chk.outputs.stale == 'true' && inputs.mode != 'check'
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "⚠️ 株レーダー: データ更新が止まっています"
           content-filepath: report.md
           labels: data-alert
+
+      # パイプライン内では Issue の代わりに**ジョブを失敗させる**。
+      # morning-gate と同じ考え方（Issue を立てるだけだと Actions の一覧が
+      # success のままなので異常に気づけない・2026-09-05 の4日間放置）。
+      # 失敗すれば pipeline-daily 全体が failure になり、summary とメールに出る。
+      - name: Fail when stale (パイプライン内)
+        if: steps.chk.outputs.stale == 'true' && inputs.mode == 'check'
+        run: |
+          echo "::error::公開JSONが古いままです。パイプラインを失敗として記録します"
+          cat report.md
+          exit 1
 
 
   # ─────────────────────────────────────────────
@@ -132,7 +166,11 @@ jobs:
   # ─────────────────────────────────────────────
   morning-gate:
     # 朝7:00の回だけ動かす（23:43 の回は上の check だけでよい）
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 22 * * 0-4'
+    # （判定を inputs.mode で行う理由は check ジョブの注記を参照）
+    # 素の workflow_dispatch では上の check だけが走る（今までどおり）。
+    if: >-
+      inputs.mode == 'morning'
+      || (inputs.mode == '' && github.event.schedule == '0 22 * * 0-4')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
