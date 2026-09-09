@@ -10,10 +10,21 @@ name: Radar Publish (kaburadar.jp)
 #   → daily-signal.yml には一切触らず、その完了を待って
 #     artifact の signal.json から radar.json を作る独立フローにする。
 #     これで daily-signal.yml が今後何度上書きされても地合いは止まらない。
+#
+# ■ 予備 cron について（指示書 §14-2 / 引継ぎ.md §19「発見 2026-09-09」）
+#   このワークフローは daily-signal の完了で起動するので、
+#   daily-signal 自体が起動しなかった日は radar.json も出ない。
+#   他の3本と同じ「本命の60〜90分後に予備 cron」を、
+#   **daily-signal には触らないまま**入れるために、schedule を足して
+#   下の「Resolve source run id」の手動実行用の分岐
+#   （最後に成功した daily-signal を探す）に相乗りさせる。
+#   当日ぶんが既に出ていれば、下の冪等ガードで何もせず終わる。
 on:
   workflow_run:
     workflows: ["Daily Trading Signal (v2.8.1)"]
     types: [completed]
+  schedule:
+    - cron: '0 11 * * 1-5'   # 予備: JST 20:00（本命の公開 JST 18:20 前後の約100分後）
   workflow_dispatch:
 
 permissions:
@@ -29,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # スキャナーが失敗した回は signal.json が信頼できないのでスキップ
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: Checkout repository
@@ -40,8 +51,28 @@ jobs:
         with:
           python-version: '3.11'
 
+      # ★予備実行の冪等ガード（他3本と同じ考え方）
+      #   本命（daily-signal の完了）で既に当日ぶんが出ているなら何もしない。
+      #   手動実行は意図的な再実行なのでスキップしない。
+      - name: Skip if already fresh (予備実行のみ)
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "予備 cron 以外なのでスキップ判定をしません"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if python check_freshness.py --target radar; then
+            echo "当日ぶんは公開済み。以降のステップを飛ばします"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "未公開または古いので実行します"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Resolve source run id
         id: src
+        if: steps.guard.outputs.skip != 'true'
         run: |
           if [ -n "${{ github.event.workflow_run.id }}" ]; then
             echo "id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
@@ -54,6 +85,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download signal.json artifact
+        if: steps.guard.outputs.skip != 'true'
         run: |
           gh run download "${{ steps.src.outputs.id }}" -D artifacts
           SIG=$(find artifacts -name signal.json | head -1)
@@ -67,6 +99,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish radar.json (競合時はリベースして再試行)
+        if: steps.guard.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

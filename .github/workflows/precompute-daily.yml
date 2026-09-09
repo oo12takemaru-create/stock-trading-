@@ -11,6 +11,7 @@ name: Precompute Metrics (日次差分)
 on:
   schedule:
     - cron: '30 9 * * 1-5'    # 夕 18:30 JST(月〜金)
+    - cron: '30 10 * * 1-5'  # 予備: 本命の60分後(JST 19:30)。本命が起動しなかった日の保険
   workflow_dispatch:
     inputs:
       days:
@@ -50,7 +51,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ★予備実行の冪等ガード（指示書 §14-2 / 引継ぎ.md §19「発見 2026-09-09」）
+      #   本命 cron は起動しないことがある（2026-09-05 に実際に起きた）。
+      #   その保険として予備 cron を置いているが、本命が動いた日に二重で走らせる
+      #   必要はない。**当日ぶんが既にあるならここで打ち切る**。
+      #   手動実行（workflow_dispatch）は意図的な再実行なのでスキップしない。
+      - name: Skip if already fresh (予備実行のみ)
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "手動実行なのでスキップ判定をしません"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if python check_freshness.py --target portfolio_stats; then
+            echo "当日ぶんは取得済み。以降のステップを飛ばします"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "未取得または古いので実行します"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update daily_metrics / market_condition
+        if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -65,6 +88,7 @@ jobs:
       # 規定値ポートフォリオの成績（＝サイトの公開数字と同じ計算）を作り直す。
       # 分割利確・サーキットブレーカー・同セクター上限を含むので Python が正本。
       - name: Rebuild preset portfolio result
+        if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -93,6 +117,7 @@ jobs:
       # 静的サイト（ruletrade.jp）と会員アプリ /dashboard がこの同じ値を見る
       # ＝「一つの定義・一つの数字」（引継ぎ.md §19・起動文 2-4c）。
       - name: Publish portfolio_stats.json
+        if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -123,6 +148,7 @@ jobs:
       # 調整域のキャッシュ温め（最後に回す。ここが落ちても公開数字は出ている）
       # スライダーの体感を良くするためのもので、正しさには関わらない。
       - name: Warm preset adjustment cache
+        if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

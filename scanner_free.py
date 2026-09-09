@@ -306,26 +306,28 @@ def scan(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
         "nikkei_close": round(float(n225["Close"].iloc[-1]), 2),
     }
 
-    # ★target_date が古いことを機械で分かるようにする(指示書 §14-2・2026-09-09)★
+    # ★更新が止まっていることを機械で分かるようにする(指示書 §14-2・2026-09-09 Fable)★
     #
-    #   target_date は「取得できた日経の最新営業日から delay 営業日前」なので、
-    #   ロジックとしては常に正しい。古くなるのは**このスクリプトが走った時刻**の問題。
+    #   asof = このスキャンが見た「日経の最新営業日」。
+    #   stale = asof が前営業日より古い ＝ 実行が飛んだか、大きく遅れた。
+    #
+    #   target_date（乖離率上位3件の対象日）は仕様として1営業日遅れるので、
+    #   これを鮮度の判定に使うと「仕様どおりの遅れ」と「更新停止」が混ざる。
+    #   asof で見れば、遅れているのは実行そのものだと一意に分かる。
     #
     #   実例(2026-09-05〜09-08):
-    #     ・9/5(金)のスケジュール実行が GitHub Actions 側で**起動しなかった**
-    #     ・9/7ぶんの実行が5時間半遅れて 9/8 00:59 JST に起動した
-    #     ・その時点で取れる日経の最新終値は 9/4(金)だったので target_date=09-03
-    #   結果、9/4 の生成分と同じ 09-03 が 4日間そのまま残った。
+    #     ・9/5(金)のスケジュール実行が GitHub Actions 側で起動しなかった
+    #     ・9/7ぶんが5時間半遅れて 9/8 00:59 JST に起動した
+    #     ・その時点で取れる日経の最新終値は 9/4 だったので asof=09-04・target=09-03
+    #   このとき前営業日は 9/5 なので asof < 前営業日 → stale=true になる。
     #
-    #   サイト側は「1営業日遅れの仕様」と「更新が止まっている」を区別できないので、
-    #   **実行時点で本来あるべき対象日**と比べた遅れを出す。
-    expected = _expected_target_date(delay)
-    lag = _business_days_between(data_date.date(), expected)
-    result["target_date_expected"] = expected.strftime("%Y-%m-%d")
-    result["target_date_lag_days"] = lag
-    result["target_date_stale"] = bool(lag > 0)
-    for k in ("target_date_expected", "target_date_lag_days", "target_date_stale"):
-        jiai_live[k] = result[k]
+    #   祝日は考慮していない（土日だけ飛ばす）ので、祝日明けは stale=true が
+    #   出ることがある。黙って古い日付を出すよりは安全側なので、この粗さで運用する。
+    asof = live_date.date()
+    prev_bd = _prev_business_day_from_now()
+    for d in (result, jiai_live):
+        d["asof"] = asof.strftime("%Y-%m-%d")
+        d["stale"] = bool(asof < prev_bd)
 
     return result, jiai_live
 
@@ -335,6 +337,19 @@ def _prev_business_day(d):
     d -= timedelta(days=1)
     while d.weekday() >= 5:          # 土(5)・日(6)
         d -= timedelta(days=1)
+    return d
+
+
+def _prev_business_day_from_now():
+    """実行時点で「終値が確定しているはずの直近営業日」。
+
+    当日の終値が固まるのは 15:00 JST 以降。それより前、または土日に走った
+    場合は、前営業日までしか確定していない。
+    """
+    now = datetime.now(JST)
+    d = now.date()
+    if now.hour < 15 or d.weekday() >= 5:
+        d = _prev_business_day(d)
     return d
 
 
