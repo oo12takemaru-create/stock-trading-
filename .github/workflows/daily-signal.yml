@@ -63,6 +63,7 @@ jobs:
           if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "手動実行なのでスキップ判定をしません"
             echo "skip=false" >> $GITHUB_OUTPUT
+            echo "is_backup=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           # 予備の回（UTC 10:30 前後）以外は必ず実行する。
@@ -70,8 +71,11 @@ jobs:
           if [ "$HOUR_UTC" -lt 10 ] || [ "$HOUR_UTC" -gt 13 ]; then
             echo "本命の回（朝/昼/夕）なので必ず実行します（UTC ${HOUR_UTC}:${MIN_UTC}）"
             echo "skip=false" >> $GITHUB_OUTPUT
+            echo "is_backup=false" >> $GITHUB_OUTPUT
             exit 0
           fi
+          # ここから先は予備の回。人に届くもの（Issue）は出さない。
+          echo "is_backup=true" >> $GITHUB_OUTPUT
           if python check_freshness.py --target signals_log; then
             echo "当日ぶんは取得済み。以降のステップを飛ばします"
             echo "skip=true" >> $GITHUB_OUTPUT
@@ -122,8 +126,16 @@ jobs:
           HEADER
           cat signal.md >> signal_final.md
 
+      # ★予備の回では作らない（Fable 2026-09-09）
+      #   このワークフローにメール送信・X投稿・realtime_notifier は無い
+      #   （それらは morning-digest.yml / realtime-signal.yml / ai-analysis.yml が
+      #     それぞれ独自の cron で持っている）。
+      #   daily-signal で人に届くのはこの Issue だけなので、ここを止める。
+      #   予備は本命が落ちた日にしか動かないので二重にはならないはずだが、
+      #   **二重通知は欠落より悪い**ので、はずれても害の無い側に倒す。
+      #   JSON・artifact・signals_log.csv は予備でも作る（データは欠かさない）。
       - name: Create or update today's signal issue
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.guard.outputs.is_backup != 'true'
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "📊 シグナル ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
