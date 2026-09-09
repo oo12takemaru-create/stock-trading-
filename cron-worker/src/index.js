@@ -109,7 +109,7 @@ const INTRADAY = {
  * PLAN に複数の時刻で書いたものは、ここか DEDUP_ANYWAY のどちらかに
  * 入れること。入っていなければ plan.test.mjs が落ちる。
  */
-const NO_DEDUP = new Set([
+export const NO_DEDUP = new Set([
   INTRADAY.workflow,  // ザラ場15分毎（1日約28回）
   "heatmap.yml",      // ザラ場の値動き（1日5回）
   "daily-signal.yml", // 朝・昼・夕の3回が正常（夕は pipeline-daily の中）
