@@ -67,6 +67,28 @@ RE_METHOD = re.compile(r"取得方法[：:]?(.{0,60})")
 # 2026年9月7日 / 2026年9月7日から / ～11月30日（年が省略される）
 DATE = re.compile(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日")
 
+# ToSTNeT-3 の買付日。実物を読んで分かった書き方（2026-09-09 確認・生存PDF 34件中33件が該当）:
+#   「2026年9月7日午前8時45分の東京証券取引所の自己株式立会外買付取引において買付けの委託を行う」
+#   「2026年8月19日午前8時50分の福岡証券取引所の…」  ← 取引所ごとに時刻が違う
+# 時刻を8:45に決め打ちすると福証・名証を落とすので、時刻は縛らず「午前○時○分」で拾う。
+# 本文で最初に出るこの形が買付日（後段の「取得結果の公表」も同じ日を指す）。
+#
+# ※ tostnet3 の period_from を買付日に流用してはいけない。
+#   period_from は親の取得枠の期間（例「取得期間 2026年1月30日〜2027年1月29日」）で、
+#   買付日とは別物。2026-09-09 に既存28件を調べて誤りが判明し、この形の抽出に切り替えた。
+RE_BUY_DATE = re.compile(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日午前\d{1,2}時\d{1,2}分")
+
+
+def buy_date(t, year_hint=None):
+    """ToSTNeT-3の買付日（YYYY-MM-DD）。書かれていなければ None"""
+    m = RE_BUY_DATE.search(t or "")
+    if not m:
+        return None
+    y = m.group(1) or year_hint
+    if not y:
+        return None
+    return f"{int(y):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+
 
 def _first(pats, t):
     for p in pats:
@@ -109,8 +131,10 @@ def parse_period(seg):
     return a, b
 
 
-def extract(data_or_text):
-    """PDFのバイト列（または本文文字列）から数値を抜く"""
+def extract(data_or_text, year_hint=None):
+    """PDFのバイト列（または本文文字列）から数値を抜く
+
+    year_hint: 本文で年が省略されたときに補う年（開示日の年を渡す）"""
     if isinstance(data_or_text, (bytes, bytearray)):
         try:
             t = norm(pdf_text(data_or_text))
@@ -136,6 +160,7 @@ def extract(data_or_text):
         # 「取得方法：市場買付（※）〜」の※以降は注記なので落とす
         method = re.split(r"[(（]※|[(（]注|以上", mm.group(1))[0].strip("：:・ ")[:40] or None
 
+    bd = buy_date(t, year_hint)
     out = {
         "shares_max": shares,
         "pct": float(pct) if pct else None,
@@ -144,6 +169,9 @@ def extract(data_or_text):
         "period_to": pto,
         "method": method,
     }
+    if bd:
+        out["buy_date"] = bd
+        out["buy_date_src"] = "pdf"
     got = [k for k in ("shares_max", "pct", "amount_max", "period_from") if out[k] is not None]
     out["extract_ok"] = len(got) >= 2
     if not out["extract_ok"]:

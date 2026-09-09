@@ -45,6 +45,10 @@ jobs:
       - name: Test classifier
         run: python -X utf8 tests/test_classify.py
 
+      # 祝日を1日取り違えると ToSTNeT-3 の買付日が静かにずれる
+      - name: Test business days
+        run: python -X utf8 tests/test_bizday.py
+
       - name: Build buyback JSON
         env:
           BUYBACK_MAX_PDF: ${{ github.event.inputs.max_pdf }}

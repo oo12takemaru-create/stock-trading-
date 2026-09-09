@@ -17,9 +17,19 @@
   decision と tostnet3 の pct・amount_max を8割以上に保つ。
   change は訂正・中止が中心で原文に数値が無いことが多いため対象外。
   tostnet3 の「期間」は単日買付なので対象外（buy_date に入れる）。
+
+■ ToSTNeT-3 の買付日（2026-09-09 合意）
+  本文に「2026年9月7日午前8時45分の…立会外買付取引において買付けの委託を行う」と
+  書かれるので、そこから取る（buy_date_src="pdf"）。
+  TDnetのPDFは27営業日で消えるため、古い開示は本文を読めない。その分は
+  制度上の日付を機械的に入れ、buy_date_src="rule" で必ず区別する:
+    「買付価格確定 / 取得結果」型 = その日の朝に買い付けた結果の報告 → 開示日そのもの
+    「買付け」型                  = 引け後の開示（実測で全件16〜17時）→ 翌営業日の寄付前
+  どちらの型にも当てはまらない表題は空のまま残し、件数と表題例を出す。
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -28,8 +38,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from buyback_classify import classify          # noqa: E402
-from buyback_extract import extract            # noqa: E402
+from buyback_classify import classify, normalize   # noqa: E402
+from buyback_extract import extract                # noqa: E402
+from jp_bizday import next_bizday                  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 HERE = Path(__file__).parent
@@ -65,6 +76,56 @@ def fetch_pdf(url):
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read()
+
+
+# ToSTNeT-3 の買付日を、本文から取れないときに制度から決めるルール
+RE_RESULT = re.compile(r"買付価格確定|取得結果|買付.?結果|買付価格の確定")
+RE_ORDER = re.compile(r"買付|取得")
+
+
+def buy_date_by_rule(rec):
+    """制度上の買付日。当てはまらなければ None（推測では埋めない）"""
+    t = normalize(rec["title"])
+    if RE_RESULT.search(t):
+        return rec["date"]                  # その日の朝の買付けを引け後に報告している
+    if RE_ORDER.search(t):
+        return next_bizday(rec["date"])     # 引け後の開示 → 翌営業日の寄付前に執行
+    return None
+
+
+def fill_buy_date(known, budget):
+    """buy_date_src を持たない ToSTNeT-3 に買付日を入れる。
+
+    まだ生きているPDFは本文から取り（pdf）、消えたものはルールで埋める（rule）。
+    一度 buy_date_src が付けば二度と読み直さないので、次回以降は素通りする。
+    古い buy_date（period_from を流用していた誤り）はここで捨てて入れ直す。"""
+    todo = [r for r in known.values()
+            if r["type"] == "tostnet3" and "buy_date_src" not in r]
+    todo.sort(key=lambda r: r["date"], reverse=True)   # 新しい＝PDFが生きている順
+    n_pdf = n_rule = 0
+    unmatched = []
+    fetched = 0
+    for rec in todo:
+        rec.pop("buy_date", None)
+        bd = None
+        if fetched < budget:
+            fetched += 1                    # 404も1回のアクセス。連打しないよう必ず数える
+            try:
+                bd = extract(fetch_pdf(rec["pdf"]), year_hint=rec["date"][:4]).get("buy_date")
+            except Exception:
+                pass                        # 404＝27営業日を過ぎて消えた。ルールに回す
+            time.sleep(0.35)
+        if bd:
+            rec["buy_date"], rec["buy_date_src"] = bd, "pdf"
+            n_pdf += 1
+            continue
+        bd = buy_date_by_rule(rec)
+        if bd:
+            rec["buy_date"], rec["buy_date_src"] = bd, "rule"
+            n_rule += 1
+        else:
+            unmatched.append(rec)           # 空のまま残す
+    return n_pdf, n_rule, unmatched
 
 
 def link_parent(rec, history_index):
@@ -123,12 +184,9 @@ def main():
     for it in todo[:MAX_PDF]:
         rec = dict(it)
         try:
-            rec.update(extract(fetch_pdf(it["pdf"])))
+            rec.update(extract(fetch_pdf(it["pdf"]), year_hint=it["date"][:4]))
         except Exception as e:
             rec.update({"extract_ok": False, "extract_note": f"PDF取得失敗: {e}"})
-        # ToSTNeT-3 は単日の買付。期間ではなく買付日として持つ（合意事項）
-        if rec["type"] == "tostnet3" and rec.get("period_from"):
-            rec["buy_date"] = rec["period_from"]
         known[it["id"]] = rec
         done += 1
         time.sleep(0.35)
@@ -138,6 +196,9 @@ def main():
     # PDFを読まない種別も一覧情報だけ残す（履歴は欠けさせない）
     for it in items:
         known.setdefault(it["id"], dict(it))
+
+    # ToSTNeT-3 の買付日を埋める（本文優先・消えたPDFはルール）
+    n_pdf, n_rule, unmatched = fill_buy_date(known, budget=int(os.environ.get("BUYBACK_MAX_BUYDATE", "150")))
 
     # 親の決議を紐づける
     by_code = {}
@@ -151,6 +212,15 @@ def main():
     allrows = sorted(known.values(), key=lambda r: (r["date"], r["time"], r["id"]))
     lo = (now - timedelta(days=RECENT_DAYS)).date().isoformat()
     recent = [r for r in allrows if r["date"] >= lo]
+
+    def buy_date_src_counts(rows):
+        c = {}
+        for r in rows:
+            if r["type"] != "tostnet3":
+                continue
+            k = r.get("buy_date_src", "none")
+            c[k] = c.get(k, 0) + 1
+        return c
 
     def stats(rows):
         out = {}
@@ -173,6 +243,9 @@ def main():
                  "progressは毎月の取得状況報告、otherは自己株式の処分など取得以外。"),
         "types": ["decision", "tostnet3", "progress", "complete", "cancel", "change", "other"],
         "extract_rate": stats(allrows),
+        # ToSTNeT-3 の買付日をどこから得たか。pdf=本文に書かれていた / rule=制度から機械的に決めた
+        # （TDnetのPDFは27営業日で消えるため、古い開示は本文を読めない）
+        "buy_date_src": buy_date_src_counts(allrows),
     }
     counts = {}
     for r in recent:
@@ -188,6 +261,17 @@ def main():
 
     print(f"OK buyback.json: {len(recent)}件（{lo}以降） / buyback_history.json: {len(allrows)}件")
     print(f"  今回PDFを読んだ: {done}件")
+    tos = [r for r in allrows if r["type"] == "tostnet3"]
+    src = {}
+    for r in tos:
+        src[r.get("buy_date_src", "なし")] = src.get(r.get("buy_date_src", "なし"), 0) + 1
+    print(f"  ToSTNeT-3 買付日 {len(tos)}件: " +
+          " ".join(f"{k}={v}" for k, v in sorted(src.items())) +
+          f"（今回 pdf={n_pdf} rule={n_rule}）")
+    if unmatched:
+        print(f"  ⚠ ルールが当てはまらず空のまま: {len(unmatched)}件", file=sys.stderr)
+        for r in unmatched[:10]:
+            print(f"      {r['date']} {r['code']} {r['title']}", file=sys.stderr)
     for ty, s in meta["extract_rate"].items():
         flag = " ⚠8割未満" if min(s["pct"], s["amount_max"]) < 80 else ""
         print(f"  {ty:9s} n={s['n']:4d} pct={s['pct']:5.1f}% amount={s['amount_max']:5.1f}%{flag}")
