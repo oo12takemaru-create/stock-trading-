@@ -1,42 +1,42 @@
 {
- "target_date": "2026-09-08",
- "generated_at": "2026-09-09T23:07:15+09:00",
+ "target_date": "2026-09-09",
+ "generated_at": "2026-09-10T21:03:45+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
-  {
-   "judge": "watch",
-   "code": "6728",
-   "name": "アルバック",
-   "sector": "半導体製造装置",
-   "kairi": -12.12
-  },
-  {
-   "judge": "watch",
-   "code": "3436",
-   "name": "SUMCO",
-   "sector": "半導体",
-   "kairi": -11.72
-  },
   {
    "judge": "watch",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -10.59
+   "kairi": -13.23
+  },
+  {
+   "judge": "watch",
+   "code": "6728",
+   "name": "アルバック",
+   "sector": "半導体製造装置",
+   "kairi": -10.97
+  },
+  {
+   "judge": "watch",
+   "code": "6146",
+   "name": "ディスコ",
+   "sector": "半導体製造装置",
+   "kairi": -10.42
   }
  ],
- "asof": "2026-09-09",
+ "asof": "2026-09-10",
  "stale": false,
- "signals_today_date": "2026-09-09",
+ "signals_today_date": "2026-09-10",
  "is_halt": false,
- "signals_today_count": 2,
+ "signals_today_count": 3,
  "signal_of_day": {
-  "scan_date": "2026-09-09",
+  "scan_date": "2026-09-10",
   "strategy": "MOMENTUM",
   "strategy_label": "順張り（ブレイク）",
-  "code": "5301",
-  "name": "東海カーボン",
-  "sector": "炭素素材",
+  "code": "5019",
+  "name": "出光興産",
+  "sector": "石油",
   "reason": "20日高値ブレイク",
   "carried_over": false
  },
