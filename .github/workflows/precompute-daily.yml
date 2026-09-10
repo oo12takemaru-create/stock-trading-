@@ -168,16 +168,30 @@ jobs:
           set -o pipefail
           python precompute/score3_hist.py --years 2 --days 5             --out score3_lite_recent.csv --upsert | tee -a update.log
 
-      # 調整域のキャッシュ温め（最後に回す。ここが落ちても公開数字は出ている）
-      # スライダーの体感を良くするためのもので、正しさには関わらない。
-      - name: Warm preset adjustment cache
-        if: steps.guard.outputs.skip != 'true'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -o pipefail
-          python precompute/warm_cache.py | tee -a update.log
+      # ── 調整域のキャッシュ温めは **止めてある**（2026-09-10・§23 相談⑪ 案A）──
+      #
+      # なぜ止めたか: Supabase の egress 5GB/月（無料枠）を単独で超えていた。
+      #   backtest_trades() は約定明細を返す設計で、実測 1回 487KB（3,011トレード）。
+      #   warm_cache は 1,260通り叩くので **1実行で 185〜600MB**、月20営業日で 3.6〜11.7GB。
+      #   会員ゼロの段階で数GB を使っていた正体がこれ。
+      #
+      # 止めて何が起きるか: /rules のスライダーを規定値から動かしたとき、
+      #   キャッシュに当たらず毎回ライブ計算（10〜20秒）になる。**正しさには影響しない。**
+      #   画面は「計算中」を出して前の数字を薄く残す作りなので、壊れはしない。
+      #
+      # いつ戻すか: 統計だけを返す backtest_stats() を SQL に足し（§23 相談⑪ 案B・9/20 まで）、
+      #   TS の集計と 1,260通りで一致を確認してから warm_cache を切り替えて戻す。
+      #   明細を返す backtest_trades() は画面が使うので残すが、**CI からは呼ばない**。
+      #
+      # 戻すときはこのブロックのコメントを外すだけでよい。
+      # - name: Warm preset adjustment cache
+      #   if: steps.guard.outputs.skip != 'true'
+      #   env:
+      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      #   run: |
+      #     set -o pipefail
+      #     python precompute/warm_cache.py | tee -a update.log
 
       - name: Write summary
         if: always()
