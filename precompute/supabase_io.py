@@ -223,6 +223,30 @@ def count_rows(table, query=""):
     return int(cr.split("/")[-1]) if "/" in cr else 0
 
 
+def select_rows(table, columns="*", query="", page=1000):
+    """行を読む。**1000行ずつページングする。**
+
+    ★PostgREST は返却行数の上限（既定1000）を超えたぶんを、エラーも出さずに捨てる。★
+    「全部取ったつもりで一部しか無い」という壊れ方をするので、必ずここを通すこと
+    （引継ぎ.md §19-2）。
+
+    query は "date=gte.2026-09-01&date=lte.2026-09-10" のような PostgREST の条件。
+    """
+    url_base, key = credentials()
+    out = []
+    offset = 0
+    while True:
+        endpoint = "%s/rest/v1/%s?select=%s%s&limit=%d&offset=%d" % (
+            url_base, table, columns,
+            ("&" + query if query else ""), page, offset)
+        status, body = _request("GET", endpoint, key)
+        rows = json.loads(body.decode("utf-8"))
+        out.extend(rows)
+        if len(rows) < page:
+            return out
+        offset += page
+
+
 def max_value(table, column):
     """table の column の最大値（最新日付の確認用）。"""
     url_base, key = credentials()

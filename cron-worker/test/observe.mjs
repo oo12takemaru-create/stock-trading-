@@ -12,12 +12,22 @@
  *   無い … 当日その時刻の run が見つからない（★これが致命的。schedule と違い黙って消える）
  *   済   … alreadyRanToday で正しく飛ばした（当日すでに success がある）
  *
+ * ■ ★workflow_dispatch = Worker とは限らない★
+ * GitHub の run には「誰が dispatch したか」がトークン単位では残らない。
+ * 2026-09-09 に、この取り違えで**誤った合格報告**を出した:
+ *   realtime-signal の workflow_dispatch を32本数えて「Worker の起動精度は
+ *   中央値24秒」と報告したが、同じ32本は Worker 配備前の 8/31 から毎日出ていた。
+ *   実際には PAT が権限ゼロで、Worker からの dispatch は1本も通っていなかった。
+ * そこで下の「配備前との比較」を必ず出す。配備前から同じ数が出ているものは
+ * **Worker の実績として数えない**。
+ *
  * 会員向けの朝の通知（7:30・HTTP）は GitHub に痕跡が残らないのでここでは見えない。
  * Cloudflare のログか、届いたメールで確かめる。
  *
  *   node cron-worker/test/observe.mjs              # 今日（JST）
  *   node cron-worker/test/observe.mjs 2026-09-10
  *   node cron-worker/test/observe.mjs 2026-09-09 from=22:00   # デプロイ後だけ見る
+ *   node cron-worker/test/observe.mjs 2026-09-10 before=2026-09-08  # 配備前と比べる
  */
 import { execFileSync } from "node:child_process";
 import { targetsFor, NO_DEDUP } from "../src/index.js";
@@ -33,6 +43,11 @@ const day = process.argv[2] || today();
 // 「無い」が並ぶだけで、本当に見たいものが埋もれる。
 const fromArg = process.argv.find((a) => a.startsWith("from="));
 const FROM = fromArg ? fromArg.slice(5) : "00:00";
+
+// Worker 配備より前の営業日。ここでも同じ dispatch が出ているなら、
+// それは Worker の仕業ではない（2026-09-09 に取り違えた）。
+const beforeArg = process.argv.find((a) => a.startsWith("before="));
+const BEFORE = beforeArg ? beforeArg.slice(7) : null;
 
 // ── 予定を作る（本番と同じ targetsFor を使う）──
 const expected = []; // { at: "HH:MM", workflow }
@@ -52,7 +67,8 @@ const byId = new Map(
 );
 
 const raw = execFileSync("gh", [
-  "run", "list", "--limit", "250",
+  // before= のときは配備前の日まで遡る必要があるので多めに取る
+  "run", "list", "--limit", BEFORE ? "900" : "250",
   "--json", "name,event,createdAt,conclusion,status,workflowDatabaseId",
 ], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
 
@@ -129,4 +145,33 @@ if (missing > 0) {
       "\n  起動しなかったことは GitHub に失敗として残らない（2026-09-05 の4日間放置と同じ形）。",
   );
 }
-console.log("\n※ 会員向けの朝の通知（7:30・HTTP）はここには出ない。Cloudflare のログかメールで確認する。");
+if (BEFORE) {
+  const past = JSON.parse(raw)
+    .map((r) => ({
+      file: byId.get(r.workflowDatabaseId) || "",
+      event: r.event,
+      jst: new Date(Date.parse(r.createdAt) + 9 * 3600 * 1000),
+    }))
+    .filter((r) => r.jst.toISOString().slice(0, 10) === BEFORE && r.event === "workflow_dispatch");
+
+  const cnt = (rows) => rows.reduce((m, r) => (m[r.file] = (m[r.file] || 0) + 1, m), {});
+  const now = cnt(runs.filter((r) => r.event === "workflow_dispatch"));
+  const old = cnt(past);
+
+  console.log(`\n=== 配備前（${BEFORE}）との比較: workflow_dispatch の本数 ===`);
+  if (past.length === 0) {
+    console.log(`  ${BEFORE} の run が取得範囲に入っていない（--limit を増やすか日付を変える）`);
+  } else {
+    for (const f of new Set([...Object.keys(now), ...Object.keys(old)])) {
+      const a = old[f] || 0, b = now[f] || 0;
+      const note = a > 0 && b <= a
+        ? "★配備前から同数以上ある＝Worker の実績として数えない"
+        : a > 0 ? "配備前にもある（増えた分だけが Worker の可能性）" : "配備後だけ";
+      console.log(`  ${f.padEnd(26)} 配備前 ${String(a).padStart(3)} → 当日 ${String(b).padStart(3)}   ${note}`);
+    }
+  }
+}
+
+console.log("\n※ workflow_dispatch は「誰が叩いたか」を区別できない。Worker の実績を主張する前に");
+console.log("   上の比較か Cloudflare のログ（npx wrangler tail）で必ず裏を取る。");
+console.log("※ 会員向けの朝の通知（7:30・HTTP）はここには出ない。Cloudflare のログかメールで確認する。");
