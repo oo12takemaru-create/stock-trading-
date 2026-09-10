@@ -518,10 +518,48 @@ def main():
 
     if args.upsert:
         import supabase_io
-        cols = ["date", "score3_lite", "score3_axis1", "score3_axis2",
-                "score3_axis3", "score3_label"]
-        recs = supabase_io.frame_to_records(df[cols])
-        supabase_io.upsert("market_condition", recs, on_conflict="date")
+
+        # ★score3 の列だけを送ってはいけない★
+        # `supabase_io.upsert` は PostgREST の upsert で、**行全体を置き換える**。
+        # 送らなかった列は既定値（= null）で埋まるので、`regime` のような
+        # NOT NULL 列が null になり 400（23502）で落ちる。
+        #   実際に 2026-09-10 の日次バッチが、まさにこれで落ちた:
+        #   null value in column "regime" of relation "market_condition"
+        # 引継ぎ.md §20-3 に「既存行を読んでマージして書き戻す」と書きながら、
+        # このコードパスに入れ忘れていた（10年ぶんの初回投入は手作業でマージしていた）。
+        #
+        # 対処: 対象日の既存行を丸ごと読み、score3 列だけ差し替えて、
+        #       **完全な行として**書き戻す。読み書き1往復ずつで済む。
+        score_cols = ["score3_lite", "score3_axis1", "score3_axis2",
+                      "score3_axis3", "score3_label"]
+        recs = supabase_io.frame_to_records(df[["date"] + score_cols])
+        by_date = {r["date"]: r for r in recs}
+        days_sorted = sorted(by_date)
+
+        existing = supabase_io.select_rows(
+            "market_condition", "*",
+            "date=gte.%s&date=lte.%s" % (days_sorted[0], days_sorted[-1]))
+
+        merged = []
+        for row in existing:
+            d = row.get("date")
+            if d not in by_date:
+                continue                      # 計算対象外の日はそのまま
+            for c in score_cols:
+                row[c] = by_date[d][c]
+            merged.append(row)
+
+        # market_condition に行が無い日は**入れない**。
+        # score3 だけの行を作ると regime が null になって同じ 400 を踏む。
+        # その日はスキャナー側がまだ書いていないだけなので、翌回に入る。
+        missing = sorted(set(by_date) - {r.get("date") for r in existing})
+        if missing:
+            print("market_condition にまだ無い日は飛ばします: %s" % ", ".join(missing))
+
+        if merged:
+            supabase_io.upsert("market_condition", merged, on_conflict="date")
+        else:
+            print("投入対象がありません（market_condition に該当日が1つもない）")
     return 0
 
 
