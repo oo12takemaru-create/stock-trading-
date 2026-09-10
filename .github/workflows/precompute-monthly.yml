@@ -103,15 +103,17 @@ jobs:
           echo "::error::3回試行してもpushできませんでした"
           exit 1
 
-      # 調整域のキャッシュ温め（最後に回す。ここが落ちても公開数字は出ている）
-      # 月次の全期間再計算のあとにキャッシュを作り直す（起動文 §1-1 の順序）。
-      - name: Warm preset adjustment cache
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -o pipefail
-          python precompute/warm_cache.py | tee -a build.log
+      # ── 調整域のキャッシュ温めは **止めてある**（2026-09-10・§23 相談⑪ 案A）──
+      # 日次（precompute-daily.yml）と同じ理由。あちらだけ止めても、月初にここで
+      # 185〜600MB を使ってしまい対策が中途半端になるので揃えて止める。
+      # 戻すときは日次と一緒に、両方のコメントを外す。
+      # - name: Warm preset adjustment cache
+      #   env:
+      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      #   run: |
+      #     set -o pipefail
+      #     python precompute/warm_cache.py | tee -a build.log
 
       - name: Write summary
         if: always()
