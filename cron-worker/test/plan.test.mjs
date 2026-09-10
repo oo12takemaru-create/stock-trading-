@@ -146,7 +146,7 @@ test("PLAN に書いた時刻は必ずどれかの cron で発火する", () => 
 
 test("ザラ場は 15 分間隔で発火する（:00 :15 :30 :45）", () => {
   const got = [];
-  for (let h = 9; h <= 15; h++) {
+  for (let h = 9; h <= 16; h++) {
     for (const mi of [0, 15, 30, 45]) {
       const key = `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
       if (!inIntraday(key)) continue;
@@ -154,8 +154,9 @@ test("ザラ場は 15 分間隔で発火する（:00 :15 :30 :45）", () => {
       got.push(key);
     }
   }
-  // 09:00〜15:45 を 15 分刻み = 28 回（引継ぎ.md §21 の「1日約28回」と一致）
-  assert.equal(got.length, 28, `ザラ場の発火回数が 28 ではありません: ${got.length}`);
+  // 09:00〜16:15 を 15 分刻み = 30 回
+  // （2026-09-10 に 15:45 → 16:15 へ延長。引継ぎ.md §23 相談⑪(2)）
+  assert.equal(got.length, 30, `ザラ場の発火回数が 30 ではありません: ${got.length}`);
 });
 
 test("realtime-signal は PLAN に書かれていない（ザラ場枠と二重になる）", () => {
@@ -177,7 +178,12 @@ test("ザラ場の時刻に realtime-signal が入り、時間外には入らな
   assert.ok(at("09:00").includes("realtime-signal.yml"), "09:00 に入っていない");
   assert.ok(at("09:00").includes("heatmap.yml"), "09:00 の PLAN 分が消えている");
   assert.ok(at("15:30").includes("realtime-signal.yml"), "15:30 に入っていない");
-  assert.ok(!at("16:00").includes("realtime-signal.yml"), "16:00（引け後）に入っている");
+  // 延長した2回（引継ぎ.md §23 相談⑪(2)）
+  assert.ok(at("16:00").includes("realtime-signal.yml"), "16:00 に入っていない");
+  assert.ok(at("16:15").includes("realtime-signal.yml"), "16:15 に入っていない");
+  // ここから先は捨てる。18:00 のパイプラインが拾う
+  assert.ok(!at("16:30").includes("realtime-signal.yml"), "16:30（対象外）に入っている");
+  assert.ok(!at("16:45").includes("realtime-signal.yml"), "16:45（対象外）に入っている");
   assert.ok(!at("08:00").includes("realtime-signal.yml"), "08:00（寄り前）に入っている");
   assert.deepEqual(at("09:00", 6), [], "土曜は何も起こさない");
 });
