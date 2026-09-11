@@ -873,7 +873,9 @@ def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None, prices
         if n % 50 == 0 and n > 0:
             log(f"  …{n}/{total}")
 
-    result = ds.scan(capital=capital, risk_pct=risk_pct, progress_callback=progress)
+    # 縮退しているときは単元の足切りを外す（欠落ではなく過剰の方向へ・§23 相談⑬）
+    result = ds.scan(capital=capital, risk_pct=risk_pct, progress_callback=progress,
+                     balance_linked=balance_linked)
     if "error" in result:
         log(f"⚠ スキャン失敗: {result['error']}")
         return

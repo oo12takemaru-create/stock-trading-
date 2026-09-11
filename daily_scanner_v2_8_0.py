@@ -1022,8 +1022,22 @@ def fetch_stock_data(ticker, days_back=400):
 # メインスキャン
 # ============================================================================
 
-def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
+def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None, balance_linked=True):
+    """全銘柄スキャン。
+
+    balance_linked=False は「残高に連動できていない＝初期資金のまま計算している」
+    という縮退の合図（realtime_notifier が private/trades.json を読めなかったとき）。
+    このとき **単元（100株）の足切りを外す**。
+
+    ★理由: 縮退するなら過剰の方向に倒す（引継ぎ.md §23 相談⑬ Fable 決定）★
+    資金が本来より小さく見積もられていると shares が小さく出て、
+    本来出るはずのシグナルが「単元未満」で**黙って消える**。
+    欠落は気づけないが、過剰は見れば分かる。だから欠落ではなく過剰に倒す。
+    縮退していることは呼び出し側が必ず印字し、出力にも balance_linked で残す。
+    """
     now = datetime.now()
+    # 足切りの下限。縮退時は 0 にして「資金が足りない」を理由に落とさない
+    min_shares = 100 if balance_linked else 0
 
     # Global data取得
     global_data = fetch_global_data()
@@ -1096,7 +1110,7 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
                 shares, cost = calc_shares(capital, risk_pct, info["entry"],
                                            info["stop"], "BNF-LITE", regime,
                                            sector=sector)
-                if shares >= 100:
+                if shares >= min_shares:
                     signals.append({
                         "strategy": "BNF-LITE",
                         "ticker": ticker,
@@ -1125,7 +1139,7 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
                 shares, cost = calc_shares(capital, risk_pct, info["entry"],
                                            info["stop"], "MOMENTUM", regime,
                                            sector=sector)
-                if shares >= 100:
+                if shares >= min_shares:
                     signals.append({
                         "strategy": "MOMENTUM",
                         "ticker": ticker,
@@ -1149,7 +1163,7 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
                 shares, cost = calc_shares(capital, risk_pct, info["entry"],
                                            info["stop"], "MINERVINI", regime,
                                            sector=sector)
-                if shares >= 100:
+                if shares >= min_shares:
                     signals.append({
                         "strategy": "MINERVINI",
                         "ticker": ticker,
