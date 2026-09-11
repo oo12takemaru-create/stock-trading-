@@ -64,9 +64,12 @@ const PLAN = {
   "23:30": ["data-healthcheck.yml"],
   "06:30": ["ai-analysis.yml"],
   "07:00": ["pipeline-morning.yml"], // 前営業日ぶんが無ければ失敗させる関門
+  // 関門（07:00）の後・会員通知（07:30）の前に置く（§23 相談⑫(3)）。
+  // cron-job.org の Morning Digest を止めるための受け皿。
+  "07:15": ["morning-digest.yml"],
   "07:30": ["karauri-daily.yml", "kessan-daily.yml"],
   "08:00": ["daily-signal.yml"],
-  "08:30": ["morning-digest.yml", "kessan-react-daily.yml"],
+  "08:30": ["kessan-react-daily.yml"],
 };
 
 /** 土日に動かすもの（JSTの曜日 → 時刻 → ワークフロー） */
