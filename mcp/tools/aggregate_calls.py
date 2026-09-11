@@ -23,9 +23,10 @@
     3. どちらも駄目なら、手で落とした JSONL を読む（--file）
 
 ■ 使い方
-    set CF_API_TOKEN=...            # 下の「必要な権限」を参照
-    set CF_ACCOUNT_ID=...           # 省略時は既定値
     python mcp/tools/aggregate_calls.py --from 2026-09-04 --to 2026-09-11
+
+  認証は `wrangler login` 済みならそのトークンを自動で使う（設定は要らない）。
+  別の API Token を使いたいときだけ CF_API_TOKEN を設定する。
 
     # ダッシュボードから落とした JSONL を集計する場合（トークン不要）
     python mcp/tools/aggregate_calls.py --file logs.jsonl
@@ -83,6 +84,35 @@ def normalize_client(raw):
             return name
     # 見覚えの無いものは頭だけ残す（生の UA を全部出すと表が読めない）
     return s.split("/")[0][:28] or "(不明)"
+
+
+def wrangler_token():
+    """`wrangler login` が置いた OAuth トークンを探して返す（無ければ None）。
+
+    ★毎回 CF_API_TOKEN を設定させないため★
+    wrangler でデプロイできる人は既にログイン済みなので、そのトークンを使えば
+    そのまま動く。実測で Analytics Engine の SQL も GraphQL もこれで通った
+    （Workers Logs の Observability だけは権限が足りず 403 になる）。
+
+    置き場所は OS と版で違うので、ありそうな所を順に見る。
+    """
+    home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(os.environ.get("APPDATA", ""), "xdg.config", ".wrangler", "config", "default.toml"),
+        os.path.join(home, ".wrangler", "config", "default.toml"),
+        os.path.join(home, ".config", ".wrangler", "config", "default.toml"),
+        os.path.join(os.environ.get("XDG_CONFIG_HOME", ""), ".wrangler", "config", "default.toml"),
+    ]
+    for path in candidates:
+        if not path or not os.path.exists(path):
+            continue
+        try:
+            m = re.search(r'oauth_token\s*=\s*"([^"]+)"', open(path, encoding="utf-8").read())
+        except OSError:
+            continue
+        if m:
+            return m.group(1)
+    return None
 
 
 def _req(url, token, body=None, method="GET", timeout=90):
@@ -443,12 +473,21 @@ def main():
         rows = from_file(args.file)
     else:
         token = os.environ.get("CF_API_TOKEN")
+        if token:
+            print("認証: 環境変数 CF_API_TOKEN")
+        else:
+            token = wrangler_token()
+            if token:
+                print("認証: wrangler login のトークンを使います")
         if not token:
-            print("CF_API_TOKEN が設定されていません。", file=sys.stderr)
-            print("Cloudflare のダッシュボードで API Token を作ってください:", file=sys.stderr)
-            print("  My Profile → API Tokens → Create Token → Custom token", file=sys.stderr)
-            print("  権限: Account → Workers Observability : Read", file=sys.stderr)
-            print("        Account → Account Analytics     : Read", file=sys.stderr)
+            print("Cloudflare の認証情報が見つかりません。", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("いちばん簡単なのは wrangler にログインすることです:", file=sys.stderr)
+            print("    cd mcp; npx wrangler login", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("API Token を使う場合は CF_API_TOKEN に入れてください。", file=sys.stderr)
+            print("  権限: Account → Account Analytics : Read", file=sys.stderr)
+            print("        Account → Workers Observability : Read（Workers Logs を見るとき）", file=sys.stderr)
             print("", file=sys.stderr)
             print("ダッシュボードから JSONL を落とした場合は --file で渡せます。", file=sys.stderr)
             return 2
