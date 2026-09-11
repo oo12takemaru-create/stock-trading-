@@ -35,8 +35,12 @@ function emitLog(entry, env, ctx) {
         // blob5 に引数の「形」を足した（2026-09-11）。
         // detail=true がどれくらい使われているかを後から数えるため。
         // 並びを変えると mcp/tools/aggregate_calls.py の SQL が壊れる。
+        // ★ok を持たないイベント（initialize / tools_list）は空にする★
+        //   三項で書くと undefined が "err" になり、接続しただけの回が
+        //   全部「失敗」として数えられる（実際に 62.5% 失敗と誤表示した）。
         blobs: [entry.event, entry.tool || "", entry.client || "",
-                entry.ok ? "ok" : "err", entry.arg_shape || ""],
+                entry.ok === undefined ? "" : (entry.ok ? "ok" : "err"),
+                entry.arg_shape || ""],
         doubles: [entry.ms || 0],
         indexes: [entry.tool || entry.event],
       });
