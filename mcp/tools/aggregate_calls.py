@@ -387,8 +387,15 @@ def report(rows, d_from, d_to, out=sys.stdout):
     p("総呼び出し数: %s 件" % f"{total:,}")
     if dates:
         p("実データの範囲: %s 〜 %s（%d 日）" % (dates[0], dates[-1], len(dates)))
-    err = sum(r["n"] for r in rows if not r["ok"])
-    p("失敗: %d 件 (%.1f%%)" % (err, err / total * 100 if total else 0))
+    # ★失敗率は tool_call だけで数える★
+    # initialize / tools_list は成否を持たない。全イベントを分母にすると
+    # 「接続しただけ」が失敗に混ざる（実際に 62.5% 失敗と誤表示した）。
+    calls = [r for r in rows if r.get("event") in ("", "tool_call")]
+    call_n = sum(r["n"] for r in calls)
+    err = sum(r["n"] for r in calls if not r["ok"])
+    if call_n:
+        p("ツール実行: %d 件 / うち失敗 %d 件 (%.1f%%)"
+          % (call_n, err, err / call_n * 100))
     p("")
 
     only_total = all(r["tool"] == "(合計のみ)" for r in rows)
@@ -411,9 +418,13 @@ def report(rows, d_from, d_to, out=sys.stdout):
     clients = collections.Counter()
     for r in rows:
         c = normalize_client(r["client"])
+        clients[c] += r["n"]
+        # ツール名を持たない行（initialize / tools_list）は表に入れない。
+        # 入れると "(不明)" という行が立って、何のツールか分からない数が並ぶ
+        if r.get("event") not in ("", "tool_call"):
+            continue
         cross[(r["tool"], c)] += r["n"]
         tools[r["tool"]] += r["n"]
-        clients[c] += r["n"]
 
     cl_order = [c for c, _ in clients.most_common()]
     w = max([len(t) for t in tools] + [10])
