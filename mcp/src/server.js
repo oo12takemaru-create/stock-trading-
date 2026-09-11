@@ -32,7 +32,11 @@ function emitLog(entry, env, ctx) {
   try {
     if (env && env.CALLS && typeof env.CALLS.writeDataPoint === "function") {
       env.CALLS.writeDataPoint({
-        blobs: [entry.event, entry.tool || "", entry.client || "", entry.ok ? "ok" : "err"],
+        // blob5 に引数の「形」を足した（2026-09-11）。
+        // detail=true がどれくらい使われているかを後から数えるため。
+        // 並びを変えると mcp/tools/aggregate_calls.py の SQL が壊れる。
+        blobs: [entry.event, entry.tool || "", entry.client || "",
+                entry.ok ? "ok" : "err", entry.arg_shape || ""],
         doubles: [entry.ms || 0],
         indexes: [entry.tool || entry.event],
       });
@@ -46,6 +50,31 @@ function emitLog(entry, env, ctx) {
     }).catch(() => {});
     if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p);
   }
+}
+
+/**
+ * 引数の「形」だけを短い文字列にする。**値は入れない**。
+ *
+ * ★なぜ値を入れないか★
+ * Analytics Engine の blob は高カーディナリティに弱く、銘柄コードのような
+ * 値をそのまま入れると行が際限なく増える。加えて、利用者が何を調べたかを
+ * こちらに貯め込むことにもなる。
+ * 知りたいのは「detail=true がどれくらい使われているか」なので、
+ * 真偽値だけ中身を残し、それ以外は型だけにする。
+ *   {detail:true, name:"..."} → "detail=1,name=s"
+ */
+function argShape(args) {
+  if (!args || typeof args !== "object") return "";
+  const parts = [];
+  for (const k of Object.keys(args).sort()) {
+    const v = args[k];
+    if (typeof v === "boolean") parts.push(`${k}=${v ? 1 : 0}`);
+    else if (typeof v === "number") parts.push(`${k}=n`);
+    else if (typeof v === "string") parts.push(`${k}=s`);
+    else if (Array.isArray(v)) parts.push(`${k}=a`);
+    else parts.push(`${k}=?`);
+  }
+  return parts.join(",").slice(0, 96);
 }
 
 function clientOf(request) {
@@ -98,6 +127,15 @@ async function dispatch(msg, request, env, ctx) {
     case "ping":
       return rpcResult(id, {});
     case "tools/list":
+      // ★記録する理由★
+      // 「呼び出しのうち実際にツールが使われた割合」を出すには分母が要る。
+      // initialize と tool_call だけ記録していると、一覧を見ただけで
+      // 去った利用者が数に入らず、実需を過大に見てしまう。
+      emitLog(
+        { ts: new Date().toISOString(), event: "tools_list", client: clientOf(request) },
+        env,
+        ctx,
+      );
       return rpcResult(id, { tools: TOOL_DEFS });
     case "tools/call": {
       const name = params.name;
@@ -121,6 +159,7 @@ async function dispatch(msg, request, env, ctx) {
           event: "tool_call",
           tool: name,
           args,
+          arg_shape: argShape(args),
           ok,
           ms: Date.now() - t0,
           scrubbed: hit.count,

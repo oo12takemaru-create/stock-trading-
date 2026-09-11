@@ -139,14 +139,16 @@ def from_analytics_engine(token, d_from, d_to, log=print):
     blobs = [event, tool, client, ok/err] / doubles = [ms] / indexes = [tool]
     （mcp/src/server.js の emitLog と対応。並びを変えたらここも直す）
     """
+    # blob1=event / blob2=tool / blob3=client / blob4=ok|err / blob5=引数の形
+    # （mcp/src/server.js の emitLog と並びを合わせること）
     sql = (
-        "SELECT toDate(timestamp) AS d, blob2 AS tool, blob3 AS client, "
-        "blob4 AS status, SUM(_sample_interval) AS n "
+        "SELECT toDate(timestamp) AS d, blob1 AS event, blob2 AS tool, "
+        "blob3 AS client, blob4 AS status, blob5 AS arg_shape, "
+        "SUM(_sample_interval) AS n "
         "FROM %s "
         "WHERE timestamp >= toDateTime('%s 00:00:00') "
         "  AND timestamp <  toDateTime('%s 00:00:00') "
-        "  AND blob1 = 'tool_call' "
-        "GROUP BY d, tool, client, status "
+        "GROUP BY d, event, tool, client, status, arg_shape "
         "ORDER BY d, n DESC "
         "FORMAT JSON"
         % (DATASET, d_from, d_to + dt.timedelta(days=1))
@@ -169,8 +171,10 @@ def from_analytics_engine(token, d_from, d_to, log=print):
     for r in body.get("data", []):
         rows.append({
             "date": r["d"][:10],
+            "event": r.get("event") or "",
             "tool": r.get("tool") or "(不明)",
             "client": r.get("client") or "",
+            "arg_shape": r.get("arg_shape") or "",
             "ok": (r.get("status") == "ok"),
             "n": int(float(r.get("n") or 0)),
         })
@@ -260,7 +264,8 @@ def _parse_events(events):
             continue
         rows.append({
             "date": str(entry.get("ts", ""))[:10],
-            "tool": entry.get("tool") or "(不明)",
+            "event": entry.get("event") or "tool_call",
+                "tool": entry.get("tool") or "(不明)",
             "client": entry.get("client") or "",
             "ok": bool(entry.get("ok")),
             "n": 1,
@@ -315,6 +320,7 @@ def from_graphql(token, d_from, d_to, log=print):
     for r in accs[0].get("workersInvocationsAdaptive") or []:
         rows.append({
             "date": r["dimensions"]["date"][:10],
+            "event": "",
             "tool": "(合計のみ)",          # ツール名は console.log にしかない
             "client": "",
             "ok": True,
@@ -349,6 +355,7 @@ def from_file(path, log=print):
                 continue
             rows.append({
                 "date": str(entry.get("ts", ""))[:10],
+                "event": entry.get("event") or "tool_call",
                 "tool": entry.get("tool") or "(不明)",
                 "client": entry.get("client") or "",
                 "ok": bool(entry.get("ok")),
@@ -419,6 +426,43 @@ def report(rows, d_from, d_to, out=sys.stdout):
           p("%-*s %s %8d" % (w, tool, cells, n))
       p("%-*s %s %8d" % (w, "合計", " ".join("%12d" % clients[c] for c in cl_order), total))
       p("")
+
+    # ── 実需の手がかり（イベントの内訳と引数の使われ方）──
+    # 「何回叩かれたか」より「一覧を見ただけで去ったか、実際にツールを使ったか」が知りたい
+    events = collections.Counter()
+    for r in rows:
+        if r.get("event"):
+            events[r["event"]] += r["n"]
+    if events:
+        p("■ 何が起きたか（イベント別）")
+        ev_total = sum(events.values())
+        for e, n in events.most_common():
+            label = {"initialize": "接続しただけ", "tools_list": "ツール一覧を見た",
+                     "tool_call": "ツールを実行した"}.get(e, e)
+            p("  %-12s %-18s %6d 件 (%.1f%%)" % (e, label, n, n / ev_total * 100))
+        calls = events.get("tool_call", 0)
+        if ev_total:
+            p("")
+            p("  実行の割合: %.1f%%（tool_call / 全イベント）" % (calls / ev_total * 100))
+            if events.get("initialize"):
+                p("  接続1回あたりの実行: %.2f 回" % (calls / events["initialize"]))
+        p("")
+
+    shapes = collections.Counter()
+    for r in rows:
+        if r.get("event") == "tool_call" and r.get("arg_shape"):
+            shapes[r["arg_shape"]] += r["n"]
+    if shapes:
+        p("■ 引数の使われ方（値は記録していません。形だけ）")
+        for sh, n in shapes.most_common(10):
+            p("  %-40s %6d 件" % (sh, n))
+        detail_on = sum(n for sh, n in shapes.items() if "detail=1" in sh)
+        detail_any = sum(n for sh, n in shapes.items() if "detail=" in sh)
+        if detail_any:
+            p("")
+            p("  detail=true の割合: %.1f%%（detail を持つ呼び出しのうち）"
+              % (detail_on / detail_any * 100))
+        p("")
 
     # ── 日別（レジストリ掲載の前後）──
     by_day = collections.Counter()
