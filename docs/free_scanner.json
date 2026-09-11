@@ -1,6 +1,6 @@
 {
- "target_date": "2026-09-09",
- "generated_at": "2026-09-10T21:33:14+09:00",
+ "target_date": "2026-09-10",
+ "generated_at": "2026-09-11T18:02:44+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,37 +8,37 @@
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -13.23
+   "kairi": -13.87
+  },
+  {
+   "judge": "watch",
+   "code": "3436",
+   "name": "SUMCO",
+   "sector": "半導体",
+   "kairi": -11.29
   },
   {
    "judge": "watch",
    "code": "6728",
    "name": "アルバック",
    "sector": "半導体製造装置",
-   "kairi": -10.97
-  },
-  {
-   "judge": "watch",
-   "code": "6146",
-   "name": "ディスコ",
-   "sector": "半導体製造装置",
-   "kairi": -10.42
+   "kairi": -10.44
   }
  ],
- "asof": "2026-09-10",
+ "asof": "2026-09-11",
  "stale": false,
- "signals_today_date": "2026-09-10",
+ "signals_today_date": "2026-09-11",
  "is_halt": false,
- "signals_today_count": 3,
+ "signals_today_count": 2,
  "signal_of_day": {
-  "scan_date": "2026-09-10",
+  "scan_date": "2026-09-11",
   "strategy": "MOMENTUM",
   "strategy_label": "順張り（ブレイク）",
   "code": "5019",
   "name": "出光興産",
   "sector": "石油",
   "reason": "20日高値ブレイク",
-  "carried_over": false
+  "carried_over": true
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
