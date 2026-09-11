@@ -6,10 +6,24 @@ compatibility_date = "2026-08-01"
 [observability]
 enabled = true
 
-# 任意: 集計用に Analytics Engine を使う場合はコメントを外す(無料枠あり)
-# [[analytics_engine_datasets]]
-# binding = "CALLS"
-# dataset = "ruletrade_mcp_calls"
+# ★呼び出しの内訳（ツール別・クライアント別）を貯めるために有効にする★
+#   （2026-09-11・Fable の集計依頼で必要と分かった）
+#
+#   [observability] の Workers Logs は**保持が数日**しかなく、
+#   9/4〜9/11 の8日間を集計しようとした時点で既に遡れなかった。
+#   さらに読むには API Token に Workers Observability: Read が要る
+#   （wrangler login の OAuth トークンには含まれない）。
+#
+#   Analytics Engine なら保持90日・無料枠 1,000万書き込み/月で、
+#   SQL で「どのツールが・どのクライアントから・何回」を数えられる。
+#   実測 1日あたり約1,100リクエストなので、無料枠に対して桁がいくつも違う。
+#
+#   ※ 貯まるのは**有効にした日から**。過去には遡れない。
+#   server.js の emitLog は env.CALLS があれば書く作りになっているので、
+#   この3行を足すだけで動く（コード変更は要らない）。
+[[analytics_engine_datasets]]
+binding = "CALLS"
+dataset = "ruletrade_mcp_calls"
 
 # 任意の環境変数(ダッシュボードの Settings > Variables でも設定可)
 # [vars]
