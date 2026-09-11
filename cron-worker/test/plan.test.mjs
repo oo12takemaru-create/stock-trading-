@@ -54,14 +54,41 @@ const P = plans();
 const timesIn = (src) => [...src.matchAll(/"(\d{2}:\d{2})":/g)].map((m) => m[1]);
 const filesIn = (src) => [...new Set([...src.matchAll(/"([\w.-]+\.yml)"/g)].map((m) => m[1]))];
 
-test("時刻は :00 か :30 だけ（cron が毎時0分・30分のため）", () => {
+test("時刻は :00 :15 :30 :45 のどれか（cron の刻み）", () => {
   for (const [name, src] of Object.entries(P)) {
     for (const t of timesIn(src)) {
       const mm = t.slice(3);
       assert.ok(
-        mm === "00" || mm === "30",
-        `${name} の ${t} は発火しません（cron は :00 と :30 のみ）`,
+        ["00", "15", "30", "45"].includes(mm),
+        `${name} の ${t} は発火しません（cron の刻みは :00 :15 :30 :45）`,
       );
+    }
+  }
+});
+
+test("PLAN の時刻が **月〜金すべて** で発火する（曜日の取りこぼしを防ぐ）", () => {
+  // 2026-09-11（金）に :15/:45 が1本も発火しなかった事故の再発防止（§23-10）。
+  // 以前は水曜（dow=3）だけで確かめていた。水曜は標準 cron でも Cloudflare の
+  // 曜日番号でも範囲に入るので、**金曜だけ落ちる不具合を検出できなかった**。
+  const DOW = { 月: 1, 火: 2, 水: 3, 木: 4, 金: 5 };
+  for (const [name, src] of Object.entries(P)) {
+    for (const t of timesIn(src)) {
+      for (const [jp, dow] of Object.entries(DOW)) {
+        assert.ok(fires(t, dow), `${name} の ${t} が${jp}曜に発火しません`);
+      }
+    }
+  }
+});
+
+test("ザラ場の15分刻みが **月〜金すべて** で発火する", () => {
+  const DOW = { 月: 1, 火: 2, 水: 3, 木: 4, 金: 5 };
+  for (let h = 9; h <= 16; h++) {
+    for (const mi of [0, 15, 30, 45]) {
+      const key = `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+      if (!inIntraday(key)) continue;
+      for (const [jp, dow] of Object.entries(DOW)) {
+        assert.ok(fires(key, dow), `ザラ場の ${key} が${jp}曜に発火しません`);
+      }
     }
   }
 });
@@ -121,8 +148,13 @@ function crons() {
 function fires(key, dow) {
   const [h, mi] = key.split(":").map(Number);
   const utcH = (h - 9 + 24) % 24;
-  // JST 0:00〜8:59 は前日の UTC。曜日も1つ戻る
-  const utcDow = h < 9 ? (dow + 6) % 7 : dow;
+  // JST 0:00〜8:59 は前日の UTC。曜日も1つ戻る（ここは 0=日曜 の素の番号）
+  const utcDow0 = h < 9 ? (dow + 6) % 7 : dow;
+  // ★Cloudflare の cron は曜日が 1=日曜 〜 7=土曜（Quartz 風）★
+  //   標準 cron（0=日曜）と1つずれる。2026-09-11 に "1-5"（月〜金のつもり）が
+  //   実際には日〜木を指していて、**金曜だけ発火しなかった**（§23-10）。
+  //   ここを素の番号のまま比べていたので、試験は通るのに実機が動かなかった。
+  const cfDow = utcDow0 + 1;
   return crons().some((c) => {
     const [fm, fh, , , fd] = c.split(/\s+/);
     const inField = (field, v) =>
@@ -131,7 +163,7 @@ function fires(key, dow) {
         const r = part.match(/^(\d+)-(\d+)$/);
         return r ? v >= +r[1] && v <= +r[2] : +part === v;
       });
-    return inField(fm, mi) && inField(fh, utcH) && inField(fd, utcDow);
+    return inField(fm, mi) && inField(fh, utcH) && inField(fd, cfDow);
   });
 }
 
