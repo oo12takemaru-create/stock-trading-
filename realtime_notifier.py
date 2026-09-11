@@ -316,7 +316,18 @@ def format_body(new_signals, result):
 # ④ 市場時間ゲート / ログ
 # ============================================================================
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+    """標準出力へ1行。**絵文字で落とさない。**
+
+    CI（Ubuntu）は UTF-8 なのでそのまま出るが、Windows の既定コンソールは
+    cp932 で「⚠」「💰」などを出せず UnicodeEncodeError で**処理ごと止まる**。
+    ログのために本処理が死ぬのは本末転倒なので、出せない文字は落として続ける。
+    """
+    line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        enc = (getattr(sys.stdout, "encoding", None) or "utf-8")
+        print(line.encode(enc, "replace").decode(enc, "replace"), flush=True)
 
 
 def market_open_now(force=False):
@@ -336,26 +347,42 @@ TRAIL_PCT = 10.0  # MOMENTUMトレール幅%(バックテスト検証済み: 8�
 
 
 def load_trades_json(path="trades.json"):
-    """ダッシュボードが同期した trades.json から (保有中, クローズ済み) を返す"""
-    if not path or not os.path.exists(path):
-        return [], []
+    """trades.json から (保有中, クローズ済み, 読めたか) を返す。
+
+    ★第3の戻り値 balance_linked が False のときは「縮退している」★
+    非公開リポジトリの checkout は continue-on-error で続行するので、
+    失敗しても処理は止まらない。**止まらないから気づけない**のが厄介で、
+    実際 2026-09 に GH_PAT が失効したまま初期資金で計算し続けていた。
+    以前はファイルが無いとログすら出さずに空を返していた（§23-11）。
+
+    残高はシグナルの足切り（shares >= 100）に効くので、
+    縮退したまま黙って動かさない。必ず印字し、出力にも残す。
+    """
+    if not path:
+        return [], [], False
+    if not os.path.exists(path):
+        log(f"⚠ 残高連動なし: {path} がありません（初期資金のまま計算します）")
+        return [], [], False
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         trades = data.get("trades", data if isinstance(data, list) else [])
         opens = [t for t in trades if t.get("status") == "OPEN"]
         closed = [t for t in trades if t.get("status") == "CLOSED"]
-        return opens, closed
+        return opens, closed, True
     except Exception as e:
-        log(f"⚠ trades.json 読込失敗: {e}")
-        return [], []
+        log(f"⚠ 残高連動なし: trades.json 読込失敗: {e}（初期資金のまま計算します）")
+        return [], [], False
 
 
 def capital_from_trades(base_capital, path="trades.json"):
-    """残高連動資金 = 初期資金 + 確定損益合計(1%リスクを実残高に追随させる)"""
-    _, closed = load_trades_json(path)
+    """残高連動資金 = 初期資金 + 確定損益合計(1%リスクを実残高に追随させる)
+
+    戻り値: (資金, balance_linked)
+    """
+    _, closed, linked = load_trades_json(path)
     realized = sum(float(t.get("pnl") or 0) for t in closed)
-    return base_capital + realized
+    return base_capital + realized, linked
 
 
 # ============================================================================
@@ -495,9 +522,13 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
         except Exception:
             pass
 
-    opens, closed = load_trades_json(trades_path)
+    opens, closed, balance_linked = load_trades_json(trades_path)
     realized = sum(float(t.get("pnl") or 0) for t in closed)
     capital = base_capital + realized
+    if not balance_linked:
+        # ★縮退を必ず印字する★（§23-11）。保有ポジションも読めていないので、
+        # 逆指値の一覧が空になる。「今日は保有なし」と区別がつかないため明示する。
+        log(f"⚠ 縮退: 残高・保有に連動できていません。初期資金 ¥{capital:,.0f} で計算します")
 
     # 地合い(前日終値ベース)。gdは後段のPHYSICS計器盤でも使う
     regime, vix_now = "UNKNOWN", None
@@ -765,6 +796,7 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
             with open(watchlist_path, "w", encoding="utf-8") as f:
                 json.dump({"updated": now.isoformat(timespec="seconds"),
                            "regime": regime, "capital": capital,
+                           "balance_linked": bool(balance_linked),
                            "gap_max": watch_gap, "items": watch,
                            "market": market},
                           f, ensure_ascii=False)
@@ -785,7 +817,7 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
 # ============================================================================
 # ⑤ 現在値の書き出し(ダッシュボードの prices.json 用)
 # ============================================================================
-def dump_prices(path):
+def dump_prices(path, balance_linked=True):
     """全銘柄の最新値を一括取得して prices.json に書き出す(ダッシュボードの現在値表示用)"""
     tickers = list(ds.STOCKS.keys())
     prices = {}
@@ -808,6 +840,9 @@ def dump_prices(path):
     payload = {
         "updated": datetime.now().isoformat(timespec="seconds"),
         "count": len(prices),
+        # False なら「残高に連動できていない＝初期資金で計算した回」。
+        # free_scanner.json の stale と同じ扱いで、読む側が縮退に気づけるようにする
+        "balance_linked": bool(balance_linked),
         "prices": prices,
     }
     try:
@@ -821,13 +856,14 @@ def dump_prices(path):
 # ============================================================================
 # ⑥ 1サイクル(スキャン → 新規シグナルだけ通知)
 # ============================================================================
-def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None, prices_json=None):
+def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None, prices_json=None,
+             balance_linked=True):
     if not market_open_now(force=force):
         log("市場時間外のためスキップ(--force で強制実行可)")
         return
 
     if prices_json and not dry_run:
-        dump_prices(prices_json)
+        dump_prices(prices_json, balance_linked=balance_linked)
 
     use_csv = bool(log_csv)
     seen = load_seen_csv(log_csv) if use_csv else load_seen_json()
@@ -951,13 +987,21 @@ def main():
     enable_intraday_fetch()
 
     capital = args.capital
+    balance_linked = True
     if args.capital_from_trades:
-        capital = capital_from_trades(args.capital, args.trades_json)
-        log(f"💰 残高連動資金: ¥{capital:,.0f}(初期¥{args.capital:,.0f}+確定損益)")
+        capital, balance_linked = capital_from_trades(args.capital, args.trades_json)
+        if balance_linked:
+            log(f"💰 残高連動資金: ¥{capital:,.0f}(初期¥{args.capital:,.0f}+確定損益)")
+        else:
+            # ★縮退を必ず印字する★（free_scanner.json の stale と同じ扱い）
+            log(f"⚠ 縮退: 残高に連動できていません。初期資金 ¥{capital:,.0f} で計算します。"
+                f"シグナルの足切り(shares>=100)がこの資金で決まるため、"
+                f"本来より少なく出ている可能性があります")
 
     if args.once:
         run_once(capital, args.risk, dry_run=args.dry_run,
-                 force=args.force, log_csv=args.log_csv, prices_json=args.prices_json)
+                 force=args.force, log_csv=args.log_csv, prices_json=args.prices_json,
+                 balance_linked=balance_linked)
     else:
         run_loop(capital, args.risk, args.interval,
                  dry_run=args.dry_run, force=args.force,
