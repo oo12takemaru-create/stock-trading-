@@ -85,3 +85,5 @@ mcp/registry/server.json
 
 # score3_lite の中間データ（週次キャッシュ・計算結果CSV）はコミットしない
 precompute/cache/
+# ヒートマップの日次履歴（月1ファイル・画面は未実装だが先に貯める）
+!docs/heatmap_hist/*.json
