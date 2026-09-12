@@ -124,6 +124,50 @@ PRESET_RULES_WARM = [
 ]
 
 
+# ─────────────────────────────────────────────────────────
+# はじめての方向けの型3本（/rules の「はじめての方はこちら」）
+#
+# ★なぜ温めるか（2026-09-12・Fable 追-6f の代わり）★
+#   初めての人が最初に押すボタンがこれ。冷えていると 1.6〜6.5秒 待つ。
+#   温まっていれば一瞬で返る。**事前計算の仕組みは作らず、温めるだけで済む。**
+#   1晩に3回しか叩かないので、通信量は無視できる（1,260通りは戻さない）。
+#
+# ★ruletrade-app/src/content/starter-types.ts と1つでも違うとキーがズレる。★
+#   ズレても壊れず「速くならないだけ」なので気づかない。
+#   値は**DBの単位**で書くこと（画面の値 × カタログの scale）。
+#   ここの3本は scale が 1 の材料しか使っていないので、そのままの数字でよい。
+#
+# ★地合いは ["BULLISH","NEUTRAL"]★
+#   型を押しても画面の地合い欄は既定のまま（強気・中立）で送られる。
+#   ここを null にすると**当たらない**。CustomRule.tsx の初期値と合わせること。
+STARTER_TYPES_WARM = [
+    {
+        "id": "dip",
+        "conditions": [{"column": "dev_25", "op": "lte", "value": -20}],
+        "exit": {"stop_pct": -8, "take_pct": 10, "calendar_days": 5},
+    },
+    {
+        "id": "momentum",
+        "conditions": [
+            {"column": "vol_ratio_20", "op": "gte", "value": 3},
+            {"column": "high_52w_ratio", "op": "gte", "value": 90},
+        ],
+        "exit": {"stop_pct": -8, "take_pct": None, "calendar_days": 10},
+    },
+    {
+        "id": "breakout",
+        "conditions": [
+            {"column": "high_20_ratio", "op": "gte", "value": 100},
+            {"column": "vol_ratio_20", "op": "gte", "value": 3},
+        ],
+        "exit": {"stop_pct": -10, "take_pct": None, "calendar_days": 20},
+    },
+]
+
+# 型を押したときに画面が送る地合い（CustomRule.tsx の初期値）
+STARTER_REGIMES = ["BULLISH", "NEUTRAL"]
+
+
 class RpcTimeout(RuntimeError):
     pass
 
@@ -272,6 +316,56 @@ def purge_stale_cache(url, key, date_to, dry_run=False):
         return 0
 
 
+def warm_types(url, key, date_to, dry_run=False):
+    """はじめての方向けの型3本を温める。
+
+    ★warm_presets とほぼ同じ形だが、族が違うので分けてある。★
+      規定値は「著者の設定」、型は「一般的な見本」。
+      片方だけ止めたいことがあるので、混ぜない。
+
+    戻り値: (保存した件数, 落ちたもののリスト)
+    """
+    rows = []
+    failed = []
+    for r in STARTER_TYPES_WARM:
+        ex = r["exit"]
+        t1 = time.time()
+        try:
+            trades = call_rpc(
+                url, key, r["conditions"], STARTER_REGIMES, None, date_to,
+                stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
+                calendar_days=ex.get("calendar_days"), ma_revert=None)
+        except Exception as e:
+            failed.append((r["id"], str(e)[:120]))
+            log("  ★型 %s を温められませんでした: %s" % (r["id"], str(e)[:120]))
+            continue
+        trades = apply_no_overlap(trades)
+
+        # ★0件は保存しない★（規定値と同じ理由。空の結果が焼き付く事故を防ぐ）
+        if not trades:
+            failed.append((r["id"], "0件が返った（入力データを疑う）"))
+            log("  ★型 %s が0件でした。保存しません" % r["id"])
+            continue
+
+        p_ = cache_key.normalize(
+            conditions=r["conditions"], hold_days=None,
+            calendar_days=ex.get("calendar_days"), ma_revert=None,
+            stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
+            cost_pct=COST_PCT, regimes=STARTER_REGIMES,
+            date_from=DATE_FROM, date_to=date_to, universe=UNIVERSE)
+        rows.append({
+            "params_hash": cache_key.params_hash(p_),
+            "params": p_,
+            "result": build_payload(trades, DATE_FROM, date_to),
+            "computed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        })
+        log("  型 %s: %d件 / %.1f秒" % (r["id"], len(trades), time.time() - t1))
+
+    if rows and not dry_run:
+        supabase_io.upsert("backtest_cache", rows, "params_hash", log=lambda *_: None)
+    return len(rows), failed
+
+
 def warm_presets(url, key, date_to, dry_run=False):
     """規定値3本を温める。/rules の初回表示がここで決まる。
 
@@ -325,6 +419,8 @@ def parse_args():
     p.add_argument("--env-file", default="")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--limit", type=int, default=0, help="入り口の組み合わせを先頭N件だけ")
+    p.add_argument("--types-only", action="store_true",
+                   help="はじめての方向けの型3本だけ温める（夜間はこれ。1,260通りは回さない）")
     return p.parse_args()
 
 
@@ -344,6 +440,21 @@ def main():
     log("古いキャッシュを掃除します（データ最終日 %s 以外）" % date_to)
     purged = purge_stale_cache(url, key, date_to, args.dry_run)
     log("  %d 件削除" % purged)
+
+    log("はじめての方向けの型3本を温めます（最初に押されるボタン）")
+    type_saved, type_failed = warm_types(url, key, date_to, args.dry_run)
+    log("  型: 保存 %d 件 / 失敗 %d 件" % (type_saved, len(type_failed)))
+
+    # ★夜間はここまで（--types-only）★
+    #   1,260通りの調整域は通信量が大きいので戻さない（2026-09-10 案A のまま）。
+    #   規定値3本も、いまは画面を開いた人が最初の1回で温める。
+    if args.types_only:
+        log("型だけ温めて終わります（%.1f分）" % ((time.time() - t0) / 60))
+        if type_failed:
+            for tid, why in type_failed:
+                log("  ★温められなかった型: %s（%s）" % (tid, why))
+            sys.exit(1)
+        return
 
     log("規定値3本を温めます（/rules の初回表示）")
     preset_saved, preset_failed = warm_presets(url, key, date_to, args.dry_run)

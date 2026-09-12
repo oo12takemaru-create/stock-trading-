@@ -200,6 +200,25 @@ jobs:
       #     set -o pipefail
       #     python precompute/warm_cache.py | tee -a update.log
 
+      # ── 型3本だけは温める（2026-09-12・Fable）──
+      #
+      # なぜ戻したか: 「はじめての方はこちら」の3本は、初めての人が
+      #   最初に押すボタン。冷えていると 1.6〜6.5秒 待つ。温まっていれば一瞬。
+      #   ★1晩に3回しか叩かないので通信量は無視できる★（上の1,260通りとは桁が違う）。
+      #   事前計算の仕組み（追-6f）を作らずに済ませるための手当て。
+      #
+      # 鍵がズレると壊れずに「ただ遅い」だけになる。見張りが2本ある。
+      #   precompute/tests/verify_cache_key.py  … Python と TS の正規化が一致するか
+      #   ruletrade-app: npm run test:warm-hit  … 画面が送る形が実際に当たるか
+      - name: Warm starter types cache
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -o pipefail
+          python precompute/warm_cache.py --types-only | tee -a update.log
+
       - name: Write summary
         if: always()
         run: |
