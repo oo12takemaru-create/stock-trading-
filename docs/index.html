@@ -820,6 +820,61 @@ body{
   </div>
 
   <!-- ========================================= -->
+  <!-- TAB 6: COMPLIANCE (遵守率レポート) -->
+  <!-- ========================================= -->
+  <div class="section" id="section-compliance">
+
+    <div class="card">
+      <div class="card-title">📋 遵守率レポート</div>
+      <div style="font-size:12px;color:#7d8590;line-height:1.7;">
+        「システムが勝てるか」ではなく<strong>「自分がルール通りに執行できているか」</strong>を測ります。<br>
+        バックテストと実運用の差は、たいていシグナルの質ではなく<strong>執行のズレ</strong>から生まれます。
+      </div>
+      <div id="comp-warnings" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- A. 反応率 -->
+    <div class="card">
+      <div class="card-title">🎯 反応率 ― シグナルの日に動けたか</div>
+      <div id="comp-response"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:10px;line-height:1.6;">
+        <strong>消化率(全シグナル中の執行割合)は主指標にしません。</strong>
+        ブレイク日は十数件のシグナルが同時に出るため、同時保有5枠では全件取れないからです。
+        見るべきは「シグナルが出た日のうち、実際に動いた日の割合」です。
+      </p>
+    </div>
+
+    <!-- B. 遵守率 -->
+    <div class="card">
+      <div class="card-title">✅ 遵守率 ― 建てた玉はルール通りか</div>
+      <div id="comp-breakdown"></div>
+    </div>
+
+    <!-- C. 成績比較 -->
+    <div class="card">
+      <div class="card-title">⚖️ 成績比較 ― ルール通りの玉 vs 裁量の玉</div>
+      <div id="comp-perf"></div>
+    </div>
+
+    <!-- E. 違反の内訳 -->
+    <div class="card">
+      <div class="card-title">🔍 違反の内訳</div>
+      <div id="comp-violations"></div>
+      <p style="font-size:11px;color:#7d8590;margin-top:10px;line-height:1.6;">
+        同じ種類の違反が続くなら、<strong>意志ではなく仕組みで直します。</strong>
+        (株数ズレが続く → 発注パネルの株数をそのまま使う、など)
+      </p>
+    </div>
+
+    <!-- D. 見送り -->
+    <div class="card">
+      <div class="card-title">👋 見送ったシグナル</div>
+      <div id="comp-missed"></div>
+    </div>
+
+  </div>
+
+  <!-- ========================================= -->
   <!-- TAB 5: HELP -->
   <!-- ========================================= -->
   <div class="section" id="section-help">
@@ -906,6 +961,9 @@ body{
   </button>
   <button class="tab" onclick="showSection('trades')">
     <span class="tab-icon">💼</span>トレード
+  </button>
+  <button class="tab" onclick="showSection('compliance')">
+    <span class="tab-icon">📋</span>遵守
   </button>
   <button class="tab" onclick="showSection('help')">
     <span class="tab-icon">❓</span>ヘルプ
@@ -1254,6 +1312,8 @@ function render() {
   renderStats();
   renderAccountBalance();  // 🆕 v2.7.5
   if (typeof renderImprovements === 'function') renderImprovements();  // 🆕 改善A〜D
+  // 📋 遵守率レポート(シグナル×トレードの突き合わせ。両方揃ってから描く)
+  try { if (typeof renderCompliance === 'function') renderCompliance(); } catch (e) {}
 }
 
 // 日本語化ヘルパー
@@ -1976,6 +2036,10 @@ function showSection(name) {
       t.classList.add('active');
     }
   });
+  // 📋 遵守タブはトレード記録の編集で内容が変わるため、開くたびに計算し直す
+  if (name === 'compliance') {
+    try { if (typeof renderCompliance === 'function') renderCompliance(); } catch (e) {}
+  }
 }
 
 // ============================================
@@ -3647,7 +3711,15 @@ renderTrades = function() {
 };
 
 // 初期描画
-renderTrades();
+// 🛠 2026-09-05 修正: ここで renderTrades() を直接呼ぶと、まだ宣言に到達していない
+//   currentPrices(改善A〜D)や currentStops(クラウド同期)を priceOf()/stopOf() 経由で
+//   触ってしまい、「Cannot access '...' before initialization」で
+//   **スクリプト全体がこの行で停止**していた。
+//   停止するとこれ以降のトップレベル処理 ― 自動更新(refreshAll/setInterval)、
+//   今日の発注パネル、相場計器盤、レバレッジメーター、遵守率レポート ― が丸ごと動かない。
+//   保有中(OPEN)のトレードが localStorage にある時だけ再現するため気づきにくかった。
+//   スクリプトの解析が最後まで終わってから走らせることで、この種のバグを根本から断つ。
+setTimeout(() => { try { renderTrades(); } catch (e) { console.error('初期描画に失敗', e); } }, 0);
 
 // ============================================
 // 🆕 v2.7.5: TradingView Advanced Chart 埋め込み
@@ -4578,6 +4650,405 @@ function renderImprovements() {
 // ============================================
 // 起動
 // ============================================
+// ============================================================
+// 📋 遵守率レポート (2026-09-05)
+// ------------------------------------------------------------
+// 「システムが勝てるか」ではなく「自分がルール通りに執行できているか」を測る。
+// ロジックは compliance_report.py と同じ定義。片方を変えたらもう片方も直すこと。
+//
+// 数字を誤読しないための3つの仕掛け:
+//   ① 分割約定を1玉に合算する(合算しないと「株数ズレ-71%」等の嘘の違反が出る)
+//   ② トレード記録が及んでいない期間は集計から外す(記録漏れが「見送り」に化けるため)
+//   ③ サンプルが少ない区分は PF を断定しない
+// ============================================================
+
+const COMP_MATCH_WINDOW_DAYS = 5;    // シグナル発生から何日後までの約定を「執行」とみなすか
+const COMP_SHARES_TOL = 0.25;        // 株数の許容ズレ ±25%
+const COMP_ENTRY_TOL = 0.03;         // 取得単価の許容ズレ ±3%
+const COMP_STOP_TOL = 0.03;          // 損切りラインからさらに何%深いと「遅れ」か
+const COMP_MIN_SAMPLE = 10;          // これ未満は勝率・PF を断定しない
+const COMP_EXCLUDE = ['7203.T'];     // 集計対象外(戒め玉)
+
+const COMP_NON_SIGNAL = ['(no signal)', '(all duplicate)', '(halt)', ''];
+
+function compDate(v) {
+  if (!v) return null;
+  const s = String(v).trim().split('T')[0];
+  if (!s) return null;
+  const p = s.replace(/\//g, '-').split('-').map(Number);
+  if (p.length !== 3 || p.some(isNaN)) return null;
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+}
+function compDays(a, b) { return Math.round((a - b) / 86400000); }
+function compYmd(d) {
+  if (!d) return '';
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0')
+       + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+function compNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = parseFloat(v);
+  return isFinite(n) ? n : null;
+}
+
+// --- シグナル抽出(スキャン記録行を除き、同日同銘柄は1件に畳む) ---
+function compSignals() {
+  const out = [];
+  (allSignals || []).forEach(r => {
+    const strat = (r.strategy || '').trim();
+    const ticker = (r.ticker || '').trim();
+    if (COMP_NON_SIGNAL.indexOf(strat) >= 0 || !ticker) return;
+    const d = compDate(r.scan_date) || compDate(r.scan_timestamp);
+    if (!d) return;
+    out.push({
+      date: d, ticker, strategy: strat,
+      name: (r.name || '').trim(),
+      entry_price: compNum(r.entry_price),
+      stop_price: compNum(r.stop_price),
+      shares: compNum(r.shares),
+    });
+  });
+  const seen = {}, dedup = [];
+  out.sort((a, b) => a.date - b.date);
+  out.forEach(s => {
+    const k = compYmd(s.date) + '|' + s.ticker + '|' + s.strategy;
+    if (seen[k]) return;      // 朝/昼/夕の重複は最初のスロットを代表にする
+    seen[k] = 1; dedup.push(s);
+  });
+  return dedup;
+}
+
+// --- ① 分割約定の合算 ---
+function compMergeFills(trades) {
+  const groups = {}, singles = [];
+  trades.forEach(t => {
+    if (!t.entry_date) { singles.push(t); return; }   // 日付が無いものは誤結合を避けて合算しない
+    const k = [t.ticker, compYmd(t.entry_date), compYmd(t.exit_date), t.status].join('|');
+    (groups[k] = groups[k] || []).push(t);
+  });
+  const merged = [];
+  Object.keys(groups).forEach(k => {
+    const g = groups[k];
+    if (g.length === 1) { merged.push(g[0]); return; }
+    const totalSh = g.reduce((s, x) => s + (x.shares || 0), 0);
+    const base = Object.assign({}, g[0]);
+    base.shares = totalSh || null;
+    if (totalSh) {
+      base.entry_price = g.reduce((s, x) => s + (x.entry_price || 0) * (x.shares || 0), 0) / totalSh;
+      if (g.every(x => x.exit_price != null)) {
+        base.exit_price = g.reduce((s, x) => s + x.exit_price * (x.shares || 0), 0) / totalSh;
+      }
+    }
+    const pnls = g.filter(x => x.pnl != null);
+    base.pnl = pnls.length ? pnls.reduce((s, x) => s + x.pnl, 0) : null;
+    base.fills = g.length;
+    merged.push(base);
+  });
+  return merged.concat(singles);
+}
+
+function compTrades() {
+  return loadTrades()
+    .filter(t => COMP_EXCLUDE.indexOf((t.ticker || '').trim()) < 0)
+    .map(t => ({
+      ticker: (t.ticker || '').trim(),
+      name: (t.name || '').trim(),
+      shares: compNum(t.shares),
+      entry_price: compNum(t.entry_price),
+      entry_date: compDate(t.entry_date),
+      exit_date: compDate(t.exit_date),
+      exit_price: compNum(t.exit_price),
+      pnl: compNum(t.pnl),
+      status: (t.status || '').trim(),
+      strategy: (t.strategy || '').trim(),
+      fills: 1,
+    }));
+}
+
+// --- 判定 ---
+function compJudge(t) {
+  const s = t.signal;
+  if (!s) {
+    if (!t.entry_date) return { v: ['エントリー日が記録されておらず判定不能'], verdict: 'unknown' };
+    return { v: ['対応するシグナルが無い(裁量エントリー)'], verdict: 'discretionary' };
+  }
+  const v = [];
+  if (s.shares && t.shares) {
+    const d = (t.shares - s.shares) / s.shares;
+    if (Math.abs(d) > COMP_SHARES_TOL) {
+      v.push(`株数ズレ ${d > 0 ? '+' : ''}${Math.round(d * 100)}%（指示${s.shares}株 → 実際${t.shares}株）`);
+    }
+  }
+  if (s.entry_price && t.entry_price) {
+    const d = (t.entry_price - s.entry_price) / s.entry_price;
+    if (Math.abs(d) > COMP_ENTRY_TOL) {
+      v.push(`取得単価ズレ ${d > 0 ? '+' : ''}${(d * 100).toFixed(1)}%（指示¥${Math.round(s.entry_price).toLocaleString()} → 実際¥${Math.round(t.entry_price).toLocaleString()}）`);
+    }
+  }
+  if (t.status === 'CLOSED' && s.stop_price && t.exit_price) {
+    if (t.exit_price < s.stop_price * (1 - COMP_STOP_TOL)) {
+      const over = (s.stop_price - t.exit_price) / s.stop_price * 100;
+      v.push(`損切り遅れ ラインより${over.toFixed(1)}%深い（¥${Math.round(s.stop_price).toLocaleString()} → 決済¥${Math.round(t.exit_price).toLocaleString()}）`);
+    }
+  }
+  return { v, verdict: v.length ? 'violated' : 'compliant' };
+}
+
+function compPerf(list) {
+  const closed = list.filter(t => t.status === 'CLOSED' && t.pnl != null);
+  if (!closed.length) return { n: 0, win: null, pf: null, pnl: 0, reliable: false };
+  const wins = closed.filter(t => t.pnl > 0).map(t => t.pnl);
+  const lossSum = Math.abs(closed.filter(t => t.pnl <= 0).reduce((s, t) => s + t.pnl, 0));
+  const winSum = wins.reduce((s, x) => s + x, 0);
+  return {
+    n: closed.length,
+    win: wins.length / closed.length * 100,
+    pf: lossSum > 0 ? winSum / lossSum : null,
+    pnl: closed.reduce((s, t) => s + t.pnl, 0),
+    reliable: closed.length >= COMP_MIN_SAMPLE,
+  };
+}
+
+function computeCompliance() {
+  const warnings = [];
+  let signals = compSignals();
+  let trades = compMergeFills(compTrades());
+
+  const nMerged = trades.filter(t => (t.fills || 1) > 1).length;
+  if (nMerged) warnings.push(`分割約定を ${nMerged} 件、1玉に合算しました（合算しないと株数ズレの誤判定が出ます）`);
+
+  // ② 期間の整合: トレード記録が及んでいない期間を「見送り」と数えない
+  const dated = trades.map(t => t.entry_date).filter(Boolean);
+  if (dated.length && signals.length) {
+    const tLast = new Date(Math.max.apply(null, dated));
+    const sLast = signals[signals.length - 1].date;
+    if (compDays(sLast, tLast) > 7) {
+      warnings.push(`トレード記録は ${compYmd(tLast)} まで、シグナルは ${compYmd(sLast)} まであります。記録の無い期間を「見送り」と数えないため、集計上限を ${compYmd(tLast)} に切り下げました。`);
+      signals = signals.filter(s => s.date <= tLast);
+    }
+  }
+  if (!signals.length) {
+    return { empty: true, warnings, signals: { total: 0 } };
+  }
+  // シグナルログが始まる前のトレードを「シグナル無し=裁量」と決めつけない。
+  // ログが無い期間は、そもそも遵守を判定できない。
+  const sFirst = signals[0].date, sLast = signals[signals.length - 1].date;
+  const nBefore = trades.filter(t => t.entry_date && t.entry_date < sFirst).length;
+  if (nBefore) {
+    warnings.push(`シグナルログが始まる ${compYmd(sFirst)} より前のトレード ${nBefore} 件は、突き合わせる相手が無いため集計から外しました。`);
+  }
+  trades = trades.filter(t => !t.entry_date || (t.entry_date >= sFirst && t.entry_date <= sLast));
+
+  // マッチング: ticker + 日付の近さ。1シグナルに1玉だけを割り当てる。
+  const byTicker = {};
+  signals.forEach(s => { (byTicker[s.ticker] = byTicker[s.ticker] || []).push(s); });
+  const used = {};
+  trades.filter(t => t.entry_date).sort((a, b) => a.entry_date - b.entry_date).forEach(t => {
+    const cands = (byTicker[t.ticker] || []).map(s => {
+      const key = compYmd(s.date) + '|' + s.ticker + '|' + s.strategy;
+      const gap = compDays(t.entry_date, s.date);
+      return { gap, s, key };
+    }).filter(c => !used[c.key] && c.gap >= 0 && c.gap <= COMP_MATCH_WINDOW_DAYS);
+    if (!cands.length) return;
+    cands.sort((a, b) => a.gap - b.gap);
+    used[cands[0].key] = 1;
+    t.signal = cands[0].s;
+  });
+  signals.forEach(s => {
+    s.executed = !!used[compYmd(s.date) + '|' + s.ticker + '|' + s.strategy];
+  });
+
+  trades.forEach(t => { const r = compJudge(t); t.violations = r.v; t.verdict = r.verdict; });
+
+  const compliant = trades.filter(t => t.verdict === 'compliant');
+  const violated = trades.filter(t => t.verdict === 'violated');
+  const discretionary = trades.filter(t => t.verdict === 'discretionary');
+  const unknown = trades.filter(t => t.verdict === 'unknown');
+  const judged = compliant.length + violated.length + discretionary.length;
+  if (unknown.length) {
+    warnings.push(`${unknown.length} 件はエントリー日が記録されておらず判定できません（記録時に日付を残すと測れるようになります）`);
+  }
+
+  // ★主指標: シグナルが出た日のうち、実際に動いた日の割合
+  const sigDays = Array.from(new Set(signals.map(s => compYmd(s.date)))).sort();
+  const entryDays = trades.map(t => t.entry_date).filter(Boolean);
+  const reacted = sigDays.filter(ds => {
+    const d = compDate(ds);
+    return entryDays.some(e => { const g = compDays(e, d); return g >= 0 && g <= COMP_MATCH_WINDOW_DAYS; });
+  });
+
+  // ★ 反応率は「エントリー日が記録されている玉」からしか作れない。
+  //   買付日の無い玉が多いと、実際は動いていた日を数え落として**不当に低く出る**。
+  //   規律が落ちたように見えてしまうので、必ず信頼度を添える。
+  const nDated = trades.filter(t => t.entry_date).length;
+  const respReliable = trades.length ? (nDated / trades.length) >= 0.8 : true;
+  if (!respReliable) {
+    warnings.push(`買付日が記録されている玉は ${nDated}/${trades.length} 件しかありません。**反応率はこの分だけ低く出ます**（動いた日を数え落とすため）。規律が落ちたのではなく、記録の欠落です。`);
+  }
+
+  const executed = signals.filter(s => s.executed).length;
+  const byStrat = {};
+  signals.forEach(s => {
+    const a = byStrat[s.strategy] = byStrat[s.strategy] || { total: 0, executed: 0 };
+    a.total++; if (s.executed) a.executed++;
+  });
+
+  return {
+    empty: false, warnings,
+    period: { from: compYmd(sFirst), to: compYmd(sLast) },
+    response: {
+      signalDays: sigDays.length, reactedDays: reacted.length,
+      rate: sigDays.length ? reacted.length / sigDays.length * 100 : null,
+      dated: nDated, total: trades.length, reliable: respReliable,
+    },
+    signals: { total: signals.length, executed, missed: signals.length - executed,
+               fillRate: signals.length ? executed / signals.length * 100 : null },
+    counts: { total: trades.length, compliant: compliant.length, violated: violated.length,
+              discretionary: discretionary.length, unknown: unknown.length, judged,
+              rate: judged ? compliant.length / judged * 100 : null,
+              reliable: judged >= COMP_MIN_SAMPLE },
+    perf: { compliant: compPerf(compliant), violated: compPerf(violated),
+            discretionary: compPerf(discretionary), all: compPerf(trades) },
+    violations: violated.sort((a, b) => b.entry_date - a.entry_date),
+    missed: signals.filter(s => !s.executed).reverse(),
+    byStrategy: byStrat,
+  };
+}
+
+// --- 描画 ---
+function compBar(pct, color) {
+  const p = (pct == null) ? 0 : Math.max(0, Math.min(100, pct));
+  return `<div style="height:10px;background:#0f1d33;border-radius:6px;overflow:hidden;border:1px solid var(--navy-line-soft,#243b5e);">
+    <div style="height:100%;width:${p}%;background:${color};border-radius:6px;"></div></div>`;
+}
+function compPct(v) { return v == null ? '--' : v.toFixed(1) + '%'; }
+function compYen(v) {
+  if (v == null) return '--';
+  return (v >= 0 ? '+' : '−') + '¥' + Math.abs(Math.round(v)).toLocaleString();
+}
+
+function renderCompliance() {
+  const elW = document.getElementById('comp-warnings');
+  if (!elW) return;   // このタブが無いビルドでは何もしない
+  const R = computeCompliance();
+
+  elW.innerHTML = (R.warnings && R.warnings.length)
+    ? `<div style="font-size:11.5px;color:#9fb2cc;background:#0f1d33;border:1px solid var(--navy-line-soft,#243b5e);border-radius:8px;padding:10px 12px;line-height:1.7;">
+         <strong style="color:#d29922;">前提</strong><br>${R.warnings.map(w => '・' + escapeHtml(w)).join('<br>')}
+       </div>` : '';
+
+  if (R.empty) {
+    const msg = `<p style="font-size:12.5px;color:#7d8590;line-height:1.7;">
+      まだ突き合わせられるデータがありません。<br>
+      シグナルが配信され、トレード記録に<strong>エントリー日</strong>が入ると集計が始まります。</p>`;
+    ['comp-response', 'comp-breakdown', 'comp-perf', 'comp-violations', 'comp-missed']
+      .forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = msg; });
+    return;
+  }
+
+  // A. 反応率
+  const r = R.response;
+  const rColor = r.rate >= 70 ? '#3fb950' : (r.rate >= 40 ? '#d29922' : '#f85149');
+  document.getElementById('comp-response').innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;">
+      <div style="font-size:32px;font-weight:800;color:${rColor};line-height:1;">${compPct(r.rate)}</div>
+      <div style="font-size:12px;color:#9fb2cc;">シグナルが出た ${r.signalDays} 日のうち ${r.reactedDays} 日で発注</div>
+    </div>
+    ${compBar(r.rate, rColor)}
+    ${r.reliable === false ? `<div style="margin-top:10px;padding:9px 11px;background:#3d2b00;border:1px solid #9e6a03;border-radius:8px;font-size:11.5px;color:#e3b341;line-height:1.7;">
+      ⚠ 買付日が記録されている玉は ${r.dated}/${r.total} 件。動いた日を数え落としているため、<strong>この数字は実際より低く出ています</strong>。規律の問題ではありません。
+    </div>` : ''}
+    <div style="margin-top:12px;font-size:11.5px;color:#6e7681;">
+      対象期間 ${R.period.from} 〜 ${R.period.to}<br>
+      （参考）消化率 ${R.signals.executed}/${R.signals.total} 件 = ${compPct(R.signals.fillRate)}
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:#9fb2cc;">
+      戦略別の消化率（参考）:<br>
+      ${Object.keys(R.byStrategy).sort().map(k => {
+        const a = R.byStrategy[k];
+        return `　${escapeHtml(k)} ${a.executed}/${a.total}　${compPct(a.total ? a.executed / a.total * 100 : null)}`;
+      }).join('<br>')}
+    </div>`;
+
+  // B. 遵守率
+  const c = R.counts;
+  const cColor = c.rate >= 70 ? '#3fb950' : (c.rate >= 40 ? '#d29922' : '#f85149');
+  document.getElementById('comp-breakdown').innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;">
+      <div style="font-size:32px;font-weight:800;color:${cColor};line-height:1;">${compPct(c.rate)}</div>
+      <div style="font-size:12px;color:#9fb2cc;">判定できた ${c.judged} 件のうち ${c.compliant} 件がルール通り</div>
+    </div>
+    ${compBar(c.rate, cColor)}
+    ${c.reliable ? '' : `<div style="margin-top:8px;font-size:11.5px;color:#d29922;">※判定できた玉が ${c.judged} 件と少なく、参考値です。</div>`}
+    <div class="stats-grid" style="margin-top:14px;">
+      <div class="stat-box"><div class="stat-label">ルール通り</div><div class="stat-value" style="color:#3fb950;">${c.compliant}</div></div>
+      <div class="stat-box"><div class="stat-label">ルール違反</div><div class="stat-value" style="color:#f85149;">${c.violated}</div></div>
+      <div class="stat-box"><div class="stat-label">裁量エントリー</div><div class="stat-value" style="color:#d29922;">${c.discretionary}</div></div>
+      <div class="stat-box"><div class="stat-label">判定不能</div><div class="stat-value" style="color:#6e7681;">${c.unknown}</div></div>
+    </div>`;
+
+  // C. 成績比較
+  const rows = [
+    ['ルール通り', R.perf.compliant, '#3fb950'],
+    ['ルール違反', R.perf.violated, '#f85149'],
+    ['裁量', R.perf.discretionary, '#d29922'],
+    ['期間内の全玉', R.perf.all, '#9fb2cc'],
+  ];
+  const _labels = { compliant: 'ルール通り', violated: 'ルール違反', discretionary: '裁量' };
+  const weakLabels = ['compliant', 'violated', 'discretionary']
+    .filter(k => !R.perf[k].reliable).map(k => _labels[k]);
+  const anyUnreliable = weakLabels.length > 0;
+  // スマホ(375px)でも損益列まで収まるよう、字送りと余白を詰める
+  document.getElementById('comp-perf').innerHTML = `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:290px;">
+      <thead><tr style="color:#7d8590;font-size:10.5px;text-align:right;">
+        <th style="text-align:left;padding:6px 2px;">区分</th><th style="padding:6px 2px;">件数</th>
+        <th style="padding:6px 2px;">勝率</th><th style="padding:6px 2px;">PF</th>
+        <th style="padding:6px 2px;">損益</th></tr></thead>
+      <tbody>${rows.map(([label, v, col]) => `
+        <tr style="border-top:1px solid var(--navy-line-soft,#243b5e);text-align:right;">
+          <td style="text-align:left;padding:8px 2px;color:${col};font-weight:600;white-space:nowrap;">${label}</td>
+          <td style="padding:8px 2px;">${v.n}${v.reliable ? '' : '<span style="color:#6e7681;font-size:10px;">※</span>'}</td>
+          <td style="padding:8px 2px;">${compPct(v.win)}</td>
+          <td style="padding:8px 2px;">${v.pf == null ? '--' : v.pf.toFixed(2)}</td>
+          <td style="padding:8px 2px;color:${v.pnl >= 0 ? '#3fb950' : '#f85149'};white-space:nowrap;">${compYen(v.pnl)}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+    ${anyUnreliable ? `<div style="margin-top:12px;padding:10px 12px;background:#3d2b00;border:1px solid #9e6a03;border-radius:8px;font-size:11.5px;color:#e3b341;line-height:1.7;">
+      ⚠ 「${weakLabels.join('」「')}」は ${COMP_MIN_SAMPLE} 件に届いていません（※印）。<br>
+      この区分の勝率・PF は偶然に振り回されるので、結論の根拠にしないでください。
+    </div>` : ''}`;
+
+  // E. 違反の内訳
+  const vEl = document.getElementById('comp-violations');
+  vEl.innerHTML = R.violations.length ? R.violations.map(t => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--navy-line-soft,#243b5e);">
+      <div style="font-size:12.5px;font-weight:600;">
+        ${compYmd(t.entry_date)}　${escapeHtml(t.ticker)}　${escapeHtml(t.name || '')}
+        ${(t.fills || 1) > 1 ? `<span style="color:#6e7681;font-size:11px;font-weight:400;">（${t.fills}約定を合算）</span>` : ''}
+      </div>
+      ${t.violations.map(m => `<div style="font-size:11.5px;color:#f0883e;margin-top:4px;">・${escapeHtml(m)}</div>`).join('')}
+    </div>`).join('')
+    : '<p style="font-size:12.5px;color:#3fb950;">違反はありません。</p>';
+
+  // D. 見送り
+  const mEl = document.getElementById('comp-missed');
+  const missed = R.missed.slice(0, 20);
+  mEl.innerHTML = missed.length ? `
+    <div style="font-size:11.5px;color:#7d8590;margin-bottom:8px;">直近20件 / 全${R.missed.length}件</div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:340px;">
+      ${missed.map(s => `<tr style="border-top:1px solid var(--navy-line-soft,#243b5e);">
+        <td style="padding:6px 4px;color:#7d8590;white-space:nowrap;">${compYmd(s.date)}</td>
+        <td style="padding:6px 4px;">${escapeHtml(s.ticker)}</td>
+        <td style="padding:6px 4px;">${escapeHtml((s.name || '').slice(0, 14))}</td>
+        <td style="padding:6px 4px;color:#7d8590;">${escapeHtml(s.strategy)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap;">${s.entry_price ? '¥' + Math.round(s.entry_price).toLocaleString() : '--'}</td>
+      </tr>`).join('')}
+    </table></div>`
+    : '<p style="font-size:12.5px;color:#7d8590;">見送ったシグナルはありません。</p>';
+}
+
 let _bootDone = false;
 async function refreshAll() {
   // 🔧 シグナル本体を最優先・独立で読む(現在値/逆指値の取得失敗に巻き込まれない)
