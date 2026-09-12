@@ -743,6 +743,131 @@ def check_bnf_signal(df, sector, regime):
 # MOMENTUM シグナル検出
 # ============================================================================
 
+# ============================================================
+# ★相場フィルタ用: 売りシグナル本数のカウント (2026-09-12 追加)
+# ------------------------------------------------------------
+# 「BEARISH/PANIC の日に 20日安値ブレイクが1本でも点灯していたら新規買いを見送る」
+# という相場フィルタを10年検証したところ、最大DDが -37.3% → -18.9% と半減した
+# (相場フィルタ検証/判定_相場フィルタ_2026-09-12.md)。
+#
+# ただし本番では **まだ判定には使わない**。まず本数を数えて配信・表示し、
+# フォワードで1四半期観察してから、フィルタとして効かせるかを決める。
+# → この関数は「数えるだけ」。買いシグナルの採否には一切影響しない。
+#
+# 定義は 空売り検証/backtest_short_v1.py の momentum_short_mask(use_new_low=False)
+# を1日分に写したもの。買い側 MOMENTUM の鏡写しになっている:
+#   MA200/MA50 の上→下 / 20日高値更新→20日安値更新 / 出来高1.5倍は同じ
+#   5日+12%・前日+8% の過熱除外 → 符号反転
+#   S&P500 前日-1%・3日-3% で停止 → 前日+1%・3日+3% で停止(踏み上げ回避)
+#
+# ⚠ **定義がズレると観察値が検証と対応しなくなる**。片方を直したらもう片方も直すこと。
+#   乱数株価2,400日で検証コードと判定が100%一致することを確認済み(2026-09-12)。
+#
+# ⚠ ユニバースに1銘柄の差がある:
+#     検証側(エンジン JAPAN_STOCKS) = 341銘柄(4592 サンバイオを含む)
+#     本番側(このファイルの STOCKS) = 340銘柄(サンバイオは2026-06-27に恒久除外)
+#   本数は本番ユニバース340銘柄で数える(実際に運用する対象と揃えるため)。
+#   その結果、観察値は検証値よりわずかに小さく出る可能性がある。
+#   フィルタを実際に効かせる判断をする前に、340銘柄で検証を回し直して確かめること。
+# ============================================================
+
+def sp500_changes(global_data):
+    """S&P500 の前日変化率 / 3日変化率を返す。取得できなければ (0.0, 0.0)。
+
+    買い側の米国フィルタと、売りシグナル本数のカウントで**同じ値を使う**ために
+    共通化した(元は scan() 内にインラインで書かれていた処理をそのまま切り出したもの)。
+    """
+    ch1 = ch3 = 0.0
+    try:
+        sp500 = global_data.get("^GSPC") if global_data else None
+        if sp500 is not None and len(sp500) >= 4:
+            sp_today = float(sp500["Close"].iloc[-1])
+            sp_yesterday = float(sp500["Close"].iloc[-2])
+            sp_3d_ago = float(sp500["Close"].iloc[-4])
+            if sp_yesterday > 0:
+                ch1 = (sp_today / sp_yesterday - 1) * 100
+            if sp_3d_ago > 0:
+                ch3 = (sp_today / sp_3d_ago - 1) * 100
+    except Exception:
+        pass
+    return ch1, ch3
+
+
+SHORT_SIG_BREAK_MARGIN = 0.001     # 20日安値を0.1%以上明確に割る
+SHORT_SIG_VOL_MULT = 1.5           # 出来高20日平均の1.5倍
+SHORT_SIG_OVERHEAT_5D = -12.0      # 5日で-12%超の下落は過熱として除外
+SHORT_SIG_OVERHEAT_1D = -8.0       # 前日比-8%超の下落は過熱として除外
+SHORT_SIG_PRICE_REG_DROP = -10.0   # 価格規制の再現(前日比-10%以下は対象外)
+SHORT_SIG_MIN_TURNOVER = 5e8       # 20日平均売買代金 5億円未満は除外
+
+
+def is_short_signal(df, sp500_change_1d=0.0, sp500_change_3d=0.0):
+    """最新の足が「売りシグナル(20日安値ブレイク)」かを返す。
+
+    相場フィルタの本数カウント専用。**買いシグナルの判定には使わない**。
+    df は prepare_indicators() を通したもの(MA50/MA200/Vol20 を使う)。
+    """
+    if df is None or len(df) < 200:
+        return False
+
+    # 米国が急騰した翌日は売り方が踏まれるので対象外(買い側フィルタの符号反転)
+    if sp500_change_1d > 1.0:
+        return False
+    if sp500_change_3d > 3.0:
+        return False
+
+    idx = len(df) - 1
+    try:
+        close = float(df["Close"].iloc[idx])
+        low = float(df["Low"].iloc[idx])
+        vol = float(df["Volume"].iloc[idx])
+    except Exception:
+        return False
+    ma50 = df["MA50"].iloc[idx]
+    ma200 = df["MA200"].iloc[idx]
+    vol20 = df["Vol20"].iloc[idx]
+    if pd.isna(ma50) or pd.isna(ma200) or pd.isna(vol20) or vol20 <= 0:
+        return False
+
+    # 下降トレンド(買い側の「MA50/MA200の上」の鏡)
+    if close > ma200 or close > ma50:
+        return False
+
+    # 当日を除く過去20日の安値(買い側 High[idx-20:idx].max() の鏡)
+    low20 = df["Low"].iloc[max(0, idx - 20):idx].min()
+    if pd.isna(low20) or low20 == 0:
+        return False
+    if low > low20 * (1 - SHORT_SIG_BREAK_MARGIN):
+        return False
+
+    # 出来高
+    if vol < vol20 * SHORT_SIG_VOL_MULT:
+        return False
+
+    # 下げ過熱の除外(買い側の上げ過熱除外の鏡)
+    if idx >= 5:
+        c5 = float(df["Close"].iloc[idx - 5])
+        if c5 > 0:
+            ret5 = (close / c5 - 1) * 100
+            if ret5 < SHORT_SIG_OVERHEAT_5D:
+                return False
+    if idx >= 1:
+        c1 = float(df["Close"].iloc[idx - 1])
+        if c1 > 0:
+            ret1 = (close / c1 - 1) * 100
+            if ret1 < SHORT_SIG_OVERHEAT_1D:
+                return False
+            if ret1 <= SHORT_SIG_PRICE_REG_DROP:
+                return False
+
+    # 流動性
+    turn20 = (df["Close"] * df["Volume"]).rolling(20).mean().iloc[idx]
+    if pd.isna(turn20) or turn20 < SHORT_SIG_MIN_TURNOVER:
+        return False
+
+    return True
+
+
 def check_momentum_signal(df, sp500_change_1d=0.0, sp500_change_3d=0.0):
     """MOMENTUM シグナル検出 (v2.8.0: 米国フィルタ + ボラ過熱フィルタ強化)"""
     if len(df) < 200:
@@ -1056,20 +1181,7 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None):
         pass
 
     # ★v2.8.0: 米国市場(S&P500)の前日変化率 / 3日変化率(MOMENTUM フィルタ用)
-    sp500_change_1d = 0.0
-    sp500_change_3d = 0.0
-    try:
-        sp500 = global_data.get("^GSPC")
-        if sp500 is not None and len(sp500) >= 4:
-            sp_today = float(sp500["Close"].iloc[-1])
-            sp_yesterday = float(sp500["Close"].iloc[-2])
-            sp_3d_ago = float(sp500["Close"].iloc[-4])
-            if sp_yesterday > 0:
-                sp500_change_1d = (sp_today / sp_yesterday - 1) * 100
-            if sp_3d_ago > 0:
-                sp500_change_3d = (sp_today / sp_3d_ago - 1) * 100
-    except Exception:
-        pass
+    sp500_change_1d, sp500_change_3d = sp500_changes(global_data)
 
     # 各銘柄スキャン
     signals = []
