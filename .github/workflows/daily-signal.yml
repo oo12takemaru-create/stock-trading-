@@ -9,24 +9,7 @@ on:
   schedule:
     - cron: '0 23 * * 0-4'   # 朝 08:00 JST(月〜金)
     - cron: '0 3 * * 1-5'    # 昼 12:00 JST(月〜金)
-    # ★3時間前倒し（2026-09-09 Fable 相談⑧）。狙いは JST 18:00
-    - cron: '0 6 * * 1-5'    # 夕 18:00 JST(月〜金)
-    - cron: '30 10 * * 1-5'  # 予備: 夕方の本命(18:00 JST)の90分後(JST 19:30)。夕の回が起動しなかった日の保険
-  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
-  # 既存の schedule / workflow_dispatch はそのまま残す
-  workflow_call:
-    inputs:
-      backup:
-        # ★予備の回かどうかを呼び出し元から渡す★
-        #   呼ばれる側の github.event_name は**呼び出し元のイベント**になるため、
-        #   下のガードは workflow_call だと常に「手動実行」に倒れ、
-        #   予備の回でも Issue を立ててしまう（二重通知）。
-        #   REST API 経由の workflow_dispatch では入力が文字列で届くので
-        #   boolean ではなく string にし、'true' で比べる。
-        description: '予備の回なら true（人に届く Issue を出さない）'
-        required: false
-        default: 'false'
-        type: string
+    - cron: '0 9 * * 1-5'    # 夕 18:00 JST(月〜金)
   workflow_dispatch:          # 手動実行も可能
     inputs:
       capital:
@@ -63,61 +46,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ★予備実行の冪等ガード（指示書 §14-2 / 引継ぎ.md §19「発見 2026-09-09」）
-      #   本命 cron は起動しないことがある（2026-09-05 に実際に起きた）。
-      #   その保険として予備 cron を置いているが、本命が動いた日に二重で走らせる
-      #   必要はない。**当日ぶんが既にあるならここで打ち切る**。
-      #   手動実行（workflow_dispatch）は意図的な再実行なのでスキップしない。
-      - name: Skip if already fresh (予備実行のみ)
-        id: guard
-        run: |
-          # ★このワークフローは朝(8:00)・昼(12:00)・夕(18:00)の1日3回動くのが正常。
-          #   鮮度で判定してよいのは**予備の回だけ**。朝や昼の回でスキップすると
-          #   本来の3回運用が壊れる（当日ぶんは朝の時点で既にあるため）。
-          #
-          # ★判定は「実行時刻」ではなく「どの cron で起動したか」で行う★
-          #   以前は UTC 10〜13時台を予備とみなしていたが、schedule は常時
-          #   2〜5時間遅れる（2026-09-09 に19本すべてで観測）。本命の夕を
-          #   UTC 06:00 に前倒しすると、4時間遅れれば UTC 10時台に起動し、
-          #   **本命が予備と誤判定されて朝の記録を見てスキップされる**。
-          #   github.event.schedule なら起動元の cron 式がそのまま入るので、
-          #   どれだけ遅れても取り違えない。
-          SCHEDULE='${{ github.event.schedule }}'
-          # ★パイプラインの予備起動（backup=true）はここで拾う★
-          #   event_name では workflow_call を見分けられない（呼び出し元の
-          #   イベントが入る）ので、入力で明示する。
-          #   データは作るが Issue は出さない＝予備 cron と同じ扱い。
-          if [ "${{ inputs.backup }}" = "true" ]; then
-            echo "パイプラインの予備起動です。Issue は出しません"
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "is_backup=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "手動実行なのでスキップ判定をしません"
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "is_backup=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if [ "$SCHEDULE" != "30 10 * * 1-5" ]; then
-            echo "本命の回（朝/昼/夕）なので必ず実行します（cron: $SCHEDULE）"
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "is_backup=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          # ここから先は予備の回。人に届くもの（Issue）は出さない。
-          echo "予備の回です（cron: $SCHEDULE）"
-          echo "is_backup=true" >> $GITHUB_OUTPUT
-          if python check_freshness.py --target signals_log; then
-            echo "当日ぶんは取得済み。以降のステップを飛ばします"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "未取得または古いので実行します"
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Determine time slot (朝/昼/夕)
-        if: steps.guard.outputs.skip != 'true'
         id: slot
         run: |
           JST_HOUR=$(TZ='Asia/Tokyo' date +%H)
@@ -137,7 +66,6 @@ jobs:
       # ★2026-07-22: v2.7系→v2.8.0へ差し替え(341銘柄・サンバイオ除外・ナイフガード・
       #   セクター別リスク調整)。CLIは完全互換。ザラ場通知/朝ダイジェストと同一ロジックに統一。
       - name: Run Daily Scanner v2.8.1(新高値型フィルタ)
-        if: steps.guard.outputs.skip != 'true'
         env:
           CAPITAL: ${{ github.event.inputs.capital || '1000000' }}
           RISK:    ${{ github.event.inputs.risk || '1.0' }}
@@ -149,7 +77,6 @@ jobs:
             --json-output signal.json
 
       - name: Add timestamp header
-        if: steps.guard.outputs.skip != 'true'
         run: |
           cat > signal_final.md <<HEADER
           > ⏰ 自動実行: ${{ steps.slot.outputs.time_jst }} JST (${{ steps.slot.outputs.slot }})
@@ -158,16 +85,7 @@ jobs:
           HEADER
           cat signal.md >> signal_final.md
 
-      # ★予備の回では作らない（Fable 2026-09-09）
-      #   このワークフローにメール送信・X投稿・realtime_notifier は無い
-      #   （それらは morning-digest.yml / realtime-signal.yml / ai-analysis.yml が
-      #     それぞれ独自の cron で持っている）。
-      #   daily-signal で人に届くのはこの Issue だけなので、ここを止める。
-      #   予備は本命が落ちた日にしか動かないので二重にはならないはずだが、
-      #   **二重通知は欠落より悪い**ので、はずれても害の無い側に倒す。
-      #   JSON・artifact・signals_log.csv は予備でも作る（データは欠かさない）。
       - name: Create or update today's signal issue
-        if: steps.guard.outputs.skip != 'true' && steps.guard.outputs.is_backup != 'true'
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "📊 シグナル ${{ steps.slot.outputs.date_jst }} ${{ steps.slot.outputs.slot }}"
@@ -177,7 +95,6 @@ jobs:
             ${{ steps.slot.outputs.slot_en }}
 
       - name: Upload signal artifacts
-        if: steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: signal-${{ steps.slot.outputs.date_jst }}-${{ steps.slot.outputs.slot_en }}
@@ -188,14 +105,12 @@ jobs:
 
       # ★新機能: シグナル履歴を signals_log.csv に追記
       - name: Append to signals_log.csv
-        if: steps.guard.outputs.skip != 'true'
         run: |
           python signal_logger.py signal.json signals_log.csv
 
       # ★2026-07-22: lost-update対策(realtime-signal.ymlと同方式)。
       #   旧実装は他コミットと衝突するとpush失敗でシグナル行が消失(7/13の教訓)。
       - name: Commit signals_log.csv (行を失わないマージ+リトライ)
-        if: steps.guard.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -228,7 +143,6 @@ jobs:
           exit 1
 
       - name: Write summary
-        if: steps.guard.outputs.skip != 'true'
         run: |
           echo "## 📊 デイリースキャナー v2.8.0 実行完了" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
