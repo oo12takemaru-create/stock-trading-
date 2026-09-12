@@ -181,22 +181,10 @@ def load_today_signals(csv_path: str, today: str) -> dict | None:
     seen_before = set(df[has_ticker & (df["scan_date"] < today)]["ticker"])
     fresh = sig[~sig["ticker"].isin(seen_before)]
 
-    # ★不変条件(指示書 §13・2026-09-06)★
-    #   signals_today_count >= 1 なら signal_of_day は必ず非null。
-    #   0件なら count=0 かつ null。両者は同じ集合(sig)から決める。
-    #
-    #   直った不具合: 当日のシグナルが「繰り越し銘柄」だけの日に
-    #   count=1 / signal_of_day=null となり、サイトが
-    #   「本日、シグナルはありません」と件数1に矛盾する表示をしていた
-    #   (実例 2026-09-04: 日本製鉄5401 が 09-03 昼にも出ていた)。
-    #
-    #   初出を優先する設計(§10-4)は維持する。初出が無い日は繰り越しの最早1件を出し、
-    #   carried_over: true を立ててサイト側が表現を変えられるようにする。
-    if len(sig) == 0:
+    if len(fresh) == 0:
         out["signal_of_day"] = None
     else:
-        carried = len(fresh) == 0
-        r = (sig if carried else fresh).iloc[0]
+        r = fresh.iloc[0]
         out["signal_of_day"] = {
             "scan_date":      today,
             "strategy":       r["strategy"],
@@ -205,16 +193,7 @@ def load_today_signals(csv_path: str, today: str) -> dict | None:
             "name":           r["name"],
             "sector":         r["sector"],
             "reason":         clean_reason(r["info"]),
-            # true = その銘柄は前営業日以前にも条件を満たしていた(当日が初出ではない)
-            "carried_over":   bool(carried),
         }
-
-    # 日付の意味が違う2つを取り違えないための注記(指示書 §13-3)
-    out["note"] = (
-        "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。"
-        "signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。"
-        "signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
-    )
     return out
 
 
@@ -305,52 +284,7 @@ def scan(data: dict[str, pd.DataFrame], meta: pd.DataFrame,
         "jiai": jiai_label(n225["Close"]),
         "nikkei_close": round(float(n225["Close"].iloc[-1]), 2),
     }
-
-    # ★更新が止まっていることを機械で分かるようにする(指示書 §14-2・2026-09-09 Fable)★
-    #
-    #   asof = このスキャンが見た「日経の最新営業日」。
-    #   stale = asof が前営業日より古い ＝ 実行が飛んだか、大きく遅れた。
-    #
-    #   target_date（乖離率上位3件の対象日）は仕様として1営業日遅れるので、
-    #   これを鮮度の判定に使うと「仕様どおりの遅れ」と「更新停止」が混ざる。
-    #   asof で見れば、遅れているのは実行そのものだと一意に分かる。
-    #
-    #   実例(2026-09-05〜09-08):
-    #     ・9/5(金)のスケジュール実行が GitHub Actions 側で起動しなかった
-    #     ・9/7ぶんが5時間半遅れて 9/8 00:59 JST に起動した
-    #     ・その時点で取れる日経の最新終値は 9/4 だったので asof=09-04・target=09-03
-    #   このとき前営業日は 9/5 なので asof < 前営業日 → stale=true になる。
-    #
-    #   祝日は考慮していない（土日だけ飛ばす）ので、祝日明けは stale=true が
-    #   出ることがある。黙って古い日付を出すよりは安全側なので、この粗さで運用する。
-    asof = live_date.date()
-    prev_bd = _prev_business_day_from_now()
-    for d in (result, jiai_live):
-        d["asof"] = asof.strftime("%Y-%m-%d")
-        d["stale"] = bool(asof < prev_bd)
-
     return result, jiai_live
-
-
-def _prev_business_day(d):
-    """土日を飛ばして1営業日戻る(祝日は考慮しない)。"""
-    d -= timedelta(days=1)
-    while d.weekday() >= 5:          # 土(5)・日(6)
-        d -= timedelta(days=1)
-    return d
-
-
-def _prev_business_day_from_now():
-    """実行時点で「終値が確定しているはずの直近営業日」。
-
-    当日の終値が固まるのは 15:00 JST 以降。それより前、または土日に走った
-    場合は、前営業日までしか確定していない。
-    """
-    now = datetime.now(JST)
-    d = now.date()
-    if now.hour < 15 or d.weekday() >= 5:
-        d = _prev_business_day(d)
-    return d
 
 
 # ─────────────────────────────────────────────
