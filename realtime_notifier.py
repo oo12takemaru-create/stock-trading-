@@ -387,7 +387,8 @@ def calc_today_stop(trade, hist_df):
 
 
 def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
-                             capital=1_000_000, risk_pct=1.0, regime="BULLISH"):
+                             capital=1_000_000, risk_pct=1.0, regime="BULLISH",
+                             sp500_change_1d=0.0, sp500_change_3d=0.0):
     """寄り前(8:05)に分かる MOMENTUM ブレイク候補リストを作る。
        MOMENTUMと同じ上昇トレンド条件(終値>MA50 かつ 終値>MA200)で、
        20日高値(pivot)の直下にいる=「今日ブレイクしたら買い」の銘柄を抽出する。
@@ -397,6 +398,11 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
        戻り値: (dictのリスト(gap昇順), 騰落レシオ等のbreadth辞書orNone)。"""
     out = []
     br_up, br_dn = {}, {}   # 📡 騰落レシオ用: 日付→値上がり/値下がり銘柄数(直近25営業日)
+    # ★相場フィルタ(2026-09-12)用: 今日の売りシグナル(20日安値ブレイク)本数。
+    #   まだ判定には使わない=数えて表示するだけ。フォワード1四半期の観察用。
+    #   詳細: 相場フィルタ検証/判定_相場フィルタ_2026-09-12.md
+    short_sig_count = 0
+    short_sig_names = []
     items = list(ds.STOCKS.items())
     total = len(items)
     for i, (ticker, meta) in enumerate(items):
@@ -423,6 +429,17 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
             except Exception:
                 pass
             df = ds.prepare_indicators(df)
+
+            # ★売りシグナル本数のカウント(トレンド条件で弾かれる前に・全銘柄対象)
+            #   買い候補の抽出とは無関係。数えるだけで採否には影響しない。
+            try:
+                if ds.is_short_signal(df, sp500_change_1d, sp500_change_3d):
+                    short_sig_count += 1
+                    if len(short_sig_names) < 8:
+                        short_sig_names.append(f"{name}({ticker.replace('.T', '')})")
+            except Exception:
+                pass
+
             idx = len(df) - 1
             close = float(df["Close"].iloc[idx])
             ma50 = df["MA50"].iloc[idx]
@@ -474,6 +491,12 @@ def build_breakout_watchlist(max_gap_pct=4.0, top_n=12,
             }
     except Exception:
         breadth = None
+    # ★売りシグナル本数は騰落レシオの成否に関係なく必ず載せる
+    #   (breadth は直近25営業日が揃わないと None になるため、別に組み立てる)
+    if breadth is None:
+        breadth = {}
+    breadth["short_signals"] = short_sig_count
+    breadth["short_signal_names"] = short_sig_names
     out.sort(key=lambda x: x["gap"])
     return out[:top_n], breadth
 
@@ -677,8 +700,12 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
     if watchlist:
         log("📈 ブレイク監視リストを作成中 …(全銘柄スキャン)")
         try:
+            # 売りシグナル本数のカウントに使う(買い側の米国フィルタと同じ値)
+            sp1d, sp3d = ds.sp500_changes(gd)
             watch, breadth = build_breakout_watchlist(max_gap_pct=watch_gap, top_n=watch_top,
-                                                      capital=capital, regime=regime)
+                                                      capital=capital, regime=regime,
+                                                      sp500_change_1d=sp1d,
+                                                      sp500_change_3d=sp3d)
         except Exception as e:
             log(f"⚠ 監視リスト作成失敗: {e}")
         # 📡 相場状況(ダッシュボードの相場パネル用・指数と騰落レシオのみ=個人情報なし・公開可)
@@ -701,18 +728,34 @@ def run_digest(trades_path="trades.json", stops_path="stops.json",
                           "vix": round(vix_now, 1) if vix_now else None,
                           "calm_pctile": round(calm_m),
                           "regime": regime}
-                if breadth:
-                    market.update(breadth)
         except Exception as e:
             log(f"⚠ 相場状況の計算失敗: {e}")
+        # 騰落レシオと売りシグナル本数は、日経の計算が失敗しても必ず残す。
+        # (元は上の try の中で merge していたため、日経が取れないと本数ごと消えていた。
+        #  本数はフォワード観察の本体データなので落とさない)
+        if breadth:
+            market.update(breadth)
         lines.append("")
         lines.append("=" * 36)
         lines.append(f"━━ 今日のブレイク監視 {len(watch)}件(20日高値の直下=逆指値買い候補)━━")
-        if market:
+        # 日経の計算が失敗しても本数行だけは出せるよう、キーの有無で判定する
+        if market.get("nikkei"):
             adr = market.get("adv_dec_ratio25")
             lines.append(f"相場: 日経{market['nikkei']:,}(25MA{market['dev25']:+.1f}%)"
                          + (f" / 騰落レシオ25日 {adr}" if adr else "")
                          + f" / 静けさ{market['calm_pctile']}%ile")
+        # ★売りシグナル本数(2026-09-12〜 観察中。まだ発注判定には使っていない)
+        ss = market.get("short_signals")
+        if ss is not None:
+            note = "" if regime in ("BEARISH", "PANIC") else "(強気・中立では判定に使いません)"
+            lines.append(f"売りシグナル(20日安値ブレイク): {ss}件 {note}")
+            if ss and regime in ("BEARISH", "PANIC"):
+                lines.append("  ※検証では、弱気・暴落でこれが1件以上出た日の新規買いを見送ると")
+                lines.append("    最大DDが半減しました。**観察中のため今は自動では止めません。**")
+            names = market.get("short_signal_names") or []
+            if names:
+                lines.append("  内訳: " + "、".join(names[:6])
+                             + ("…" if ss > len(names[:6]) else ""))
         if regime != "BULLISH":
             lines.append(f"※地合いは{regime}。BULLISH以外だと当日MOMENTUMは原則発動しません(参考表示)。")
         if watch:
