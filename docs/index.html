@@ -4448,6 +4448,24 @@ function renderMarketGauges() {
       '25%ile未満=異常な静けさ(砂山: 2018/2024型暴落の前兆パターン)',
       'linear-gradient(90deg,#d29922,#2ea043 35%)'));
   }
+  // ★売りシグナル本数(2026-09-12〜 観察中)
+  // 弱気・暴落でこれが1件以上出た日の新規買いを見送ると、10年検証で最大DDが
+  // −37.3%→−18.9%と半減した。ただし**まだ自動では止めていない**。
+  // 1四半期のフォワード観察を経てから判定に使うかを決める。
+  if (m.short_signals != null) {
+    const ss = Number(m.short_signals);
+    const bearish = (m.regime === 'BEARISH' || m.regime === 'PANIC');
+    // 弱気・暴落以外は判定対象外なので、色で煽らない
+    const sCol = !bearish ? '#7d8590' : (ss >= 1 ? '#f85149' : '#56d364');
+    const note = !bearish
+      ? '強気・中立では判定に使いません(参考表示)'
+      : (ss >= 1
+          ? '⚠ 検証では、この状態の日の新規買いを見送ると最大DDが半減。観察中のため自動では止めません'
+          : '買ってよい日(検証上)。弱気・暴落でも0件なら見送り不要');
+    rows.push(meterRow('📉 売りシグナル(20日安値ブレイク)', `${ss}件`,
+      Math.min(100, ss / 10 * 100), sCol, note,
+      'linear-gradient(90deg,#2ea043,#d29922 30%,#f85149 60%)'));
+  }
   const chip = (t, val) => {
     const n = Number(val);
     const c = n >= 0 ? '#56d364' : '#f85149';
