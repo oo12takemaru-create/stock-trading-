@@ -4,16 +4,7 @@ name: Free Scanner (無料版BNFスキャナー)
 # 無料版は1営業日遅れのデータなので、GitHubのcron遅延があっても実害なし。
 on:
   schedule:
-    # ★3時間前倒し（2026-09-09 Fable 相談⑧）★
-    # GitHub Actions の schedule は**常時2〜5時間遅れる**（19本すべてで観測。
-    # 中央値 free-scanner 192分・precompute-daily 277分）。分をずらしても効かない。
-    # 狙いの JST 19:30 に走らせるため、予定は JST 16:30 に置く。
-    # 遅延が小さい日でも大引け（15:00 JST）の後なので終値は確定している。
-    - cron: '30 7 * * 1-5'
-    - cron: '30 11 * * 1-5'  # 予備: 本命の60分後(JST 20:30)。本命が起動しなかった日の保険
-  # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
-  # 既存の schedule / workflow_dispatch はそのまま残す
-  workflow_call:
+    - cron: '30 10 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -39,34 +30,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ★予備実行の冪等ガード（指示書 §14-2 / 引継ぎ.md §19「発見 2026-09-09」）
-      #   本命 cron は起動しないことがある（2026-09-05 に実際に起きた）。
-      #   その保険として予備 cron を置いているが、本命が動いた日に二重で走らせる
-      #   必要はない。**当日ぶんが既にあるならここで打ち切る**。
-      #   手動実行（workflow_dispatch）は意図的な再実行なのでスキップしない。
-      - name: Skip if already fresh (予備実行のみ)
-        id: guard
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "手動実行なのでスキップ判定をしません"
-            echo "skip=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if python check_freshness.py --target free_scanner; then
-            echo "当日ぶんは取得済み。以降のステップを飛ばします"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "未取得または古いので実行します"
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Run free scanner
-        if: steps.guard.outputs.skip != 'true'
         run: |
           python scanner_free.py --output docs/free_scanner.json
 
       - name: Commit free_scanner.json
-        if: steps.guard.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -81,7 +49,6 @@ jobs:
           fi
 
       - name: Write summary
-        if: steps.guard.outputs.skip != 'true'
         run: |
           echo "## 無料版スキャナー実行完了" >> $GITHUB_STEP_SUMMARY
           python - >> $GITHUB_STEP_SUMMARY <<'PY'
