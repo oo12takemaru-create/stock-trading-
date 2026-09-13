@@ -52,3 +52,5 @@ signal.json
 Thumbs.db
 
 .vercel
+# 投機筋の10年の物差し（週次）
+!docs/cot_scale.json

@@ -1,0 +1,51 @@
+name: COT Scale Weekly (kaburadar.jp)
+
+# 投機筋ポジションの「10年の物差し」。週1回。
+# 「今週の変化は609週中2位」のように、数字の大きさを過去10年の中に置く。
+# cot-weekly(土 08:05 JST) の後・他の週次ジョブと20分ずらす
+# （同時刻に走ると push が cannot lock ref で落ちた実績があるため）。
+on:
+  schedule:
+    - cron: '0 2 * * 6'   # 02:00 UTC 土 = 11:00 JST 土
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cot-scale
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build cot_scale.json
+        run: python -X utf8 cot_scale.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/cot_scale.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📏 投機筋の10年の物差しを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1
