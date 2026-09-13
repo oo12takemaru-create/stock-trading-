@@ -1,0 +1,65 @@
+name: Board (kaburadar.jp トップの要約1本)
+
+# トップページが11本のJSONを個別に読んでいたのを1本にまとめる。
+# 各ワークフローの末尾に足すと20本以上を全部直すことになるので、独立させて
+# (a) 定時 (b) 主要ワークフローの完了後 の両方で走らせる。
+# daily-signal.yml には触らない。
+on:
+  schedule:
+    - cron: '3 23 * * 0-4'    # 08:03 JST 平日（UTC前日23:03）
+    - cron: '33 3 * * 1-5'    # 12:33 JST
+    - cron: '13 7 * * 1-5'    # 16:13 JST
+    - cron: '33 10 * * 1-5'   # 19:33 JST
+    - cron: '3 14 * * 1-5'    # 23:03 JST
+  workflow_run:
+    # 元データが更新された直後にも作り直す（定時だけだと最大4時間古くなる）
+    workflows:
+      - "AI Market Analysis (kaburadar.jp)"
+      - "Heatmap (kaburadar.jp)"
+      - "Karauri Daily (kaburadar.jp)"
+      - "Kessan Daily (kaburadar.jp)"
+      - "Crash Gauges Daily (kaburadar.jp)"
+      - "Radar Publish (kaburadar.jp)"
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: board
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build board.json
+        run: python -X utf8 make_board.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/board.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🧭 トップの要約(board.json)を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1

@@ -54,3 +54,5 @@ Thumbs.db
 .vercel
 # 投機筋の10年の物差し（週次）
 !docs/cot_scale.json
+# トップの要約1本
+!docs/board.json
