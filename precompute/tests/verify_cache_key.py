@@ -18,7 +18,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cache_key  # noqa: E402
-from warm_cache import PRESET_RULES_WARM  # noqa: E402
+from warm_cache import (  # noqa: E402
+    PRESET_RULES_WARM, STARTER_TYPES_WARM, STARTER_REGIMES,
+)
 
 APP_DIR = r"D:\マイドキュメント\Claude\Projects\ruletrade-app"
 DATA_THROUGH = "2026-09-04"
@@ -100,6 +102,52 @@ CASES = [
         dict(conditions=PRESET_RULES_WARM[2]["conditions"],
              calendar_days=90, stop_pct=-9, cost_pct=0,
              regimes=PRESET_RULES_WARM[2]["regimes"]),
+    ),
+    # ── はじめての方向けの型3本（2026-09-12・追-6f の代わりに温める）──
+    #   ★地合いは ["BULLISH","NEUTRAL"]★
+    #     型を押しても画面の地合い欄は既定のまま送られる。
+    #     ここが null だと**当たらない**（壊れず、ただ遅いままになる）。
+    (
+        "型: 下げを拾う型（warm_cache が温める形）",
+        {"conditions": STARTER_TYPES_WARM[0]["conditions"],
+         "exit": {"stop_pct": STARTER_TYPES_WARM[0]["exit"]["stop_pct"],
+                  "take_pct": STARTER_TYPES_WARM[0]["exit"]["take_pct"],
+                  "calendar_days": STARTER_TYPES_WARM[0]["exit"]["calendar_days"],
+                  "cost_pct": 0},
+         "max_positions": None, "regime_filter": STARTER_REGIMES},
+        dict(conditions=STARTER_TYPES_WARM[0]["conditions"],
+             calendar_days=STARTER_TYPES_WARM[0]["exit"]["calendar_days"],
+             stop_pct=STARTER_TYPES_WARM[0]["exit"]["stop_pct"],
+             take_pct=STARTER_TYPES_WARM[0]["exit"]["take_pct"],
+             cost_pct=0, regimes=STARTER_REGIMES),
+    ),
+    (
+        "型: 勢いに乗る型（warm_cache が温める形）",
+        {"conditions": STARTER_TYPES_WARM[1]["conditions"],
+         "exit": {"stop_pct": STARTER_TYPES_WARM[1]["exit"]["stop_pct"],
+                  "take_pct": STARTER_TYPES_WARM[1]["exit"]["take_pct"],
+                  "calendar_days": STARTER_TYPES_WARM[1]["exit"]["calendar_days"],
+                  "cost_pct": 0},
+         "max_positions": None, "regime_filter": STARTER_REGIMES},
+        dict(conditions=STARTER_TYPES_WARM[1]["conditions"],
+             calendar_days=STARTER_TYPES_WARM[1]["exit"]["calendar_days"],
+             stop_pct=STARTER_TYPES_WARM[1]["exit"]["stop_pct"],
+             take_pct=STARTER_TYPES_WARM[1]["exit"]["take_pct"],
+             cost_pct=0, regimes=STARTER_REGIMES),
+    ),
+    (
+        "型: 高値更新を追う型（warm_cache が温める形）",
+        {"conditions": STARTER_TYPES_WARM[2]["conditions"],
+         "exit": {"stop_pct": STARTER_TYPES_WARM[2]["exit"]["stop_pct"],
+                  "take_pct": STARTER_TYPES_WARM[2]["exit"]["take_pct"],
+                  "calendar_days": STARTER_TYPES_WARM[2]["exit"]["calendar_days"],
+                  "cost_pct": 0},
+         "max_positions": None, "regime_filter": STARTER_REGIMES},
+        dict(conditions=STARTER_TYPES_WARM[2]["conditions"],
+             calendar_days=STARTER_TYPES_WARM[2]["exit"]["calendar_days"],
+             stop_pct=STARTER_TYPES_WARM[2]["exit"]["stop_pct"],
+             take_pct=STARTER_TYPES_WARM[2]["exit"]["take_pct"],
+             cost_pct=0, regimes=STARTER_REGIMES),
     ),
     (
         "書籍照合モード（内部専用）",
