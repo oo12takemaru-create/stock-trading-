@@ -35,6 +35,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する★
+          #   bypass に入れられるのは Deploy key だけなので、GITHUB_TOKEN の
+          #   push（github-actions[bot]）は「PR 必須」に弾かれる。
+          #   ★DEPLOY_KEY が未設定なら空文字＝無視され、今までどおり token で動く。★
+          #   （actions/checkout は ssh-key が空なら token 経路に落ちる）
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       # 🔒 売買データ(trades.json / stops.json)は非公開リポジトリから取得
       #    Secrets に GH_PAT(repo スコープ・長め期限)の登録が必要

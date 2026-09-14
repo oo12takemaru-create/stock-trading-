@@ -29,6 +29,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する★
+          #   bypass に入れられるのは Deploy key だけなので、GITHUB_TOKEN の
+          #   push（github-actions[bot]）は「PR 必須」に弾かれる。
+          #   ★DEPLOY_KEY が未設定なら空文字＝無視され、今までどおり token で動く。★
+          #   （actions/checkout は ssh-key が空なら token 経路に落ちる）
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
