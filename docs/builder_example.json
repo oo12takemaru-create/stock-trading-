@@ -1,0 +1,43 @@
+{
+ "schema": "builder_example/1",
+ "asof": "2026-09-15",
+ "generated_at": "2026-09-15T11:51:42.420Z",
+ "basis": "solo",
+ "rows": [
+  {
+   "label": "規定値（セクター別）",
+   "kind": "preset",
+   "threshold_pct": null,
+   "note": null,
+   "trades": 1914,
+   "win_rate": 47.2,
+   "pf": 1.77
+  },
+  {
+   "label": "一律 -15%",
+   "kind": "uniform",
+   "threshold_pct": -15,
+   "note": "浅く拾う",
+   "trades": 1992,
+   "win_rate": 45.7,
+   "pf": 1.81
+  },
+  {
+   "label": "一律 -22%",
+   "kind": "uniform",
+   "threshold_pct": -22,
+   "note": "深く待つ",
+   "trades": 458,
+   "win_rate": 47.8,
+   "pf": 2.27
+  }
+ ],
+ "definition": {
+  "what_changed": "25日移動平均からの離れの閾値だけを変えた。出来高・ボリンジャー・ナイフガードの条件と、出口・地合いは規定値のまま",
+  "basis_label": "BNF 単独・制約なしの比較",
+  "why_no_max_dd": "同時に持てる数に上限を置いていないため、最大下落を資金の増減として読めない。出さない",
+  "not_the_public_record": "サイト上部の公開成績（3本合算・同時保有10）とは別の計算。並べて比べない",
+  "same_as_member_screen": "登録後の画面（/rules）と同じ経路で計算しているので、自分で触ったときに同じ数字が出る"
+ },
+ "disclaimer": "過去データへの当てはめであり、将来の成果を保証するものではありません。特定の閾値を推奨するものでもありません。手数料・税・スリッページは含みません。"
+}
