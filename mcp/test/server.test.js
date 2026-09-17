@@ -99,10 +99,13 @@ test("get_daily_signals: ★銘柄は1件だけ★ 一覧を配らない", async
   }
   assert.ok(p.top_hit_note, "1件しか返さない理由が書かれていない");
 
-  // 件数は返す（銘柄を明かさずに「今日は何件か」に答えられる）
-  assert.equal(typeof p.counts.rule_hit, "number");
-  assert.equal(typeof p.counts.watch, "number");
-  assert.ok(p.counts.scope.includes("上位3件"), "件数の範囲が書かれていない");
+  // ★全銘柄ベースの該当数は配信されていない★
+  // 生成側は上位3件に絞ったあと全体の該当数を捨てている。
+  // 上位3件の中での内訳を返すと「今日は何件あったか」の答えとして読まれるので返さない。
+  assert.equal(p.counts, null, "上位3件の中での内訳を件数として返している");
+  assert.ok(p.counts_note.includes("含まれていない"), "件数が無い理由が書かれていない");
+  // 本番システムの当日件数（こちらは全銘柄ベース）は返す
+  assert.ok("signal_count" in p.full_system_today);
 
   // 本番システム側も1件まで
   assert.ok("published_one" in p.full_system_today);
