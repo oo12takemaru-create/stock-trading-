@@ -1,7 +1,34 @@
 # レジストリ登録の要件と登録内容の案
 
 作成: 2026-09-05（起動文 `起動文_実務_MCP公開後仕上げ_2026-09-05.md` Step 5）
-状態: **未登録。名前空間は `jp.ruletrade/mcp`（ドメイン認証）に決定（2026-09-05 Fable）。鍵は生成済み。TXT追加・認証・登録は本人が行う。**
+更新: 2026-09-17（v0.2.0・ツール8本への再publish 準備）
+
+## 状態
+
+| | |
+|---|---|
+| MCP 公式レジストリ | **掲載済み**。`jp.ruletrade/mcp` **v0.1.0** `status: active`（2026-09-05） |
+| 認証方式 | ドメイン認証（`ruletrade.jp` の apex に TXT 1本） |
+| Smithery | **掲載済み** |
+| いまの `server.*.json` | **v0.2.0・ツール8本**（このPRで更新。**まだ publish していない**） |
+
+確認: `https://registry.modelcontextprotocol.io/v0/servers?search=ruletrade`
+
+### ★再publish の順序（2026-09-17 Fable）★
+
+**publish は Worker が8本で動いてから。** 順番を飛ばさないこと。
+
+1. PR をマージ（このPR＝`server.*.json` の 0.2.0 化）
+2. **本人が `wrangler deploy`**（`cd stock-trading\mcp; npx wrangler deploy`）
+3. **本番が8本になっているか機械検査**（レジストリの記載と実体を合わせるため）
+4. **本人が publish**（下の B-2。`server.dns.json` を使う）
+5. Smithery の説明文を更新（下の「Smithery 用の説明文」）
+6. 記録（`引継ぎ.md` §17・`mcp/HANDOFF.md`）
+
+レジストリに「8本」と書いてある状態で本番が4本だと、エージェントが空振りする。
+**先に実体を合わせる。**
+
+---
 
 ---
 
@@ -65,25 +92,57 @@
 
 ---
 
-## 3. 登録内容の案
+## 3. 登録内容（v0.2.0）
 
-`server.github.json` / `server.dns.json` の2案を用意した。**`name` 以外は同一**。
+`server.github.json` / `server.dns.json` の2つがある。**`name` 以外は同一**。
+実際に publish するのは **`server.dns.json`**（ドメイン認証で登録済みのため）。
+`server.github.json` は認証が通らなくなったときの退避先。
 
-- **name**: 上記の2択
-- **title**: `Rule Trade — Japanese equity verification layer`
-- **description**（英語。エージェントの検索は英語で走る）:
-  > Returns what happened when published, mechanical rules were applied to Japanese equities:
-  > daily rule matches, market regime, and 50 market anomalies tested over 61 years.
-  > Statistics and verdicts only — no price data, no financials, no recommendations.
-- **日本語説明**（Smithery の説明欄など、日本語が入る場所用）:
-  > 日本株の「検証層」。公開ルールに機械的に該当した事実、地合いの機械判定、
-  > ジンクス50本を61年分で検証した結果（判定・勝率・標本数・p値）を返します。
-  > 返すのは判定結果と統計値のみで、価格データ・財務値・売買推奨は含みません。投資助言ではありません。
-- **version**: `0.1.0`
+- **name**: `jp.ruletrade/mcp`（登録済み・**変えない**。名前は識別子で、変えると別サーバー扱いになる）
+- **title**: `Rule Trade - Japanese equity verification layer`
+- **description**（英語・**100文字以内**。エージェントの検索は英語で走る）:
+  > Verified Japanese equity studies: 50 anomalies, 26 indicators, 12 candlesticks, events, ETF decay.
+
+  98文字。旧版（`Rule matches, market regime, 50 anomalies…`）はツール4本時代のもの。
+- **version**: `0.2.0`
 - **websiteUrl**: `https://ruletrade.jp/`
 - **repository**: `https://github.com/oo12takemaru-create/stock-trading-`（subfolder `mcp`）
 - **remotes**: `streamable-http` → `https://ruletrade.jp/mcp`
 - **カテゴリ/タグ**（入力欄がある場合）: `finance`, `research`, `japan`, `stocks`, `backtesting`
+
+### Smithery 用の説明文（長い欄がある場所用・v0.2.0）
+
+**英語**
+
+> Returns what happened when published, mechanical rules were applied to Japanese equities.
+>
+> Eight tools: daily rule matches (one stock, one trading day delayed), market regime with a
+> three-axis score, 50 market anomalies tested over 61 years, all 12 classic candlestick patterns
+> tested on 1,550 TSE Prime stocks, 26 technical indicators traded exactly as the textbooks
+> describe, 27 event types with post-earnings drift and index rebalancing, and twelve years of
+> measured decay in leveraged and inverse ETFs.
+>
+> Results that failed are returned with the same weight as results that passed. All 12 candlestick
+> patterns were rejected, including the one with the highest profit factor (3.04) — it flipped sign
+> between the first half of the sample and the second.
+>
+> Statistics and verdicts only: no price series, no financial statements, no stock lists, no
+> recommendations. Every response carries a disclaimer. Not investment advice.
+
+**日本語**
+
+> 日本株の「検証層」。公開ルールに機械的に該当した事実と、書籍で行った検証の結果を返します。
+>
+> ツール8本: 公開ルールの該当銘柄（1件・1営業日遅れ）／地合いの機械判定と3軸スコア／
+> ジンクス50本を61年分で検証した結果／酒田五法12本（東証プライム・10年半）／
+> テクニカル指標26種（TOPIX500・約50万回の売買）／出来事27種と決算後ドリフト・指数の入替／
+> レバレッジ・インバースETFの減価12年。
+>
+> **効かなかったものも同じ重みで返します。** 酒田五法は12本すべてが採用基準を満たしませんでした
+> （最もPFの高い三空叩き込み 3.04 も、期間を前半と後半に分けると符号が反転するため不採用）。
+>
+> 返すのは判定結果と統計値のみで、価格系列・財務値・銘柄リスト・売買推奨は含みません。
+> 全レスポンスに免責を付けています。投資助言ではありません。
 
 ---
 
@@ -131,12 +190,24 @@ copy server.dns.json server.json
 .\mcp-publisher.exe publish
 ```
 
+**再publish（v0.1.0 → v0.2.0）のとき**
+
+- `name` は変えない。**同じ名前に新しい version を publish する**のが更新の形
+- TXT レコードは 2026-09-05 に入れたものがそのまま使える（鍵をローテートしていなければ）
+- publish 後、`https://registry.modelcontextprotocol.io/v0/servers?search=ruletrade` で
+  **version が 0.2.0 になっているか**を確認する
+- **先に Worker を deploy しておくこと**（上の「再publish の順序」）
+
 ※ レジストリは preview 版なので、手順が変わっていないか実行前に確認すること。
 
 ### C. 登録後にやること
 
 - `mcp/HANDOFF.md` と `引継ぎ.md` §17 に、登録先・登録名・掲載URLを追記
 - 呼び出しログ（`event:"tool_call"` の `client`）を見て、レジストリ経由の流入があるか確認する
+- **v0.2.0 では「ツール別×client 別」が取れるようになっている**（2026-09-11 に
+  Analytics Engine を有効化・`blob2=tool` / `blob3=client`）。
+  集計は `python mcp/tools/aggregate_calls.py`。
+  0.1.0 掲載時は 1日59件 → 1,071件（+1,715%）だった。8本化で何が変わるかを同じ尺度で見る
 
 ---
 

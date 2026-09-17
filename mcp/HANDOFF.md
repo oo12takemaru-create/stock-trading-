@@ -65,6 +65,23 @@ MCP 側でやること:
 - `test("★方針★ 区分や課金を示す語を1つも書かない")` が、8本の応答・tools/list・
   llms.txt・openapi.json すべてを機械検査している
 
+### 3-10. レジストリの再publish（v0.1.0 → v0.2.0）
+
+**掲載済み**: MCP 公式レジストリ `jp.ruletrade/mcp` v0.1.0 `status: active`（2026-09-05・
+ドメイン認証）／Smithery 掲載済み。
+
+**★順序を飛ばさない（2026-09-17 Fable）★**
+
+1. `server.*.json` の 0.2.0 化（PR）
+2. **本人が `wrangler deploy`**
+3. **本番が8本になっているか機械検査**
+4. **本人が publish**（`server.dns.json`・`_secrets/` の鍵）
+5. Smithery の説明文を更新
+6. 記録
+
+レジストリに「8本」と書いてある状態で本番が4本だと、エージェントが空振りする。
+**先に実体を合わせる。** 手順と説明文の文案は `mcp/registry/README.md` に置いた。
+
 ## 4. ツール8本と読んでいるJSON
 
 | ツール | 読むJSON | 引数 | 備考 |

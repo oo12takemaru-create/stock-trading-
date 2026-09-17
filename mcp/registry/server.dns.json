@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "jp.ruletrade/mcp",
   "title": "Rule Trade - Japanese equity verification layer",
-  "description": "Japanese equity verification layer. Rule matches, market regime, 50 anomalies tested over 61 years.",
-  "version": "0.1.0",
+  "description": "Verified Japanese equity studies: 50 anomalies, 26 indicators, 12 candlesticks, events, ETF decay.",
+  "version": "0.2.0",
   "websiteUrl": "https://ruletrade.jp/",
   "repository": {
     "url": "https://github.com/oo12takemaru-create/stock-trading-",
