@@ -109,9 +109,12 @@ function jinxItem(x, detail, compact) {
 export const TOOL_DEFS = [
   {
     name: "get_daily_signals",
-    title: "日次ルール該当リスト(無料版・1営業日遅れ)",
+    title: "公開ルールに該当した銘柄(1件・1営業日遅れ)",
     description:
-      "公開ルール(BNF 25日線乖離)に該当した銘柄と監視候補を返す。無料版の制限: 1営業日遅れ・乖離率上位3件のみ・価格や株数などの売買情報は含まない。投資助言ではない。",
+      "公開ルール(BNF 25日線乖離が -15% 以下)に該当した銘柄を返す。" +
+      "★返すのは1件だけ★(該当した全銘柄の一覧は配布しない)。件数は返すので「今日は何件あったか」は分かる。" +
+      "1営業日遅れ(前営業日の終値で判定)。価格・株数・利確/損切ラインは含まない。" +
+      "該当は機械的な条件への一致であって、売買の判断ではない。",
     inputSchema: {
       type: "object",
       properties: {
@@ -121,20 +124,18 @@ export const TOOL_DEFS = [
           default: "bnf",
           description: "ルール名。現在は bnf(25日線乖離の逆張りルール)のみ",
         },
-        include_watch: {
-          type: "boolean",
-          default: true,
-          description: "ルール未達だが乖離が大きい監視候補(judge=watch)も含めるか",
-        },
       },
       additionalProperties: false,
     },
   },
   {
     name: "get_market_regime",
-    title: "地合い判定(BULLISH/NEUTRAL/BEARISH/PANIC)",
+    title: "地合い判定(BULLISH/NEUTRAL/BEARISH/PANIC)と3軸スコア",
     description:
-      "本番システムが日中に更新している相場環境の判定、サーキットブレーカー(HALT)状態、VIX、日経平均、当日シグナル件数を返す。銘柄名は含まない。オプションで日次履歴も返す。",
+      "本番システムが日中に更新している相場環境の判定、サーキットブレーカー(HALT)状態、VIX、日経平均、当日シグナル件数を返す。" +
+      "あわせて3軸スコア(トレンド・短期リスク・需給をそれぞれ -2〜+2 で採点し、合計 -6〜+6 を5段階に分けたもの)と、" +
+      "各軸がその点数になった理由・5営業日以内の大型イベントを返す。" +
+      "銘柄名は含まない。オプションで日次履歴も返す。相場の予想ではない。",
     inputSchema: {
       type: "object",
       properties: {
@@ -298,7 +299,7 @@ export const TOOL_DEFS = [
     name: "list_tools_guide",
     title: "使い方ガイド・データ更新時刻・免責",
     description:
-      "このサーバーの全ツールの説明、データの更新タイミングと遅延、無料版の制限、免責事項、今後の予定を返す。最初に一度呼ぶことを想定。",
+      "このサーバーの全ツール(8本)の説明、データの更新タイミングと遅延、返さないものの一覧、免責事項、今後の予定を返す。最初に一度呼ぶことを想定。",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
 ];
@@ -313,27 +314,43 @@ function meta(extra) {
   };
 }
 
+/**
+ * 公開ルールに該当した銘柄。docs/free_scanner.json を読むだけ。
+ *
+ * ★返す銘柄は1件だけ（2026-09-17 に上位3件から縮小）★
+ * 引継ぎ §12-5「rule_hits.json は全銘柄の該当リストを公開しない。by_code はその日1件のみ」
+ * §19-9「登録なしで出すのは銘柄名1件＋地合いラベルまで」。
+ * サイトの無料面と同じ線に揃えた。**銘柄リストを配る道具にしない。**
+ *
+ * 件数は返す。「今日は何件あったか」は銘柄を明かさずに答えられる事実で、
+ * エージェントが「今日は静かか」を判断するのに要る。
+ */
 async function getDailySignals(args, { load }) {
-  const includeWatch = args.include_watch !== false;
   const d = await load("free_scanner.json");
   const rows = Array.isArray(d.rows) ? d.rows : [];
-  const items = rows
-    .filter((r) => includeWatch || r.judge === "signal")
-    .map((r) => ({
-      code: String(r.code),
-      name: r.name,
-      sector: r.sector,
-      ma25_deviation_pct: r.kairi,
-      status: r.judge === "signal" ? "rule_hit" : "watch",
-      status_label: r.judge === "signal" ? "ルール該当(-15%以下)" : "監視(ルール未達)",
-    }));
-  const hit = rows.filter((r) => r.judge === "signal").length;
+  const hits = rows.filter((r) => r.judge === "signal");
+  const watch = rows.length - hits.length;
+
+  // ★1件だけ★ 乖離が最も大きいルール該当。該当が無ければ null
+  const top = hits[0]
+    ? {
+        code: String(hits[0].code),
+        name: hits[0].name,
+        sector: hits[0].sector,
+        ma25_deviation_pct: hits[0].kairi,
+        status: "rule_hit",
+        status_label: "ルール該当(-15%以下)",
+      }
+    : null;
+
+  // 本番システム(3戦略統合)で当日初出の1件。free_scanner 側で既に1件に絞ってある
   const sod = d.signal_of_day
     ? {
         code: String(d.signal_of_day.code),
         name: d.signal_of_day.name,
         strategy_label: d.signal_of_day.strategy_label,
         reason: d.signal_of_day.reason,
+        carried_over: !!d.signal_of_day.carried_over,
         note: "本番システム(3戦略統合)で当日初出の銘柄のうち最も早い1件。価格・株数は含まない",
       }
     : null;
@@ -344,25 +361,44 @@ async function getDailySignals(args, { load }) {
     target_date: d.target_date,
     generated_at: d.generated_at,
     data_delay: "1営業日(前営業日の終値で判定)",
-    limits: "乖離率上位3件のみ。利確/損切ライン・株数などの売買情報は含まない",
     market_condition: d.jiai,
     is_halt: !!d.is_halt,
-    rule_hit_count: hit,
-    watch_count: rows.length - hit,
-    items,
+    // ★銘柄は1件だけ★
+    top_hit: top,
+    top_hit_note: top
+      ? "公開ルールに該当した銘柄のうち、乖離が最も大きい1件。該当した全銘柄の一覧は配布しない"
+      : "この対象日に公開ルールへ該当した銘柄は、観測した範囲では無かった",
+    counts: {
+      rule_hit: hits.length,
+      watch: watch,
+      scope: "乖離率の上位3件の中での内訳。全上場銘柄での該当数ではない",
+    },
     full_system_today: {
       date: d.signals_today_date ?? null,
       signal_count: d.signals_today_count ?? null,
       published_one: sod,
+      note:
+        "本番システムは3つの戦略を回している。signal_count はその当日の合計で、" +
+        "公開するのは最も早い1件だけ。target_date(1営業日前)とは別の日付になりうる",
     },
+    limits:
+      "銘柄は1件のみ。該当した全銘柄の一覧・利確/損切ライン・株数・" +
+      "本番システムが使っている調整済みの閾値は含まない",
+    how_to_read: [
+      "rule_hit は「公開ルールの条件に機械的に該当した」という事実で、売買の判断ではない",
+      "counts は上位3件の中での内訳。市場全体で何件あったかではない",
+      "データは1営業日遅れ。前営業日の終値で判定している",
+    ],
   });
 }
 
 async function getMarketRegime(args, { load }) {
   const n = Math.max(0, Math.min(60, Number(args.history_days) || 0));
-  const [radar, jiai] = await Promise.all([
+  const [radar, jiai, s3] = await Promise.all([
     load("radar.json"),
     load("market_jiai.json").catch(() => null),
+    // 3軸スコア。まだ配信されていない日もあるので任意データ扱い
+    load("score3.json").catch(() => null),
   ]);
   const out = meta({
     updated: radar.updated,
@@ -385,6 +421,52 @@ async function getMarketRegime(args, { load }) {
       ? { target_date: jiai.target_date, jiai: jiai.jiai, nikkei_close: jiai.nikkei_close, generated_at: jiai.generated_at }
       : null,
   });
+  // ★3軸スコア（トレンド・短期リスク・需給）★
+  // regime(BULLISH〜PANIC)は戦略の切り替えに使う分類、こちらは「今どちらに傾いているか」を
+  // 軸ごとに分けて見るもの。別物なので混ぜずに並べる。
+  out.score3 = s3
+    ? {
+        updated: s3.updated,
+        trade_date: s3.trade_date,
+        total: s3.total,
+        range: s3.range,
+        stance: s3.stance,
+        stance_label: s3.stance_jp,
+        stages: s3.stages,
+        axes: (s3.axes || []).map((a) => ({
+          key: a.key,
+          label: a.label,
+          score: a.score,
+          // 何を見てその点数になったか。数字だけ渡すと根拠が分からない
+          reasons: a.notes,
+        })),
+        events_within_5days: s3.events_5d || [],
+        inputs_ok: s3.inputs_ok !== false,
+        note:
+          "3つの軸をそれぞれ -2〜+2 で採点し、合計(-6〜+6)を5段階に分けたもの。" +
+          "相場の予想ではなく、公開データが今どちらに傾いているかの整理",
+        // ★食い違うことがある。それを黙っていると誤読される★
+        // regime は本番システムがザラ場の値も見て戦略を切り替えるための分類、
+        // 3軸スコアは前営業日の終値をもとにした整理。基準も更新時刻も違う。
+        vs_regime:
+          "上の regime とは基準が違うので、食い違うことがある。" +
+          "regime は本番システムが戦略を切り替えるための分類でザラ場の値も反映する。" +
+          "3軸スコアは前営業日の終値をもとにした整理で、日次更新。" +
+          "どちらかが間違っているのではなく、見ているものが違う",
+      }
+    : {
+        available: false,
+        reason: "3軸スコア(score3.json)を取得できなかった。他の項目は返している",
+      };
+
+  out.how_to_read = [
+    "regime は本番システムが戦略を切り替えるための分類で、相場の予想ではない",
+    "regime と score3 は基準が違うので食い違うことがある(score3.vs_regime を参照)",
+    "score3 の各軸は reasons に根拠が入っている。点数だけで読まない",
+    "VIX などの値は regime と score3 で更新時刻が違うため、わずかにずれることがある",
+    "銘柄名は含まない。件数と市場全体の数字だけを返す",
+  ];
+
   if (n > 0) {
     const h = await load("radar_history.json").catch(() => ({ items: [] }));
     out.history = (h.items || []).slice(-n).map((x) => ({
@@ -1056,7 +1138,9 @@ async function listToolsGuide() {
     server: {
       name: SERVER_NAME,
       version: SERVER_VERSION,
-      tier: "free",
+      // ★区分を示す語を置かない★ 他に区分がある前提に読めるため。
+      //    APIキーも登録も要らない、という事実だけを書く（2026-09-14 の方針）
+      access: "APIキー・登録・利用料は不要",
       endpoint: CANONICAL_ENDPOINT,
       homepage: HOME_URL,
     },
@@ -1064,8 +1148,10 @@ async function listToolsGuide() {
       "kaburadar.jp / ruletrade.jp が公開している検証済みルールの実行結果(JSON)を、AIエージェントから読める形に変換するだけのサーバー。売買エンジンや発注機能は持たない。",
     tools: TOOL_DEFS.map((t) => ({ name: t.name, title: t.title, description: t.description })),
     data_schedule_jst: {
-      get_daily_signals: "平日 19:30 頃更新。前営業日の終値で判定(1営業日遅れ)",
-      get_market_regime: "平日 08:00 / 12:00 / 18:00 の本番スキャン後に更新。ザラ場中は15分ごとに現在値を反映",
+      get_daily_signals: "平日 19:30 頃更新。前営業日の終値で判定(1営業日遅れ)。返すのは1件のみ",
+      get_market_regime:
+        "平日 08:00 / 12:00 / 18:00 の本番スキャン後に更新。ザラ場中は15分ごとに現在値を反映。" +
+        "3軸スコアは前営業日の終値で日次更新",
       get_anomaly_summary:
         "傾斜計: 平日 17:23 / 21:23。着火メーター: 平日 16:47 / 19:47 / 22:47。" +
         "ジンクス50本の検証結果は書籍刊行時点(2026-08)の固定データで、日次更新はしない",
@@ -1079,13 +1165,17 @@ async function listToolsGuide() {
         "書籍刊行時点の固定データ(2014-07〜2026-09の実測)。日次更新はしない",
       note: "祝日・データ取得失敗時は前回値が残る(各レスポンスの updated / asof / stale を確認)",
     },
-    free_tier_limits: [
-      "日次ルール該当は乖離率上位3件のみ・1営業日遅れ",
-      "価格・株数・利確/損切ライン・本番の調整済み閾値は含まない",
-      "地合い判定に銘柄名は含まない(件数のみ)",
+    limits: [
+      "★銘柄を返すのは1件だけ★ 公開ルールに該当した全銘柄の一覧は配布しない(件数は返す)",
+      "日次データは1営業日遅れ(前営業日の終値で判定)",
+      "価格・株数・利確/損切ライン・本番システムが使う調整済みの閾値は含まない",
+      "地合い判定・3軸スコアに銘柄名は含まない(市場全体の数字のみ)",
+      "書籍の検証結果に銘柄名・銘柄コード・銘柄バスケットは含まない",
     ],
     how_to_read: [
       "status=rule_hit は「公開ルールの条件に機械的に該当した」という事実で、売買の判断ではない",
+      "銘柄を返すのは1件だけ。該当した全銘柄の一覧は配布しない。件数は返すので「今日は何件あったか」には答えられる",
+      "3軸スコアは「今どちらに傾いているか」の整理で、相場の予想ではない。各軸の reasons に根拠が入っている",
       "regime は本番システムが戦略を切り替えるための分類で、相場予想ではない",
       "着火メーターの割合は過去データでの発生率。将来の予測ではない",
       "ジンクスの judgment(◎○▲△×?)は過去データでの統計的有意性の分類で、将来そうなるという意味ではない。judgment_legend に定義がある",
@@ -1098,7 +1188,7 @@ async function listToolsGuide() {
       "レバレッジ・インバースETFの数字は、日経が12年で約4倍になった上昇相場のもの。verification_caveats を必ず一緒に読むこと",
     ],
     roadmap: {
-      planned: "run_rule_backtest(ルールの過去検証を実行)。バックテスト基盤の整備後に有料枠として追加予定",
+      planned: "run_rule_backtest(ルールの過去検証をその場で実行する)。検証基盤の整備後に検討",
       status: "未提供",
     },
     legal: {
