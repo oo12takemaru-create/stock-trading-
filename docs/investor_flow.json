@@ -1,58 +1,58 @@
 {
- "updated": "2026-09-10T21:04:58+09:00",
- "week": "2026年9月第1週 2026/9 week1 ( 8/31 - 9/4 )",
+ "updated": "2026-09-17T16:31:05+09:00",
+ "week": "2026年9月第2週 2026/9 week2 ( 9/7 - 9/11 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
- "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000001y0ho-att/stock_val_1_260901.xls",
+ "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000001yhs9-att/stock_val_1_260902.xls",
  "items": [
   {
    "key": "foreigners",
    "label": "海外投資家",
-   "sell_oku": 244665,
-   "buy_oku": 242918,
-   "net_oku": -1747,
-   "prev_net_oku": -4141
+   "sell_oku": 283522,
+   "buy_oku": 290811,
+   "net_oku": 7288,
+   "prev_net_oku": -1747
   },
   {
    "key": "individuals",
    "label": "個人投資家",
-   "sell_oku": 108766,
-   "buy_oku": 108231,
-   "net_oku": -535,
-   "prev_net_oku": 6888
+   "sell_oku": 103072,
+   "buy_oku": 102526,
+   "net_oku": -546,
+   "prev_net_oku": -535
   },
   {
    "key": "trust_banks",
    "label": "信託銀行（年金など）",
-   "sell_oku": 9576,
-   "buy_oku": 7573,
-   "net_oku": -2003,
-   "prev_net_oku": -5226
+   "sell_oku": 12782,
+   "buy_oku": 8355,
+   "net_oku": -4427,
+   "prev_net_oku": -2003
   },
   {
    "key": "inv_trusts",
    "label": "投資信託",
-   "sell_oku": 9394,
-   "buy_oku": 8826,
-   "net_oku": -569,
-   "prev_net_oku": -606
+   "sell_oku": 10638,
+   "buy_oku": 7657,
+   "net_oku": -2981,
+   "prev_net_oku": -569
   },
   {
    "key": "business",
    "label": "事業法人（自社株買いなど）",
-   "sell_oku": 3401,
-   "buy_oku": 5528,
-   "net_oku": 2127,
-   "prev_net_oku": 1640
+   "sell_oku": 3422,
+   "buy_oku": 6087,
+   "net_oku": 2664,
+   "prev_net_oku": 2127
   },
   {
    "key": "proprietary",
    "label": "証券自己（プロップ）",
-   "sell_oku": 42952,
-   "buy_oku": 45995,
-   "net_oku": 3043,
-   "prev_net_oku": 1495
+   "sell_oku": 49941,
+   "buy_oku": 49260,
+   "net_oku": -681,
+   "prev_net_oku": 3043
   }
  ]
 }
