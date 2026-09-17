@@ -231,6 +231,60 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "get_indicator_verdict",
+    title: "テクニカル指標26種の検証結果(使える9 / 条件付き4 / 捨てろ13)",
+    description:
+      "RSI・MACD・移動平均クロス・ボリンジャーバンドなどテクニカル指標26種を、教科書どおりの買い方で TOPIX500・10年・約50万回の売買として検証した結果を返す。" +
+      "勝率・期待値・PF・ランダムな売買との超過収益を、出口2種類(20営業日で手仕舞い / 8%トレーリング)で返す。" +
+      "判定は 使える9個 / 条件付き4個 / 捨てろ13個 の3段。「使える」の基準は8区分(出口2 × 上昇/下落/前半/後半)すべてで超過収益が +0.3% を超えること。" +
+      "捨てろ13個には入門書の最初に出てくる指標が並んでいる。" +
+      "name を渡すとその指標だけに絞り込める(日本語・英語の別名可。例: RSI, 一目, ichimoku, 乖離率)。" +
+      "detail=true で8区分すべての内訳を含める。銘柄名・銘柄コード・価格は含まない。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description:
+            "指標名またはカテゴリで絞り込む(部分一致・日英の別名可。例: RSI / MACD / ボリンジャー / オシレーター / volume)。省略すると26種の一覧を返す",
+        },
+        detail: {
+          type: "boolean",
+          default: false,
+          description: "8区分(出口A・B × 上昇/下落/前半/後半)それぞれの超過収益を含めるか",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_etf_decay",
+    title: "レバレッジ・インバースETFの減価(12年の実測)",
+    description:
+      "日経ダブルインバース(1357)などレバレッジ・インバース型ETFを12年・2,964営業日ぶん実測した結果を返す。" +
+      "年別の理論値と実績・保有日数別の勝率と理論との乖離・地合い条件別の PF と最大ドローダウン・「戻るまで待つ」を305回試した結果を含む。" +
+      "日々の値動きを2倍にする商品なので、上下を往復するだけで元に戻らない(日経が+10%のあと-9.1%で元の水準に戻る2日間で、100→80→94.5)。" +
+      "検証結果には各節の「解釈で注意すべき点」を必ず添えて返す(日経が12年で約4倍になった上昇相場のデータであるため)。" +
+      "detail=true で地合い条件別の72通りを含める。日足の価格系列と個別株の銘柄情報は含まない。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: {
+          type: "string",
+          description:
+            "検証対象のETF(1357=ダブルインバース / 1570=レバレッジ)。省略すると両方を含む全体を返す",
+        },
+        detail: {
+          type: "boolean",
+          default: false,
+          description:
+            "地合い条件別(75日線割れ初日・200日線割れ初日など8条件 × 保有日数4 × コスト2 = 72通り)の PF と最大ドローダウンを含めるか",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_tools_guide",
     title: "使い方ガイド・データ更新時刻・免責",
     description:
@@ -657,6 +711,162 @@ async function getEventReaction(args, { load }) {
   return out;
 }
 
+/**
+ * テクニカル指標26種の検証結果。docs/indicator_verdict.json を読むだけ。
+ * 生成側は mcp/tools/build_indicator_verdict.py（書籍21の検証出力＋原稿の判定表）。
+ *
+ * ★「使える」は数字から機械的に決まる★
+ * 8区分すべてで超過収益が +0.3% を超えたもの＝ちょうど9個。
+ * どの区分で届かなかったかを below_bar に入れているので、
+ * 「なぜ使えるでないか」が数字で見える（酒田の checks_failed と同じ）。
+ */
+async function getIndicatorVerdict(args, { load }) {
+  const q = typeof args.name === "string" ? args.name.trim() : "";
+  const detail = !!args.detail;
+  const d = await load("indicator_verdict.json");
+  const all = Array.isArray(d.items) ? d.items : [];
+  const key = q.toLowerCase();
+  const hits = key
+    ? all.filter((x) => nameHit(x, key, ["indicator", "category"]))
+    : all;
+  const compact = !q && !detail;
+
+  const items = hits.map((x) => {
+    if (compact) {
+      return {
+        indicator: x.indicator,
+        category: x.category,
+        verdict: x.verdict,
+        verdict_ja: x.verdict_ja,
+        win_rate_pct: x.exit_a.win_rate_pct,
+        excess_expectancy_pct: x.exit_a.excess_expectancy_pct,
+        pf: x.exit_b.pf,
+        // 8区分のうち基準に届かなかった数。0 なら「使える」
+        below_bar_count: x.below_bar_count,
+      };
+    }
+    const o = {
+      indicator: x.indicator,
+      category: x.category,
+      aliases: x.aliases,
+      verdict: x.verdict,
+      verdict_ja: x.verdict_ja,
+      exit_a: x.exit_a,
+      exit_b: x.exit_b,
+      // ★なぜその判定なのかが数字で見える★
+      below_bar: x.below_bar,
+      below_bar_count: x.below_bar_count,
+    };
+    if (detail) o.regimes = x.regimes;
+    return o;
+  });
+
+  const out = meta({
+    source: d.source_book,
+    universe: d.universe,
+    period: d.period,
+    method: d.method,
+    criteria: d.criteria,
+    benchmark: d.benchmark,
+    headline: d.headline,
+    summary: d.summary,
+    key_finding: d.key_finding,
+    not_included: d.not_included,
+    query: q || null,
+    matched: hits.length,
+    items,
+    how_to_read: [
+      "超過収益は「同じ区分でランダムに売買した場合」との差。単体のリターンではない",
+      "below_bar は8区分のうち +0.3% に届かなかった区分。「使える」はここが空になる",
+      "判定は上の基準に対するもので、指標そのものの優劣を決めるものではない",
+      "出口Aは20営業日で手仕舞い、出口Bは8%トレーリングストップ。同じ指標でも出口で成績が変わる",
+    ],
+    note: d.disclaimer,
+  });
+  if (compact) {
+    out.items_note =
+      "一覧のため主要な数字のみ。8区分の内訳や届かなかった区分が要るときは name に指標名を渡す(部分一致)か、detail=true を指定する";
+  }
+  if (q && hits.length === 0) {
+    out.available_indicators = all.map((x) => x.indicator);
+    out.hint = "name は部分一致(日英の別名可)。上の available_indicators から選び直すか、name を省略して全件を取得する";
+  }
+  return out;
+}
+
+/**
+ * レバレッジ・インバースETFの減価。docs/etf_decay.json を読むだけ。
+ * 生成側は mcp/tools/build_etf_decay.py（書籍35の検証出力）。
+ *
+ * ★「解釈で注意すべき点」を必ず一緒に返す★
+ * 「日経が12年で約4倍になった上昇相場のデータ」という前提を落とすと、
+ * この数字はまるごと誤読される。数字だけ返してはいけない。
+ */
+async function getEtfDecay(args, { load }) {
+  const code = typeof args.code === "string" ? args.code.trim() : "";
+  const detail = !!args.detail;
+  const d = await load("etf_decay.json");
+  const products = d.products || {};
+
+  // code は「何について聞いているか」の確認。データは両方を含む形で持っている
+  let product = null;
+  if (code) {
+    const key = code.toLowerCase();
+    const found = Object.entries(products).find(
+      ([c, p]) =>
+        c === code ||
+        String(p.name || "").toLowerCase().includes(key) ||
+        (p.aliases || []).some((a) => String(a).toLowerCase().includes(key)),
+    );
+    if (!found) {
+      return meta({
+        source: d.source_book,
+        query: code,
+        matched: 0,
+        available_products: Object.entries(products).map(([c, p]) => ({
+          code: c,
+          name: p.name,
+        })),
+        hint: "code は 1357(ダブルインバース) または 1570(レバレッジ)。省略すると全体を返す",
+        note: d.disclaimer,
+      });
+    }
+    product = { code: found[0], ...found[1] };
+  }
+
+  const out = meta({
+    source: d.source_book,
+    period: d.period,
+    products,
+    query: code || null,
+    focus: product,
+    mechanism: d.mechanism,
+    headline: d.headline,
+    // ★起動文が名指しした知見。回数の多さと損益の大きさが釣り合わない★
+    key_finding: d.key_finding,
+    yearly: d.yearly,
+    by_holding_days: d.by_holding_days,
+    wait_for_recovery: d.wait_for_recovery,
+    // ★前提を落とさない★
+    verification_caveats: d.verification_caveats,
+    not_included: d.not_included,
+    how_to_read: [
+      "「理論値」は期間の-2倍。日々-2倍の商品に期間-2倍を期待するのが誤りだが、そう期待して買う人が多いので比較対象にしている",
+      "減価(実績-理論)は相場の方向に関係なく起きる。上下を往復するだけで減る",
+      "勝率と損益の大きさは別。「戻るまで待つ」は99%戻るが、戻らなかった回の損失がそれまでの利益を上回る",
+      "条件別の件数が数十回のものは、1〜2回の暴落で数字が大きく動く",
+    ],
+    note: d.disclaimer,
+  });
+  if (detail) {
+    out.by_condition = d.by_condition;
+  } else {
+    out.by_condition_note =
+      "地合い条件別(8条件 × 保有日数4 × コスト2 = 72通り)の PF と最大ドローダウンは detail=true で返す";
+  }
+  return out;
+}
+
 async function listToolsGuide() {
   return meta({
     server: {
@@ -679,6 +889,10 @@ async function listToolsGuide() {
         "書籍刊行時点の固定データ(東証プライム1,550銘柄・2016-01〜2026-08で検証)。日次更新はしない",
       get_event_reaction:
         "書籍刊行時点の固定データ(出来事27種・東証プライム)。日次更新はしない",
+      get_indicator_verdict:
+        "書籍刊行時点の固定データ(TOPIX500・2016-2025で検証)。日次更新はしない",
+      get_etf_decay:
+        "書籍刊行時点の固定データ(2014-07〜2026-09の実測)。日次更新はしない",
       note: "祝日・データ取得失敗時は前回値が残る(各レスポンスの updated / asof / stale を確認)",
     },
     free_tier_limits: [
@@ -694,6 +908,8 @@ async function listToolsGuide() {
       "判定が × や ? のものも含めて全50本を返す。「効かなかったこと」の検証結果も同じ重みで扱う",
       "酒田五法12本はいずれも著者の採用基準を満たしていない(採用ゼロ本)。not_adopted は検証の結果であって、その形が必ず外れるという意味ではない",
       "出来事の判定が「初動型」のものは、前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てから動くのでは間に合わないものが多い",
+      "テクニカル指標の「使える9個」は、8区分すべてで超過収益が +0.3% を超えたもの。判定は基準に対するもので、指標そのものの優劣ではない",
+      "レバレッジ・インバースETFの数字は、日経が12年で約4倍になった上昇相場のもの。verification_caveats を必ず一緒に読むこと",
     ],
     roadmap: {
       planned: "run_rule_backtest(ルールの過去検証を実行)。バックテスト基盤の整備後に有料枠として追加予定",
@@ -714,5 +930,7 @@ export const TOOL_HANDLERS = {
   get_anomaly_summary: getAnomalySummary,
   get_candlestick_verdict: getCandlestickVerdict,
   get_event_reaction: getEventReaction,
+  get_indicator_verdict: getIndicatorVerdict,
+  get_etf_decay: getEtfDecay,
   list_tools_guide: listToolsGuide,
 };

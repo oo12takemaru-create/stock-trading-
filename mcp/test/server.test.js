@@ -60,12 +60,13 @@ test("notifications は 202", async () => {
   assert.equal(res.status, 202);
 });
 
-test("tools/list に6本", async () => {
+test("tools/list に8本", async () => {
   const { body } = await rpc("tools/list");
   assert.deepEqual(
     body.result.tools.map((t) => t.name),
     ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
-    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"],
+    "get_candlestick_verdict", "get_event_reaction", "get_indicator_verdict",
+    "get_etf_decay", "list_tools_guide"],
   );
   for (const t of body.result.tools) assert.equal(t.inputSchema.type, "object");
 });
@@ -345,9 +346,153 @@ test("v0.2: 応答サイズが 1ツール 50KB を超えない", async () => {
   }
 });
 
+// ---- v0.2 Step2: 指標26種 + レバレッジ・インバースETF ------------------------
+
+test("get_indicator_verdict: 26種・使える9 / 条件付き4 / 捨てろ13", async () => {
+  const p = (await call("get_indicator_verdict", {})).structuredContent;
+  assert.equal(p.matched, 26, "26種読めていない");
+  assert.equal(p.summary.usable, 9);
+  assert.equal(p.summary.conditional, 4);
+  assert.equal(p.summary.not_usable, 13);
+  // ★「使える」は8区分すべてを通ったもの＝ below_bar が空★
+  for (const it of p.items) {
+    if (it.verdict === "usable") {
+      assert.equal(it.below_bar_count, 0, `${it.indicator}: 使えるなのに未達区分がある`);
+    } else {
+      assert.ok(it.below_bar_count > 0, `${it.indicator}: 未達が無いのに使えるでない`);
+    }
+  }
+  assert.ok(p.criteria.usable.includes("0.3"), "判定の基準が書かれていない");
+  assert.ok(p.benchmark.exit_b_pf, "ランダムとの比較基準が無い");
+  // 一覧モードは軽い形
+  assert.equal(p.items[0].regimes, undefined, "一覧モードで8区分が出ている");
+  assert.equal(p.items[0].exit_a, undefined);
+  assert.ok(p.items_note.includes("name"), "一覧モードの案内が無い");
+});
+
+test("get_indicator_verdict: 絞り込みと8区分・書籍の一言は出さない", async () => {
+  const one = (await call("get_indicator_verdict", { name: "RSI" })).structuredContent;
+  assert.ok(one.matched >= 1);
+  const it = one.items.find((x) => x.indicator === "RSI");
+  assert.equal(it.verdict, "usable");
+  assert.equal(it.below_bar.length, 0);
+  assert.equal(typeof it.exit_a.win_rate_pct, "number");
+  assert.equal(typeof it.exit_b.pf, "number");
+  assert.equal(it.regimes, undefined, "detail なしで8区分が出ている");
+
+  const d = (await call("get_indicator_verdict", { name: "RSI", detail: true }))
+    .structuredContent.items.find((x) => x.indicator === "RSI");
+  assert.equal(d.regimes.length, 8, "8区分そろっていない");
+  assert.ok(d.regimes.every((r) => typeof r.excess_pct === "number"));
+
+  // 条件付きは「どこで落ちたか」が出る
+  const w = (await call("get_indicator_verdict", { name: "ウィリアムズ" }))
+    .structuredContent.items[0];
+  assert.equal(w.verdict, "conditional");
+  assert.ok(w.below_bar.length > 0, "条件付きなのに未達区分が出ていない");
+
+  // ★書籍本文の「一言」を出さない★
+  // 『新規学習は非推奨』のように推奨語を含み、統計でもない
+  const all = (await call("get_indicator_verdict", { detail: true })).content[0].text;
+  for (const phrase of ["新規学習", "死にかけ", "墓に眠る", "せっかちな弟"]) {
+    assert.equal(all.includes(phrase), false, `書籍の一言が出ている: ${phrase}`);
+  }
+
+  // 英語の別名でも引ける
+  for (const q of ["ichimoku", "bollinger", "momentum"]) {
+    assert.ok((await call("get_indicator_verdict", { name: q })).structuredContent.matched > 0,
+      `別名で引けない: ${q}`);
+  }
+  const none = (await call("get_indicator_verdict", { name: "存在しない指標" })).structuredContent;
+  assert.equal(none.matched, 0);
+  assert.equal(none.available_indicators.length, 26);
+});
+
+test("get_etf_decay: 12年の実測・戻り待ち・注意書きを必ず返す", async () => {
+  const p = (await call("get_etf_decay", {})).structuredContent;
+  assert.equal(p.yearly.length, 13, "年別13年ぶんが無い");
+  assert.equal(p.by_holding_days.length, 6);
+  assert.equal(p.wait_for_recovery.results.length, 2);
+  assert.ok(p.mechanism.why_it_decays.includes("94.5"), "減価の仕組みの数字が無い");
+
+  // ★起動文が名指しした知見★ 回数の多さと損益の大きさが釣り合わない
+  assert.ok(p.key_finding.includes("99.3"), "戻り待ちの成功率が無い");
+  assert.ok(p.key_finding.includes("32.5"), "戻らなかった場合の数字が無い");
+
+  // ★注意書きを落とさない★
+  // 「日経が12年で約4倍になった上昇相場のデータ」という前提が抜けると、
+  // この数字はまるごと誤読される
+  assert.ok(p.verification_caveats, "解釈の注意が無い");
+  assert.ok(p.verification_caveats.note.includes("上昇相場"), "最重要の前提が無い");
+  assert.ok(Array.isArray(p.verification_caveats.wait_for_recovery));
+  // 著者の執筆メモは混ぜない（酒田の逆三尊と同じ線）
+  const text = (await call("get_etf_decay", { detail: true })).content[0].text;
+  assert.equal(text.includes("章立てへの示唆"), false, "著者の執筆メモが出ている");
+
+  // 条件別は detail のときだけ
+  assert.equal(p.by_condition, undefined, "detail なしで72通りが出ている");
+  assert.ok(p.by_condition_note.includes("detail"));
+  const d = (await call("get_etf_decay", { detail: true })).structuredContent;
+  assert.equal(d.by_condition.length, 72, "条件別72通りが無い");
+  assert.ok(d.by_condition.every((x) => typeof x.pf === "number"));
+
+  // code で対象を指定できる / 未知のコードは候補を返す
+  const one = (await call("get_etf_decay", { code: "1357" })).structuredContent;
+  assert.equal(one.focus.code, "1357");
+  const ja = (await call("get_etf_decay", { code: "ダブルインバース" })).structuredContent;
+  assert.equal(ja.focus.code, "1357");
+  const none = (await call("get_etf_decay", { code: "9999" })).structuredContent;
+  assert.equal(none.matched, 0);
+  assert.ok(none.available_products.length >= 2);
+});
+
+test("★法務の線★ Step2 の2本に個別株の銘柄情報が無い", async () => {
+  // ETF のコード(1357/1570/1360)は「何を検証したか」の識別子なので許す。
+  // それ以外の4桁が出たら個別株の混入。
+  const ALLOWED = new Set(["1357", "1570", "1360"]);
+  for (const [name, args] of [
+    ["get_indicator_verdict", { detail: true }],
+    ["get_indicator_verdict", { name: "RSI", detail: true }],
+    ["get_etf_decay", { detail: true }],
+    ["get_etf_decay", { code: "1357", detail: true }],
+  ]) {
+    const r = await call(name, args);
+    // ★数値の中は見ない★（期待値 0.0045 の小数部が4桁コードに見える）
+    const texts = [];
+    const walk = (v) => {
+      if (typeof v === "string") texts.push(v);
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === "object") {
+        for (const [k, x] of Object.entries(v)) { texts.push(k); walk(x); }
+      }
+    };
+    walk(r.structuredContent);
+    const codes = (texts.join(" ").match(/\b\d{4}\b/g) || [])
+      .filter((c) => !(Number(c) >= 1990 && Number(c) <= 2100))
+      .filter((c) => !ALLOWED.has(c));
+    assert.deepEqual(codes, [], `${name}: 個別株らしき4桁がある`);
+    assert.equal(hasNg(r.content[0].text), false, `${name} に推奨語がある`);
+    assert.ok(r.structuredContent.disclaimer.length > 20, `${name} に免責が無い`);
+    assert.ok(r.structuredContent.note, `${name} に元データ側の注意が無い`);
+  }
+});
+
+test("Step2: 応答サイズが 1ツール 50KB を超えない", async () => {
+  for (const [name, args] of [
+    ["get_indicator_verdict", {}],
+    ["get_indicator_verdict", { detail: true }],
+    ["get_etf_decay", {}],
+    ["get_etf_decay", { detail: true }],
+  ]) {
+    const r = await call(name, args);
+    const bytes = Buffer.byteLength(r.content[0].text, "utf8");
+    assert.ok(bytes <= 51200, `${name}(${JSON.stringify(args)}) が ${bytes} バイト`);
+  }
+});
+
 test("list_tools_guide", async () => {
   const p = (await call("list_tools_guide")).structuredContent;
-  assert.equal(p.tools.length, 6);
+  assert.equal(p.tools.length, 8);
   assert.ok(p.legal.disclaimer);
   assert.ok(p.data_schedule_jst.get_daily_signals);
 });
@@ -359,6 +504,8 @@ test("法務線: 全ツール出力に推奨語が含まれず、免責キーが
     ["get_anomaly_summary", { detail: true }],
     ["get_candlestick_verdict", { detail: true }],
     ["get_event_reaction", { detail: true }],
+    ["get_indicator_verdict", { detail: true }],
+    ["get_etf_decay", { detail: true }],
     ["list_tools_guide", {}],
   ]) {
     const r = await call(name, args);
@@ -422,7 +569,8 @@ test("案内する URL が正規URL(ruletrade.jp)に統一されている", asyn
 
   // 全ツールに source_site / data_site が付く
   for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
-    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
+    "get_candlestick_verdict", "get_event_reaction", "get_indicator_verdict",
+    "get_etf_decay", "list_tools_guide"]) {
     const p = (await call(name)).structuredContent;
     assert.equal(p.source_site, "https://ruletrade.jp/", name);
     assert.equal(p.data_site, "https://kaburadar.jp", name);
@@ -443,7 +591,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   assert.ok(txt.includes("https://ruletrade.jp/mcp"), "正規URLが書かれていない");
   assert.equal(txt.includes("workers.dev"), false, "workers.dev を案内している");
   for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
-    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
+    "get_candlestick_verdict", "get_event_reaction", "get_indicator_verdict",
+    "get_etf_decay", "list_tools_guide"]) {
     assert.ok(txt.includes(name), `${name} が載っていない`);
   }
   assert.ok(/not investment advice/i.test(txt), "英語の免責がない");
@@ -452,7 +601,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   const toolBlock = txt.split("## What you can get")[1].split("##")[0];
   assert.equal(/[ぁ-んァ-ン一-龥]/.test(toolBlock), false, "ツール一覧に日本語が混ざっている");
   for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
-    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
+    "get_candlestick_verdict", "get_event_reaction", "get_indicator_verdict",
+    "get_etf_decay", "list_tools_guide"]) {
     const line = toolBlock.split("\n").find((l) => l.startsWith("- " + `\`${name}\`` + " — "));
     assert.ok(line, `${name} の行がない`);
     const desc = line.split(" — ")[1] || "";
@@ -471,7 +621,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   assert.equal(spec.paths["/mcp"].get.responses["405"] !== undefined, true);
   // ツール4本ぶんの引数スキーマが載っている
   for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
-    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
+    "get_candlestick_verdict", "get_event_reaction", "get_indicator_verdict",
+    "get_etf_decay", "list_tools_guide"]) {
     assert.ok(spec.components.schemas[`${name}_arguments`], `${name} のスキーマがない`);
   }
   assert.ok(spec.components.schemas.ToolResult.required.includes("disclaimer"));

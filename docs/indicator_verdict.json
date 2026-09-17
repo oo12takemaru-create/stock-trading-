@@ -1,0 +1,2105 @@
+{
+ "schema": "indicator_verdict/1",
+ "source_book": "本当に使えるテクニカル指標（21）",
+ "source_file": "株式投資開発/physics_dex/results/summary.csv",
+ "universe": "TOPIX500（有効490銘柄）",
+ "period": "2016-01-01〜2025-12-31",
+ "method": {
+  "entry": "教科書どおりの買いシグナルが出た日",
+  "exit_a": "20営業日で手仕舞い",
+  "exit_b": "8%トレーリングストップ",
+  "cost": "往復0.3%を控除",
+  "excess": "同じ区分のランダムな売買との差（超過期待値）",
+  "regimes": "上昇/下落はTOPIX ETFの200日移動平均より上か下か。前半は2016-2020、後半は2021-2025",
+  "trades": "全指標の合計で約50万回"
+ },
+ "criteria": {
+  "usable": "8区分（出口A・B × 上昇/下落/前半/後半）すべてで超過収益が +0.3% を超えた",
+  "conditional": "実力はあるが使う場面や出口に条件が付く",
+  "not_usable": "超過収益が基準に届かない、または特定の局面・期間で消える",
+  "note": "「使える」は数字から機械的に決まる（ちょうど9個）。「条件付き」と「捨てろ」の境目は著者の判断を含む"
+ },
+ "benchmark": {
+  "name": "ランダムな売買",
+  "exit_a_win_rate_pct": 46.4,
+  "exit_a_expectancy_pct": -0.04,
+  "exit_b_win_rate_pct": 34.3,
+  "exit_b_pf": 1.0,
+  "note": "すべての超過収益はこのランダムな売買との差"
+ },
+ "headline": "26指標のうち「使える」は9個（約3割）。残りは条件が付くか、基準に届かなかった。",
+ "summary": {
+  "indicators_tested": 26,
+  "usable": 9,
+  "conditional": 4,
+  "not_usable": 13
+ },
+ "key_finding": "「捨てろ」の13個には、入門書の最初に出てくる指標が並んでいる（移動平均クロス・MACD・一目均衡表）。知名度と成績は別で、有名な指標ほど多くの人が同じ場所で売買するため、後半5年で超過収益が消えているものが多い。",
+ "not_included": "銘柄名・銘柄コード・価格系列は含まない。返すのは指標ごとの判定と統計だけ。",
+ "items": [
+  {
+   "indicator": "SMA25クロス",
+   "category": "トレンド",
+   "aliases": [
+    "sma",
+    "移動平均",
+    "ゴールデンクロス",
+    "moving average cross"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 29955,
+    "win_rate_pct": 52.8,
+    "payoff": 1.13,
+    "expectancy_pct": 0.73,
+    "excess_expectancy_pct": 0.77
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 23794,
+    "win_rate_pct": 39.7,
+    "payoff": 2.0,
+    "expectancy_pct": 1.11,
+    "excess_expectancy_pct": 1.1,
+    "pf": 1.31
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.85
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.6
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.22
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.04
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.46
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.67
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.8
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.15
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.04
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.15
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "EMA25クロス",
+   "category": "トレンド",
+   "aliases": [
+    "ema",
+    "指数移動平均",
+    "exponential moving average"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 31177,
+    "win_rate_pct": 52.2,
+    "payoff": 1.11,
+    "expectancy_pct": 0.61,
+    "excess_expectancy_pct": 0.65
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 25034,
+    "win_rate_pct": 39.0,
+    "payoff": 1.97,
+    "expectancy_pct": 0.95,
+    "excess_expectancy_pct": 0.95,
+    "pf": 1.26
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.75
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.45
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.97
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.07
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.36
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.44
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.39
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.01
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.07
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.01
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "MACD",
+   "category": "トレンド",
+   "aliases": [
+    "macd",
+    "マックディー"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 30833,
+    "win_rate_pct": 53.0,
+    "payoff": 1.1,
+    "expectancy_pct": 0.69,
+    "excess_expectancy_pct": 0.74
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 24923,
+    "win_rate_pct": 40.1,
+    "payoff": 2.0,
+    "expectancy_pct": 1.18,
+    "excess_expectancy_pct": 1.18,
+    "pf": 1.34
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.77
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.67
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.2
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.0
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.44
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.94
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.66
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.16
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.0
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.16
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "一目均衡表(雲上抜け)",
+   "category": "トレンド",
+   "aliases": [
+    "一目",
+    "雲",
+    "ichimoku",
+    "kumo"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 17283,
+    "win_rate_pct": 52.4,
+    "payoff": 1.1,
+    "expectancy_pct": 0.6,
+    "excess_expectancy_pct": 0.64
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 15730,
+    "win_rate_pct": 39.3,
+    "payoff": 1.99,
+    "expectancy_pct": 1.04,
+    "excess_expectancy_pct": 1.03,
+    "pf": 1.29
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.81
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.25
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.9
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.09
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.67
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 1.92
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.37
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.14
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.25
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.09
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.14
+    }
+   ],
+   "below_bar_count": 3
+  },
+  {
+   "indicator": "パラボリックSAR",
+   "category": "トレンド",
+   "aliases": [
+    "パラボリック",
+    "sar",
+    "parabolic"
+   ],
+   "verdict": "conditional",
+   "verdict_ja": "条件付き",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 34708,
+    "win_rate_pct": 53.5,
+    "payoff": 1.15,
+    "expectancy_pct": 0.9,
+    "excess_expectancy_pct": 0.94
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 26367,
+    "win_rate_pct": 40.9,
+    "payoff": 2.03,
+    "expectancy_pct": 1.37,
+    "excess_expectancy_pct": 1.37,
+    "pf": 1.4
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.89
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.07
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.43
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.18
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.56
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.23
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.97
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.23
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.18
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.23
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "ADX/DMI",
+   "category": "トレンド",
+   "aliases": [
+    "adx",
+    "dmi",
+    "方向性指数"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 6049,
+    "win_rate_pct": 50.4,
+    "payoff": 1.06,
+    "expectancy_pct": 0.23,
+    "excess_expectancy_pct": 0.27
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 6069,
+    "win_rate_pct": 36.2,
+    "payoff": 1.93,
+    "expectancy_pct": 0.36,
+    "excess_expectancy_pct": 0.36,
+    "pf": 1.09
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.66
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.48
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.36
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.11
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.4
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 1.02
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.65
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.16
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.48
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.11
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.16
+    }
+   ],
+   "below_bar_count": 3
+  },
+  {
+   "indicator": "エンベロープ",
+   "category": "トレンド",
+   "aliases": [
+    "envelope",
+    "包絡線"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 15890,
+    "win_rate_pct": 57.6,
+    "payoff": 1.25,
+    "expectancy_pct": 1.89,
+    "excess_expectancy_pct": 1.93
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 15704,
+    "win_rate_pct": 42.4,
+    "payoff": 2.0,
+    "expectancy_pct": 1.59,
+    "excess_expectancy_pct": 1.59,
+    "pf": 1.47
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.19
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 2.62
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.7
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 1.94
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.69
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.59
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.05
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.61
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "グランビル第1法則",
+   "category": "トレンド",
+   "aliases": [
+    "グランビル",
+    "granville"
+   ],
+   "verdict": "conditional",
+   "verdict_ja": "条件付き",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 9130,
+    "win_rate_pct": 53.1,
+    "payoff": 1.15,
+    "expectancy_pct": 0.85,
+    "excess_expectancy_pct": 0.89
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 8146,
+    "win_rate_pct": 41.6,
+    "payoff": 2.07,
+    "expectancy_pct": 1.62,
+    "excess_expectancy_pct": 1.62,
+    "pf": 1.48
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.95
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.83
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.96
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.47
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.92
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.14
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.45
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.22
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.22
+    }
+   ],
+   "below_bar_count": 1
+  },
+  {
+   "indicator": "RSI",
+   "category": "オシレーター",
+   "aliases": [
+    "rsi",
+    "相対力指数",
+    "relative strength index"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 7769,
+    "win_rate_pct": 60.3,
+    "payoff": 1.26,
+    "expectancy_pct": 2.37,
+    "excess_expectancy_pct": 2.41
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 8004,
+    "win_rate_pct": 45.5,
+    "payoff": 2.07,
+    "expectancy_pct": 2.36,
+    "excess_expectancy_pct": 2.36,
+    "pf": 1.73
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.58
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 3.73
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.45
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 3.42
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.42
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 5.19
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.1
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 2.4
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "ストキャスティクス",
+   "category": "オシレーター",
+   "aliases": [
+    "ストキャス",
+    "stochastic",
+    "stochastics"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 25046,
+    "win_rate_pct": 55.7,
+    "payoff": 1.2,
+    "expectancy_pct": 1.34,
+    "excess_expectancy_pct": 1.38
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 23615,
+    "win_rate_pct": 42.9,
+    "payoff": 1.98,
+    "expectancy_pct": 1.67,
+    "excess_expectancy_pct": 1.67,
+    "pf": 1.49
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.11
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.76
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.38
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 1.1
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.92
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.49
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.0
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.84
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "RCI",
+   "category": "オシレーター",
+   "aliases": [
+    "rci",
+    "順位相関"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 25918,
+    "win_rate_pct": 56.1,
+    "payoff": 1.19,
+    "expectancy_pct": 1.37,
+    "excess_expectancy_pct": 1.41
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 20280,
+    "win_rate_pct": 43.7,
+    "payoff": 2.01,
+    "expectancy_pct": 1.85,
+    "excess_expectancy_pct": 1.84,
+    "pf": 1.56
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.04
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 2.05
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.6
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.96
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 1.03
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.73
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.56
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.59
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "CCI",
+   "category": "オシレーター",
+   "aliases": [
+    "cci",
+    "commodity channel index"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 31212,
+    "win_rate_pct": 55.1,
+    "payoff": 1.2,
+    "expectancy_pct": 1.25,
+    "excess_expectancy_pct": 1.29
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 28208,
+    "win_rate_pct": 43.1,
+    "payoff": 1.99,
+    "expectancy_pct": 1.7,
+    "excess_expectancy_pct": 1.7,
+    "pf": 1.51
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.06
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.66
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.57
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.74
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.75
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.77
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.21
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.67
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "ウィリアムズ%R",
+   "category": "オシレーター",
+   "aliases": [
+    "ウィリアムズ",
+    "williams",
+    "%r"
+   ],
+   "verdict": "conditional",
+   "verdict_ja": "条件付き",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 31234,
+    "win_rate_pct": 54.9,
+    "payoff": 1.19,
+    "expectancy_pct": 1.2,
+    "excess_expectancy_pct": 1.24
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 23726,
+    "win_rate_pct": 42.1,
+    "payoff": 1.99,
+    "expectancy_pct": 1.53,
+    "excess_expectancy_pct": 1.53,
+    "pf": 1.45
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.15
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.38
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.4
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.8
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.98
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.04
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.22
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.28
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.28
+    }
+   ],
+   "below_bar_count": 1
+  },
+  {
+   "indicator": "モメンタム",
+   "category": "オシレーター",
+   "aliases": [
+    "momentum"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 36165,
+    "win_rate_pct": 53.0,
+    "payoff": 1.12,
+    "expectancy_pct": 0.75,
+    "excess_expectancy_pct": 0.79
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 26716,
+    "win_rate_pct": 40.2,
+    "payoff": 2.01,
+    "expectancy_pct": 1.23,
+    "excess_expectancy_pct": 1.23,
+    "pf": 1.35
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.88
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.6
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.23
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.07
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.49
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.99
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.82
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.1
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.07
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.1
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "移動平均乖離率",
+   "category": "オシレーター",
+   "aliases": [
+    "乖離率",
+    "乖離",
+    "deviation",
+    "disparity"
+   ],
+   "verdict": "conditional",
+   "verdict_ja": "条件付き",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 5477,
+    "win_rate_pct": 64.1,
+    "payoff": 1.37,
+    "expectancy_pct": 3.86,
+    "excess_expectancy_pct": 3.9
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 6047,
+    "win_rate_pct": 46.9,
+    "payoff": 2.04,
+    "expectancy_pct": 2.67,
+    "excess_expectancy_pct": 2.66,
+    "pf": 1.8
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.15
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 4.99
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 3.0
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 4.89
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": -0.09
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 5.55
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.04
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 3.21
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": -0.09
+    }
+   ],
+   "below_bar_count": 1
+  },
+  {
+   "indicator": "ボリンジャー-2σ",
+   "category": "ボラティリティ",
+   "aliases": [
+    "ボリンジャー",
+    "bollinger",
+    "2シグマ",
+    "bollinger bands"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 18320,
+    "win_rate_pct": 56.2,
+    "payoff": 1.24,
+    "expectancy_pct": 1.54,
+    "excess_expectancy_pct": 1.58
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 15279,
+    "win_rate_pct": 42.1,
+    "payoff": 2.02,
+    "expectancy_pct": 1.61,
+    "excess_expectancy_pct": 1.61,
+    "pf": 1.47
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.14
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 2.08
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.36
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 1.53
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.87
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 3.41
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.93
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.78
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "ATRブレイク",
+   "category": "ボラティリティ",
+   "aliases": [
+    "atr",
+    "average true range",
+    "ブレイク"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 20362,
+    "win_rate_pct": 54.1,
+    "payoff": 1.19,
+    "expectancy_pct": 1.12,
+    "excess_expectancy_pct": 1.16
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 16030,
+    "win_rate_pct": 42.7,
+    "payoff": 2.03,
+    "expectancy_pct": 1.72,
+    "excess_expectancy_pct": 1.72,
+    "pf": 1.51
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.89
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.86
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.2
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.87
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.58
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 4.16
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.89
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 1.02
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "ケルトナーチャネル",
+   "category": "ボラティリティ",
+   "aliases": [
+    "ケルトナー",
+    "keltner"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 18889,
+    "win_rate_pct": 50.8,
+    "payoff": 1.08,
+    "expectancy_pct": 0.33,
+    "excess_expectancy_pct": 0.37
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 13659,
+    "win_rate_pct": 38.5,
+    "payoff": 1.99,
+    "expectancy_pct": 0.89,
+    "excess_expectancy_pct": 0.89,
+    "pf": 1.24
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.71
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.69
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.68
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.21
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.63
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 0.91
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.43
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.23
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.69
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.21
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.23
+    }
+   ],
+   "below_bar_count": 3
+  },
+  {
+   "indicator": "ドンチャン20日高値",
+   "category": "ボラティリティ",
+   "aliases": [
+    "ドンチャン",
+    "donchian",
+    "20日高値"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 25410,
+    "win_rate_pct": 51.1,
+    "payoff": 1.09,
+    "expectancy_pct": 0.41,
+    "excess_expectancy_pct": 0.46
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 17124,
+    "win_rate_pct": 38.8,
+    "payoff": 1.97,
+    "expectancy_pct": 0.92,
+    "excess_expectancy_pct": 0.92,
+    "pf": 1.25
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.69
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.12
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 0.9
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.26
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.61
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 1.51
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.61
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.34
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": -0.12
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.26
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.34
+    }
+   ],
+   "below_bar_count": 3
+  },
+  {
+   "indicator": "HVスクイーズ",
+   "category": "ボラティリティ",
+   "aliases": [
+    "hv",
+    "スクイーズ",
+    "squeeze",
+    "historical volatility"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 19443,
+    "win_rate_pct": 51.9,
+    "payoff": 1.12,
+    "expectancy_pct": 0.56,
+    "excess_expectancy_pct": 0.6
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 12734,
+    "win_rate_pct": 40.8,
+    "payoff": 2.14,
+    "expectancy_pct": 1.63,
+    "excess_expectancy_pct": 1.63,
+    "pf": 1.47
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.79
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.18
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.01
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.09
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.99
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.8
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 2.68
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.08
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.18
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.09
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.08
+    }
+   ],
+   "below_bar_count": 3
+  },
+  {
+   "indicator": "出来高急増",
+   "category": "出来高",
+   "aliases": [
+    "出来高",
+    "volume spike",
+    "volume surge"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 14877,
+    "win_rate_pct": 53.2,
+    "payoff": 1.19,
+    "expectancy_pct": 0.99,
+    "excess_expectancy_pct": 1.03
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 12330,
+    "win_rate_pct": 41.5,
+    "payoff": 1.99,
+    "expectancy_pct": 1.45,
+    "excess_expectancy_pct": 1.45,
+    "pf": 1.42
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.95
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.37
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.07
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.68
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.9
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.69
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.76
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.53
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "OBV",
+   "category": "出来高",
+   "aliases": [
+    "obv",
+    "on balance volume"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 33027,
+    "win_rate_pct": 53.5,
+    "payoff": 1.12,
+    "expectancy_pct": 0.8,
+    "excess_expectancy_pct": 0.85
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 25389,
+    "win_rate_pct": 40.5,
+    "payoff": 1.99,
+    "expectancy_pct": 1.23,
+    "excess_expectancy_pct": 1.22,
+    "pf": 1.35
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.81
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.93
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.29
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.13
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.51
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.94
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.84
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.06
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.13
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.06
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "移動VWAP",
+   "category": "出来高",
+   "aliases": [
+    "vwap",
+    "出来高加重"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 32845,
+    "win_rate_pct": 52.9,
+    "payoff": 1.14,
+    "expectancy_pct": 0.8,
+    "excess_expectancy_pct": 0.84
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 25337,
+    "win_rate_pct": 40.1,
+    "payoff": 1.99,
+    "expectancy_pct": 1.17,
+    "excess_expectancy_pct": 1.17,
+    "pf": 1.33
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.79
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.98
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.36
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.05
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.41
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.95
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.77
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.02
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.05
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.02
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "MFI",
+   "category": "出来高",
+   "aliases": [
+    "mfi",
+    "money flow index"
+   ],
+   "verdict": "usable",
+   "verdict_ja": "使える",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 5459,
+    "win_rate_pct": 56.6,
+    "payoff": 1.19,
+    "expectancy_pct": 1.5,
+    "excess_expectancy_pct": 1.54
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 5536,
+    "win_rate_pct": 42.1,
+    "payoff": 1.91,
+    "expectancy_pct": 1.37,
+    "excess_expectancy_pct": 1.37,
+    "pf": 1.39
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 1.2
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 1.8
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.56
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 1.36
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.99
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.73
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.85
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.43
+    }
+   ],
+   "below_bar": [],
+   "below_bar_count": 0
+  },
+  {
+   "indicator": "価格帯別出来高POC",
+   "category": "出来高",
+   "aliases": [
+    "poc",
+    "価格帯別出来高",
+    "volume profile"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 26939,
+    "win_rate_pct": 53.5,
+    "payoff": 1.13,
+    "expectancy_pct": 0.83,
+    "excess_expectancy_pct": 0.87
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 21916,
+    "win_rate_pct": 40.2,
+    "payoff": 2.01,
+    "expectancy_pct": 1.24,
+    "excess_expectancy_pct": 1.24,
+    "pf": 1.35
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.89
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.84
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.2
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.26
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.61
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.74
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.95
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.04
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.26
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": -0.04
+    }
+   ],
+   "below_bar_count": 2
+  },
+  {
+   "indicator": "A/Dライン",
+   "category": "出来高",
+   "aliases": [
+    "a/d",
+    "adライン",
+    "accumulation distribution"
+   ],
+   "verdict": "not_usable",
+   "verdict_ja": "捨てろ",
+   "exit_a": {
+    "rule": "20営業日で手仕舞い",
+    "trades": 31388,
+    "win_rate_pct": 53.0,
+    "payoff": 1.14,
+    "expectancy_pct": 0.81,
+    "excess_expectancy_pct": 0.86
+   },
+   "exit_b": {
+    "rule": "8%トレーリングストップ",
+    "trades": 24296,
+    "win_rate_pct": 39.8,
+    "payoff": 2.01,
+    "expectancy_pct": 1.18,
+    "excess_expectancy_pct": 1.17,
+    "pf": 1.33
+   },
+   "regimes": [
+    {
+     "exit": "A",
+     "regime": "上昇局面",
+     "excess_pct": 0.91
+    },
+    {
+     "exit": "A",
+     "regime": "下落局面",
+     "excess_pct": 0.76
+    },
+    {
+     "exit": "A",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.27
+    },
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.17
+    },
+    {
+     "exit": "B",
+     "regime": "上昇局面",
+     "excess_pct": 0.63
+    },
+    {
+     "exit": "B",
+     "regime": "下落局面",
+     "excess_pct": 2.63
+    },
+    {
+     "exit": "B",
+     "regime": "前半(2016-2020)",
+     "excess_pct": 1.73
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.08
+    }
+   ],
+   "below_bar": [
+    {
+     "exit": "A",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.17
+    },
+    {
+     "exit": "B",
+     "regime": "後半(2021-2025)",
+     "excess_pct": 0.08
+    }
+   ],
+   "below_bar_count": 2
+  }
+ ],
+ "disclaimer": "過去の値動きへの当てはめであり、将来の値動きを示すものではありません。特定の銘柄や売買を勧めるものでもありません。判定は上の基準に対するもので、指標そのものの優劣を決めるものではありません。"
+}

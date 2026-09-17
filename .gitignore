@@ -34,6 +34,12 @@ ENV/
 # 出来事27種のあとの動き。MCP の get_event_reaction が読む
 # (mcp/tools/build_event_reaction.py が生成・verify_* が元CSVと照合)
 !docs/event_reaction.json
+# テクニカル指標26種の検証結果。MCP の get_indicator_verdict が読む
+# (mcp/tools/build_indicator_verdict.py が生成・verify_* が元CSVと書籍の原稿と照合)
+!docs/indicator_verdict.json
+# レバレッジ・インバースETFの減価。MCP の get_etf_decay が読む
+# (mcp/tools/build_etf_decay.py が生成・verify_* が元CSVと元mdと照合)
+!docs/etf_decay.json
 # 🔒 trades.json / stops.json は非公開リポジトリ(stock-trading-private)管理。
 #    公開リポジトリには絶対コミットしない(例外を作らないこと)
 cost_tax_analysis_result.csv

@@ -35,6 +35,14 @@ const TOOL_LINES_EN = {
   get_event_reaction:
     "27 event types (earthquakes, rate decisions, tariffs, pandemics) and what followed: excess return over the "
     + "market, win rate, p-value and sample size across five horizons. Sector baskets are deliberately excluded.",
+  get_indicator_verdict:
+    "26 technical indicators (RSI, MACD, moving-average crossover, Bollinger and the rest) traded exactly as the "
+    + "textbooks describe, across TOPIX500 over 10 years and roughly 500,000 trades. Nine cleared every regime; "
+    + "thirteen did not, and those thirteen are mostly the ones beginners learn first.",
+  get_etf_decay:
+    "Twelve years of measured decay in leveraged and inverse ETFs on the Nikkei 225 - yearly theory against actual, "
+    + "win rate by holding period, profit factor by market condition, and what happened across 305 attempts to "
+    + "hold and wait for a position to come back.",
   list_tools_guide:
     "Update times (JST), data delays, free-tier limits, disclaimer, and roadmap. Call this first.",
 };
@@ -73,7 +81,8 @@ Every response carries a \`disclaimer\` key. Do not strip it when relaying resul
 
 Japanese-equity MCP servers already cover the *primary data* layer (filings, prices, execution).
 This server covers the *verification* layer: 50 market anomalies tested over 61 years,
-12 candlestick patterns tested on TSE Prime, 27 event types and what followed them,
+26 technical indicators traded by the book, 12 candlestick patterns tested on TSE Prime,
+27 event types and what followed them, twelve years of leveraged-ETF decay,
 a daily mean-reversion rule, a market-regime classifier, and crash-precursor gauges.
 The underlying research is published as books by the operator.
 
@@ -97,7 +106,9 @@ Any client:   POST JSON-RPC 2.0 to ${CANONICAL_ENDPOINT}
 
 - Data updates on Japan Exchange trading days; see \`list_tools_guide\` for exact times (JST).
 - The anomaly dataset is a fixed snapshot taken at book publication (2026-08), not updated daily.
-- The candlestick and event datasets are fixed snapshots from the same research, not updated daily.
+- The candlestick, event, indicator and ETF datasets are fixed snapshots from the same research, not updated daily.
+- Results that failed are returned with their caveats attached. Read them: the ETF figures come from
+  twelve years in which the Nikkei roughly quadrupled, and that context changes what they mean.
 - Rate limits are not enforced today; please be reasonable.
 `;
 }
