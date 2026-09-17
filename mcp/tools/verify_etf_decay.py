@@ -37,6 +37,9 @@ ALLOWED_CODES = {"1357", "1570", "1360"}   # 検証対象のETF。これ以外�
 NG_WORDS = ["推奨", "おすすめ", "お勧め", "買うべき", "売るべき", "買い時", "売り時",
             "儲か", "必勝", "狙い目", "勝てる", "危ない", "やめられない"]
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import find_codes  # noqa: E402
+
 fails = []
 ok = lambda m: print("OK   %s" % m)
 
@@ -236,8 +239,7 @@ def main():
 
     walk(doc)
     joined = " ".join(texts)
-    codes = {c for c in re.findall(r"\b\d{4}\b", joined)
-             if not (1990 <= int(c) <= 2100)} - ALLOWED_CODES
+    codes = find_codes(doc, allowed=ALLOWED_CODES)   # 共通の検査（legal_check.py）
     if codes:
         ng("検証対象のETF以外の4桁が混ざっている: %s" % sorted(codes)[:10])
     else:

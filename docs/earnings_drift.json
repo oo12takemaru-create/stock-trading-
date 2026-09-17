@@ -1,0 +1,496 @@
+{
+ "schema": "earnings_drift/1",
+ "source_book": "決算後ドリフトの検証（31）",
+ "source_files": [
+  "01_分位別ドリフト.csv",
+  "02_ロングショート.csv",
+  "05_頑健性_CAR5.csv",
+  "07_バックテスト.csv"
+ ],
+ "data_source": "J-Quants API V2（決算短信と日足）",
+ "universe": "内国普通株3,756銘柄（ETF・REIT・TOKYO PRO MARKET を除く）",
+ "period": "2024-03-28〜2026-06-02（531営業日）",
+ "method": {
+  "event": "決算短信の発表",
+  "surprise": "発表への初動（発表直後の値動き）で5つの分位に分ける",
+  "car": "発表の翌営業日を起点とした累積超過収益（市場全体を引いたもの）",
+  "filter": "発表前20日の平均売買代金が1億円以上",
+  "events": "有効26,483件 → 流動性で絞って10,888件"
+ },
+ "headline": "決算後のドリフトは実在するが、+5日で終わる。上位20%と下位20%の差は翌日〜+5日で +1.38%（p=0.0007）、+20日まで延ばすと統計的に消える。",
+ "key_finding": "差が出たのは「好反応を買った」からではない。最も反応の良かった分位5を翌営業日から+5日持っても +0.04%（p=0.91）で、統計的にゼロと区別できない。一方で最も反応の悪かった分位1は同じ期間に -0.85%（p=0.0021）動いている。上位と下位の差は、下位側が動き続けた分で説明される。",
+ "by_quantile": [
+  {
+   "quantile": 1,
+   "label": "分位1（決算への反応が最も悪かった20%）",
+   "cases": 2178,
+   "initial_move_pct": -9.39,
+   "windows": [
+    {
+     "days": 5,
+     "car_pct": -0.85,
+     "t": -3.11,
+     "p_value": 0.0021,
+     "significant": true
+    },
+    {
+     "days": 10,
+     "car_pct": -1.01,
+     "t": -3.11,
+     "p_value": 0.0021,
+     "significant": true
+    },
+    {
+     "days": 20,
+     "car_pct": -0.75,
+     "t": -1.75,
+     "p_value": 0.0812,
+     "significant": false
+    },
+    {
+     "days": 40,
+     "car_pct": -1.55,
+     "t": -2.76,
+     "p_value": 0.0062,
+     "significant": true
+    },
+    {
+     "days": 60,
+     "car_pct": -0.64,
+     "t": -0.75,
+     "p_value": 0.4536,
+     "significant": false
+    }
+   ]
+  },
+  {
+   "quantile": 2,
+   "label": "分位2",
+   "cases": 2177,
+   "initial_move_pct": -3.16,
+   "windows": [
+    {
+     "days": 5,
+     "car_pct": -0.14,
+     "t": -0.55,
+     "p_value": 0.5847,
+     "significant": false
+    },
+    {
+     "days": 10,
+     "car_pct": 0.17,
+     "t": 0.36,
+     "p_value": 0.7186,
+     "significant": false
+    },
+    {
+     "days": 20,
+     "car_pct": 0.69,
+     "t": 0.88,
+     "p_value": 0.3808,
+     "significant": false
+    },
+    {
+     "days": 40,
+     "car_pct": -0.51,
+     "t": -0.73,
+     "p_value": 0.4631,
+     "significant": false
+    },
+    {
+     "days": 60,
+     "car_pct": -0.22,
+     "t": -0.22,
+     "p_value": 0.8222,
+     "significant": false
+    }
+   ]
+  },
+  {
+   "quantile": 3,
+   "label": "分位3（中間）",
+   "cases": 2178,
+   "initial_move_pct": -0.44,
+   "windows": [
+    {
+     "days": 5,
+     "car_pct": -0.18,
+     "t": -0.82,
+     "p_value": 0.4121,
+     "significant": false
+    },
+    {
+     "days": 10,
+     "car_pct": -0.27,
+     "t": -0.94,
+     "p_value": 0.3498,
+     "significant": false
+    },
+    {
+     "days": 20,
+     "car_pct": -0.41,
+     "t": -1.03,
+     "p_value": 0.3057,
+     "significant": false
+    },
+    {
+     "days": 40,
+     "car_pct": -0.51,
+     "t": -0.91,
+     "p_value": 0.3647,
+     "significant": false
+    },
+    {
+     "days": 60,
+     "car_pct": -0.06,
+     "t": -0.07,
+     "p_value": 0.9432,
+     "significant": false
+    }
+   ]
+  },
+  {
+   "quantile": 4,
+   "label": "分位4",
+   "cases": 2177,
+   "initial_move_pct": 2.46,
+   "windows": [
+    {
+     "days": 5,
+     "car_pct": -0.63,
+     "t": -2.19,
+     "p_value": 0.0292,
+     "significant": true
+    },
+    {
+     "days": 10,
+     "car_pct": -0.59,
+     "t": -1.55,
+     "p_value": 0.123,
+     "significant": false
+    },
+    {
+     "days": 20,
+     "car_pct": -0.92,
+     "t": -1.79,
+     "p_value": 0.0743,
+     "significant": false
+    },
+    {
+     "days": 40,
+     "car_pct": -0.89,
+     "t": -1.11,
+     "p_value": 0.2701,
+     "significant": false
+    },
+    {
+     "days": 60,
+     "car_pct": -0.29,
+     "t": -0.24,
+     "p_value": 0.8127,
+     "significant": false
+    }
+   ]
+  },
+  {
+   "quantile": 5,
+   "label": "分位5（決算への反応が最も良かった20%）",
+   "cases": 2178,
+   "initial_move_pct": 10.73,
+   "windows": [
+    {
+     "days": 5,
+     "car_pct": 0.04,
+     "t": 0.12,
+     "p_value": 0.9073,
+     "significant": false
+    },
+    {
+     "days": 10,
+     "car_pct": -0.51,
+     "t": -1.25,
+     "p_value": 0.2112,
+     "significant": false
+    },
+    {
+     "days": 20,
+     "car_pct": -1.19,
+     "t": -2.34,
+     "p_value": 0.0203,
+     "significant": true
+    },
+    {
+     "days": 40,
+     "car_pct": -1.35,
+     "t": -2.0,
+     "p_value": 0.0461,
+     "significant": true
+    },
+    {
+     "days": 60,
+     "car_pct": -0.05,
+     "t": -0.06,
+     "p_value": 0.9557,
+     "significant": false
+    }
+   ]
+  }
+ ],
+ "long_short": [
+  {
+   "window": "+1〜+5日",
+   "spread_pct": 1.38,
+   "t": 3.44,
+   "p_value": 0.0007,
+   "significant": true,
+   "announcement_days": 195,
+   "win_rate_pct": 58.5
+  },
+  {
+   "window": "+1〜+10日",
+   "spread_pct": 0.96,
+   "t": 2.0,
+   "p_value": 0.047,
+   "significant": true,
+   "announcement_days": 195,
+   "win_rate_pct": 59.0
+  },
+  {
+   "window": "+1〜+20日",
+   "spread_pct": 0.32,
+   "t": 0.53,
+   "p_value": 0.5991,
+   "significant": false,
+   "announcement_days": 195,
+   "win_rate_pct": 56.4
+  },
+  {
+   "window": "+1〜+40日",
+   "spread_pct": 1.12,
+   "t": 1.4,
+   "p_value": 0.1622,
+   "significant": false,
+   "announcement_days": 195,
+   "win_rate_pct": 61.0
+  },
+  {
+   "window": "+1〜+60日",
+   "spread_pct": 1.57,
+   "t": 1.5,
+   "p_value": 0.1354,
+   "significant": false,
+   "announcement_days": 195,
+   "win_rate_pct": 61.0
+  }
+ ],
+ "robustness": [
+  {
+   "segment": "全体",
+   "cases": 10888,
+   "spread_pct": 1.38,
+   "t": 3.44,
+   "p_value": 0.0007,
+   "significant": true,
+   "win_rate_pct": 58.5
+  },
+  {
+   "segment": "引け後発表",
+   "cases": 7848,
+   "spread_pct": 1.19,
+   "t": 2.58,
+   "p_value": 0.0107,
+   "significant": true,
+   "win_rate_pct": 59.5
+  },
+  {
+   "segment": "場中発表",
+   "cases": 3040,
+   "spread_pct": 1.4,
+   "t": 2.27,
+   "p_value": 0.0259,
+   "significant": true,
+   "win_rate_pct": 56.3
+  },
+  {
+   "segment": "1Q期",
+   "cases": 2830,
+   "spread_pct": 1.48,
+   "t": 2.0,
+   "p_value": 0.0492,
+   "significant": true,
+   "win_rate_pct": 56.8
+  },
+  {
+   "segment": "2Q期",
+   "cases": 2867,
+   "spread_pct": -0.02,
+   "t": -0.03,
+   "p_value": 0.9771,
+   "significant": false,
+   "win_rate_pct": 52.4
+  },
+  {
+   "segment": "3Q期",
+   "cases": 3092,
+   "spread_pct": 0.5,
+   "t": 0.5,
+   "p_value": 0.6166,
+   "significant": false,
+   "win_rate_pct": 59.3
+  },
+  {
+   "segment": "FY期",
+   "cases": 2096,
+   "spread_pct": 3.06,
+   "t": 3.1,
+   "p_value": 0.0027,
+   "significant": true,
+   "win_rate_pct": 62.8
+  },
+  {
+   "segment": "小型",
+   "cases": 3630,
+   "spread_pct": 1.2,
+   "t": 2.42,
+   "p_value": 0.0171,
+   "significant": true,
+   "win_rate_pct": 62.2
+  },
+  {
+   "segment": "中型",
+   "cases": 3629,
+   "spread_pct": 0.52,
+   "t": 1.05,
+   "p_value": 0.2975,
+   "significant": false,
+   "win_rate_pct": 48.1
+  },
+  {
+   "segment": "大型",
+   "cases": 3629,
+   "spread_pct": 1.95,
+   "t": 2.27,
+   "p_value": 0.0249,
+   "significant": true,
+   "win_rate_pct": 55.9
+  },
+  {
+   "segment": "前半(〜2025-06)",
+   "cases": 5949,
+   "spread_pct": 1.54,
+   "t": 2.71,
+   "p_value": 0.0078,
+   "significant": true,
+   "win_rate_pct": 58.8
+  },
+  {
+   "segment": "後半(2025-07〜)",
+   "cases": 4939,
+   "spread_pct": 1.12,
+   "t": 2.19,
+   "p_value": 0.0317,
+   "significant": true,
+   "win_rate_pct": 57.9
+  }
+ ],
+ "rule_backtest": [
+  {
+   "rule": "好反応 上位20%(全決算)",
+   "cases": 2178,
+   "before_cost_pct": 0.68,
+   "after_cost_pct": 0.48,
+   "win_rate_pct": 50.1,
+   "t": 0.16,
+   "p_value": 0.87,
+   "significant": false
+  },
+  {
+   "rule": "好反応 × 予想修正あり",
+   "cases": 747,
+   "before_cost_pct": 1.26,
+   "after_cost_pct": 1.06,
+   "win_rate_pct": 50.3,
+   "t": 2.03,
+   "p_value": 0.0442,
+   "significant": true
+  },
+  {
+   "rule": "好反応 × 上方修正(+5%超)",
+   "cases": 669,
+   "before_cost_pct": 1.38,
+   "after_cost_pct": 1.18,
+   "win_rate_pct": 51.6,
+   "t": 2.55,
+   "p_value": 0.0118,
+   "significant": true
+  },
+  {
+   "rule": "好反応 × 予想修正なし",
+   "cases": 590,
+   "before_cost_pct": 0.08,
+   "after_cost_pct": -0.12,
+   "win_rate_pct": 47.5,
+   "t": -0.54,
+   "p_value": 0.5921,
+   "significant": false
+  },
+  {
+   "rule": "好反応 × 上方修正(超過)",
+   "cases": 669,
+   "before_cost_pct": 0.73,
+   "after_cost_pct": 0.53,
+   "win_rate_pct": 46.3,
+   "t": 0.71,
+   "p_value": 0.4769,
+   "significant": false
+  },
+  {
+   "rule": "悪反応 × 下方修正(超過)",
+   "cases": 319,
+   "before_cost_pct": -0.43,
+   "after_cost_pct": -0.63,
+   "win_rate_pct": 42.9,
+   "t": -1.11,
+   "p_value": 0.2707,
+   "significant": false
+  },
+  {
+   "rule": "悪反応 下位20%(全決算)",
+   "cases": 2178,
+   "before_cost_pct": 0.15,
+   "after_cost_pct": -0.05,
+   "win_rate_pct": 50.0,
+   "t": 0.32,
+   "p_value": 0.7525,
+   "significant": false
+  },
+  {
+   "rule": "悪反応 × 予想修正あり",
+   "cases": 610,
+   "before_cost_pct": 0.62,
+   "after_cost_pct": 0.42,
+   "win_rate_pct": 53.4,
+   "t": -0.77,
+   "p_value": 0.441,
+   "significant": false
+  },
+  {
+   "rule": "悪反応 × 下方修正(-5%超)",
+   "cases": 319,
+   "before_cost_pct": -0.19,
+   "after_cost_pct": -0.39,
+   "win_rate_pct": 47.6,
+   "t": -1.03,
+   "p_value": 0.3036,
+   "significant": false
+  }
+ ],
+ "how_to_read": [
+  "CAR は発表の翌営業日を起点にした累積超過収益。発表当日の値動き（初動）は含まない",
+  "スプレッドは上位20%と下位20%の差。片側だけを取った場合の数字ではない",
+  "p値は発表日単位で計算している（同じ日の銘柄は独立ではないため）",
+  "ルール別の数字はコスト後（往復0.2%を引いたもの）も併記している"
+ ],
+ "not_included": "銘柄名・銘柄コード・個別の決算内容は含まない。J-Quants 由来の銘柄レベル明細は生成側でも開いていない（集計表4つのみを使用）。",
+ "disclaimer": "過去の決算への当てはめであり、将来の値動きを示すものではありません。特定の銘柄や売買を勧めるものでもありません。検証期間は約2年と短く、制度変更や相場環境で結果は変わりえます。"
+}

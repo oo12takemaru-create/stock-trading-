@@ -270,34 +270,106 @@ test("get_candlestick_verdict: 日英の別名で引ける・外したときは�
   assert.equal(none.available_patterns.length, 12);
 });
 
-test("get_event_reaction: 27種・5つの窓・初動型の注意", async () => {
+test("get_event_reaction: 3つの検証をまとめて引ける", async () => {
+  // 引数なし＝何が引けるかの見出しだけ。中身まで返すと 26KB になる
   const p = (await call("get_event_reaction", {})).structuredContent;
+  assert.equal(p.datasets.length, 3, "3つの検証が揃っていない");
+  assert.deepEqual(p.datasets.map((d) => d.id),
+    ["market_events", "earnings_drift", "supply_demand"]);
+  assert.equal(p.matched, null, "絞り込んでいないのに matched が出ている");
+  assert.ok(p.matched_note.includes("見出し"));
+  // ★3つが同じ形を示している、がこのツールの答え★
+  for (const w of ["初動型", "+5日", "実施日"]) {
+    assert.ok(p.key_finding.includes(w), `key_finding に「${w}」が無い`);
+  }
+  // 中身は返さない（見出しだけ）
+  assert.equal(p.earnings_drift.by_quantile, undefined, "省略時に決算の中身が出ている");
+  assert.equal(p.supply_demand.events[0].measurements, undefined, "省略時に需給の中身が出ている");
+  assert.ok(p.earnings_drift.headline && p.earnings_drift.key_finding);
+  assert.ok(p.supply_demand.headline && p.supply_demand.key_finding);
+});
+
+test("get_event_reaction: 出来事27種(書籍36)", async () => {
+  const p = (await call("get_event_reaction", {})).structuredContent.market_events;
   assert.equal(p.total, 27, "27種読めていない");
-  assert.equal(p.matched, 27);
+  assert.equal(p.items.length, 27);
   assert.ok(p.key_finding.includes("初動型"), "初動型の注意が無い");
-  // 一覧モードは判定のみ
+  // 判定の意味は27件ぶん繰り返さず、legend に1回
+  assert.equal(p.items[0].verdict_note, undefined);
+  assert.ok(p.verdict_legend["初動型"], "判定の凡例が無い");
+  assert.equal(Object.keys(p.verdict_legend).length, Object.keys(p.verdict_counts).length,
+    "凡例に説明の無い判定がある");
   assert.equal(p.items[0].windows, undefined, "一覧モードで窓が出ている");
-  assert.ok(p.items.every((x) => x.name && x.verdict));
-  assert.ok(Object.values(p.verdict_counts).reduce((a, b) => a + b, 0) === 27);
 
   const one = (await call("get_event_reaction", { event: "地震" })).structuredContent;
-  assert.equal(one.matched, 1);
-  const it = one.items[0];
+  assert.equal(one.matched.market_events, 1);
+  const it = one.market_events.items[0];
   assert.equal(it.windows.length, 5, "当日/翌日/5日/1か月/3か月の5窓が無い");
-  for (const w of it.windows) {
-    assert.equal(typeof w.excess_pct, "number");
-    assert.equal(typeof w.significant, "boolean");
-    assert.equal(w.market_pct, undefined, "detail なしで市場全体の値が出ている");
-  }
-  const d = (await call("get_event_reaction", { event: "地震", detail: true })).structuredContent.items[0];
+  assert.equal(it.windows[0].market_pct, undefined, "detail なしで市場全体の値が出ている");
+  const d = (await call("get_event_reaction", { event: "地震", detail: true }))
+    .structuredContent.market_events.items[0];
   assert.equal(typeof d.windows[0].market_pct, "number");
   assert.equal(typeof d.samples_all, "number");
+  // 英語の別名
+  assert.ok((await call("get_event_reaction", { event: "earthquake" }))
+    .structuredContent.matched.market_events > 0);
+});
 
-  // 英語の別名でも引ける
-  assert.ok((await call("get_event_reaction", { event: "earthquake" })).structuredContent.matched > 0);
+test("get_event_reaction: 決算後ドリフト(書籍31)は好反応を買っても取れない", async () => {
+  const p = (await call("get_event_reaction", { event: "決算" })).structuredContent;
+  assert.equal(p.matched.earnings_drift, 1, "決算で引けていない");
+  const e = p.earnings_drift;
+  assert.equal(e.by_quantile.length, 5);
+  assert.equal(e.long_short.length, 5);
+
+  // ★ここが消えると「好決算を買えば取れる」と読まれる★
+  const q5 = e.by_quantile.find((q) => q.quantile === 5);
+  const w5 = q5.windows.find((w) => w.days === 5);
+  assert.equal(w5.significant, false, "分位5の+5日が有意になっている");
+  assert.ok(Math.abs(w5.car_pct) < 0.2, `分位5の+5日が ${w5.car_pct}%`);
+  assert.ok(e.key_finding.includes("ゼロと区別できない"), "好反応側の注意が無い");
+
+  // +5日は有意、+20日は消える
+  const ls5 = e.long_short.find((x) => x.window.startsWith("+1〜+5"));
+  const ls20 = e.long_short.find((x) => x.window.startsWith("+1〜+20"));
+  assert.equal(ls5.significant, true);
+  assert.equal(ls20.significant, false, "+20日まで有意なら「5日で消える」が言えない");
+
+  // 区分別とルール別は detail
+  assert.equal(e.robustness, undefined, "detail なしで区分別が出ている");
+  const d = (await call("get_event_reaction", { event: "決算", detail: true }))
+    .structuredContent.earnings_drift;
+  assert.equal(d.robustness.length, 12);
+  assert.equal(d.rule_backtest.length, 9);
+  // 英語でも引ける
+  assert.equal((await call("get_event_reaction", { event: "PEAD" }))
+    .structuredContent.matched.earnings_drift, 1);
+});
+
+test("get_event_reaction: 指数の入替(書籍29)は通過前に動く", async () => {
+  const p = (await call("get_event_reaction", { event: "TOPIX" })).structuredContent;
+  assert.ok(p.matched.supply_demand >= 2, "TOPIX で除外と採用の両方が引けていない");
+  const sd = p.supply_demand;
+  const ex = sd.events.find((e) => e.event_id === "topix_exclusion");
+  const add = sd.events.find((e) => e.event_id === "topix_addition");
+  assert.ok(ex.measurements.length > 0 && add.measurements.length > 0);
+
+  // 実施日の直前は動き、通過後は動かない
+  const before = ex.measurements.find((m) => m.window.includes("(-3,-1)") && m.target.includes("低減10回"));
+  const after = ex.measurements.find((m) => m.window.includes("(0,+20)"));
+  assert.ok(before.mean_car_pct < 0 && before.significant, "実施前の下げが出ていない");
+  assert.equal(after.significant, false, "実施後が有意になっている");
+
+  // ★自社株買いが無いことを黙って落とさない★
+  assert.ok(sd.not_included.includes("自社株買い"), "自社株買いが無い理由が書かれていない");
+
+  // 日経225 でも引ける
+  assert.ok((await call("get_event_reaction", { event: "日経225" }))
+    .structuredContent.matched.supply_demand >= 1);
+  // どれにも当たらないときは案内を返す
   const none = (await call("get_event_reaction", { event: "存在しない出来事" })).structuredContent;
-  assert.equal(none.matched, 0);
-  assert.equal(none.available_events.length, 27);
+  assert.deepEqual(none.matched, { market_events: 0, earnings_drift: 0, supply_demand: 0 });
+  assert.ok(none.hint.includes("決算"), "引き方の案内が無い");
 });
 
 test("★法務の線★ 書籍2本の出力に銘柄コード・銘柄名が1つも無い", async () => {
@@ -322,12 +394,15 @@ test("★法務の線★ 書籍2本の出力に銘柄コード・銘柄名が1�
       }
     };
     walk(r.structuredContent);
-    const codes = (texts.join(" ").match(/\b\d{4}\b/g) || [])
+    const codes = (texts.join(" ").match(/(?<![\d.])\d{4}(?![\d.])/g) || [])
       .filter((c) => !(Number(c) >= 1990 && Number(c) <= 2100)); // 年号は除く
     assert.deepEqual(codes, [], `${name}: 銘柄コードらしき4桁がある`);
     assert.equal(hasNg(r.content[0].text), false, `${name} に推奨語がある`);
     assert.ok(r.structuredContent.disclaimer.length > 20, `${name} に免責が無い`);
-    assert.ok(r.structuredContent.note, `${name} に元データ側の注意が無い`);
+    // 元データ側の注意。get_event_reaction は3冊ぶんを notes にまとめている
+    const sc = r.structuredContent;
+    assert.ok(sc.note || Object.keys(sc.notes || {}).length >= 3,
+      `${name} に元データ側の注意が無い`);
   }
 });
 
@@ -467,7 +542,7 @@ test("★法務の線★ Step2 の2本に個別株の銘柄情報が無い", asy
       }
     };
     walk(r.structuredContent);
-    const codes = (texts.join(" ").match(/\b\d{4}\b/g) || [])
+    const codes = (texts.join(" ").match(/(?<![\d.])\d{4}(?![\d.])/g) || [])
       .filter((c) => !(Number(c) >= 1990 && Number(c) <= 2100))
       .filter((c) => !ALLOWED.has(c));
     assert.deepEqual(codes, [], `${name}: 個別株らしき4桁がある`);

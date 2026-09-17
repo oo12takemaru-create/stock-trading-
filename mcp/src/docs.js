@@ -33,8 +33,10 @@ const TOOL_LINES_EN = {
     + "tested on 1,550 TSE Prime stocks over 10.5 years. None of them cleared the adoption bar - "
     + "the reason each one failed is the part worth reading.",
   get_event_reaction:
-    "27 event types (earthquakes, rate decisions, tariffs, pandemics) and what followed: excess return over the "
-    + "market, win rate, p-value and sample size across five horizons. Sector baskets are deliberately excluded.",
+    "What followed an event, from three separate studies: 27 event types (earthquakes, rate decisions, tariffs, "
+    + "pandemics), post-earnings drift across ~26,000 announcements, and index additions and deletions. All three "
+    + "point the same way - the move happens before the event clears, not after. Sector baskets and per-stock rows "
+    + "are deliberately excluded.",
   get_indicator_verdict:
     "26 technical indicators (RSI, MACD, moving-average crossover, Bollinger and the rest) traded exactly as the "
     + "textbooks describe, across TOPIX500 over 10 years and roughly 500,000 trades. Nine cleared every regime; "
@@ -82,7 +84,8 @@ Every response carries a \`disclaimer\` key. Do not strip it when relaying resul
 Japanese-equity MCP servers already cover the *primary data* layer (filings, prices, execution).
 This server covers the *verification* layer: 50 market anomalies tested over 61 years,
 26 technical indicators traded by the book, 12 candlestick patterns tested on TSE Prime,
-27 event types and what followed them, twelve years of leveraged-ETF decay,
+27 event types and what followed them, post-earnings drift, index rebalancing,
+twelve years of leveraged-ETF decay,
 a daily mean-reversion rule, a market-regime classifier, and crash-precursor gauges.
 The underlying research is published as books by the operator.
 

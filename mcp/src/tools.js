@@ -205,13 +205,16 @@ export const TOOL_DEFS = [
   },
   {
     name: "get_event_reaction",
-    title: "出来事27種のあとに何が起きたか(連想の検証)",
+    title: "出来事のあとに何が起きたか(3つの検証)",
     description:
-      "地震・利上げ・円安・関税・パンデミックなど出来事27種について、そのあと市場全体を上回る動きがあったかを検証した結果を返す。" +
-      "分類ごとの超過収益・勝率・p値・標本数を、当日/翌日/5営業日後/1か月後/3か月後の5つの窓で返す。" +
-      "判定は 持続型 / 初動型 / 不発 / 逆行 / 市場全体のみ の5種類。" +
-      "「初動型」は前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てからでは間に合わないものが多い。" +
-      "event を渡すとその出来事だけに絞り込める(日本語・英語の別名可。例: 地震, earthquake, 利上げ, 関税)。" +
+      "ある出来事のあとに何が起きたかを、3つの検証からまとめて返す。" +
+      "(1)出来事27種 — 地震・利上げ・円安・関税・パンデミックなどのあと、市場全体を上回る動きがあったか。" +
+      "判定は 持続型/初動型/不発/逆行/市場全体のみ の5種類と、5つの窓(当日/翌日/5営業日後/1か月後/3か月後)の超過収益・勝率・p値。" +
+      "(2)決算後のドリフト — 決算発表のあと値動きが続くか。約26,000件の決算で検証。" +
+      "(3)指数の入替 — TOPIX の採用・除外でいつ・どちら向きに動くか。" +
+      "3つは別々のデータから同じ形を示している: 反応は出来事を通過する前か、ごく初期に終わる。" +
+      "出来事27種の「初動型」は翌朝の寄り付きで終わり、決算後のドリフトは+5日で統計的に消え、指数の入替は実施日で止まる。" +
+      "event を渡すと絞り込める(例: 地震, earthquake, 利上げ, 決算, PEAD, TOPIX, 日経225)。省略すると3つの見出しを返す。" +
       "銘柄名・銘柄コード・銘柄バスケットは含まない。返すのは分類と統計だけ。",
     inputSchema: {
       type: "object",
@@ -219,12 +222,19 @@ export const TOOL_DEFS = [
         event: {
           type: "string",
           description:
-            "出来事の名前で絞り込む(部分一致・日英の別名可。例: 地震 / earthquake / 利上げ / 円安 / 関税 / パンデミック)。省略すると27種の一覧を返す",
+            "出来事の名前で絞り込む(部分一致・日英の別名可)。" +
+            "出来事27種: 地震 / earthquake / 利上げ / 円安 / 関税 / パンデミック など。" +
+            "決算後のドリフト: 決算 / earnings / PEAD。" +
+            "指数の入替: TOPIX / 日経225 / 除外 / 採用。" +
+            "省略すると3つの検証の見出しと、出来事27種の一覧を返す",
         },
         detail: {
           type: "boolean",
           default: false,
-          description: "分類前の全標本数・各窓での市場全体の動きを含めるか",
+          description:
+            "絞り込んだときに、分類前の全標本数・各窓での市場全体の動き・" +
+            "決算の区分別内訳(発表時刻/四半期/規模/期間)とルール別の成績まで含めるか。" +
+            "event を省略したときは効かない(全件の詳細は 50KB を超えるため)",
         },
       },
       additionalProperties: false,
@@ -623,90 +633,264 @@ async function getCandlestickVerdict(args, { load }) {
   return out;
 }
 
+// 決算の検証を引き当てるための言葉。単一のデータセットなので名前を持たない
+const EARNINGS_KEYS = [
+  "決算", "earnings", "pead", "ドリフト", "drift", "サプライズ", "surprise",
+  "短信", "業績", "発表", "またぎ", "跨ぎ",
+];
+
 /**
- * 出来事27種のあとに何が起きたか。docs/event_reaction.json を読むだけ。
- * 生成側は mcp/tools/build_event_reaction.py(書籍36の検証出力から機械変換)。
+ * 出来事のあとに何が起きたか。3つの検証をまとめて引く。
  *
- * ★銘柄バスケットは元データ側で読み込んでいない★
- * 「出来事 → 買う銘柄」を返す道具にしないための線引き。返すのは分類と統計だけ。
+ *   docs/event_reaction.json        … 出来事27種（書籍36）地震・利上げ・関税ほか
+ *   docs/earnings_drift.json        … 決算後ドリフト（書籍31）
+ *   docs/supply_demand_events.json  … 指数の入替（書籍29）
+ *
+ * ★3つが同じ形を示しているので1つのツールにまとめる★
+ * 連想の「初動型」、決算の「+5日で消える」、需給の「通過したら終わり」は
+ * 別々のデータから出た同じ結論。並べて返すことに意味がある。
+ *
+ * ★銘柄バスケットと明細は元データ側で開いていない★
+ * 連想の baskets.csv（499行）、決算の events_raw.csv、需給の buyback_*.csv は
+ * いずれも銘柄コード・企業名つき。混ぜた瞬間に「出来事 → 買う銘柄」になる。
  */
 async function getEventReaction(args, { load }) {
   const q = typeof args.event === "string" ? args.event.trim() : "";
   const detail = !!args.detail;
-  const d = await load("event_reaction.json");
-  const all = Array.isArray(d.events) ? d.events : [];
   const key = q.toLowerCase();
-  const hits = key ? all.filter((e) => nameHit(e, key, ["event_type"])) : all;
-  const compact = !q && !detail;
 
-  const items = hits.map((e) => {
-    if (compact) {
-      return {
-        event_type: e.event_type,
-        name: e.name,
-        verdict: e.verdict,
-        verdict_note: e.verdict_note,
-        samples: e.samples,
-      };
-    }
-    const o = {
-      event_type: e.event_type,
-      name: e.name,
-      aliases: e.aliases,
-      samples: e.samples,
-      period: e.period,
-      verdict: e.verdict,
-      verdict_note: e.verdict_note,
-      verdict_secondary: e.verdict_secondary,
-      peak_day: e.peak_day,
-      half_life_day: e.half_life_day,
-      windows: e.windows.map((w) => {
-        const x = {
-          days: w.days,
-          label: w.label,
-          excess_pct: w.excess_pct,
-          win_rate_pct: w.win_rate_pct,
-          p_value: w.p_value,
-          significant: w.significant,
-        };
-        if (detail) x.market_pct = w.market_pct;
-        return x;
-      }),
-    };
-    if (detail) o.samples_all = e.samples_all;
-    return o;
-  });
+  // 1つでも欠けたら他を返せない、という作りにはしない（任意データ扱い）
+  const [me, ed, sd] = await Promise.all([
+    load("event_reaction.json").catch(() => null),
+    load("earnings_drift.json").catch(() => null),
+    load("supply_demand_events.json").catch(() => null),
+  ]);
 
-  const counts = {};
-  for (const e of all) counts[e.verdict] = (counts[e.verdict] || 0) + 1;
+  // ---- 出来事27種
+  const meAll = me && Array.isArray(me.events) ? me.events : [];
+  const meHits = key ? meAll.filter((e) => nameHit(e, key, ["event_type"])) : meAll;
+  // ★event を省略したときは常に軽い形★
+  // 27件すべての詳細に決算・需給を足すと 61KB になり、1ツール 50KB を超える。
+  // detail は「絞り込んだときにどこまで出すか」の指定として使う。
+  const meCompact = !q;
+
+  // ---- 決算（単一の検証なので、言葉で引き当てる）
+  // ★event を省略したときは中身を返さない★
+  // 3つの検証の中身をすべて足すと 26KB になる。省略時は見出しだけにして、
+  // 「何が引けるか」が分かる状態にとどめる。
+  const edHit = !!ed && !!q && EARNINGS_KEYS.some((k) => key.includes(k) || k.includes(key));
+
+  // ---- 需給（イベント3種）
+  const sdAll = sd && Array.isArray(sd.events) ? sd.events : [];
+  const sdHits = key ? sdAll.filter((e) => nameHit(e, key, ["event_id"])) : [];
+
+  const datasets = [];
+  if (me) {
+    datasets.push({
+      id: "market_events",
+      name: "出来事27種のあとの動き",
+      answers: "地震・利上げ・円安・関税・パンデミックなどのあと、何が市場全体を上回って動いたか",
+      source_book: me.source_book,
+      count: meAll.length,
+    });
+  }
+  if (ed) {
+    datasets.push({
+      id: "earnings_drift",
+      name: "決算後のドリフト",
+      answers: "決算発表のあと、値動きが続くか。好反応を翌日買って取れるか",
+      source_book: ed.source_book,
+      count: ed.by_quantile ? ed.by_quantile.length : null,
+    });
+  }
+  if (sd) {
+    datasets.push({
+      id: "supply_demand",
+      name: "指数の入替（需給イベント）",
+      answers: "TOPIX の採用・除外で、いつ・どちら向きに動くか",
+      source_book: sd.source_book,
+      count: sdAll.length,
+    });
+  }
 
   const out = meta({
-    source: d.source_book,
-    universe: d.universe,
-    method: d.method,
-    // ★この検証でいちばん大事な知見★
-    key_finding: d.key_finding,
-    not_included: d.not_included,
-    total: all.length,
-    verdict_counts: counts,
+    what_this_answers:
+      "ある出来事のあとに何が起きたかを、3つの検証から返す。返すのは分類ごとの統計で、銘柄ではない。",
+    datasets,
+    // ★3つが同じ形を示している。これがこのツールの答え★
+    key_finding:
+      "3つの検証は別々のデータから同じ形を示している。" +
+      "出来事への反応は、その出来事が起きる前か、ごく初期に終わっていた。" +
+      "出来事27種の「初動型」は前日引けから翌朝の寄り付きで終わり、" +
+      "決算後のドリフトは+5日で統計的に消え、" +
+      "指数の入替では実施日を通過した時点で動きが止まっている。" +
+      "ニュースを見てから動くのでは間に合わないものが多い。",
     query: q || null,
-    matched: hits.length,
-    items,
-    how_to_read: [
-      "excess_pct は同じ期間の市場全体を引いた超過収益。分類全体の平均で、個別銘柄の値動きではない",
-      "significant は p<0.10。標本数の少ない出来事があるため通常より緩い基準を使っている",
-      "peak_day / half_life_day の意味は method に書いてある。累積の超過収益で測った指標で、窓ごとの有意性とは別物",
-      "判定が「不発」「逆行」のものも落とさずに返す。効かなかったことも検証結果である",
-    ],
-    note: d.disclaimer,
+    matched: q
+      ? {
+          market_events: meHits.length,
+          earnings_drift: edHit ? 1 : 0,
+          supply_demand: sdHits.length,
+        }
+      : null,
+    matched_note: q ? null : "event を指定していないため、3つの検証の見出しだけを返している",
   });
-  if (compact) {
-    out.items_note =
-      "一覧のため判定のみ。窓別の超過収益・勝率・p値が要るときは event に出来事の名前を渡す(部分一致)か、detail=true を指定する";
+
+  // ---- 出来事27種
+  if (me) {
+    const counts = {};
+    const legend = {};
+    for (const e of meAll) {
+      counts[e.verdict] = (counts[e.verdict] || 0) + 1;
+      if (e.verdict_note) legend[e.verdict] = e.verdict_note;
+    }
+    out.market_events = {
+      source: me.source_book,
+      universe: me.universe,
+      method: me.method,
+      key_finding: me.key_finding,
+      total: meAll.length,
+      verdict_counts: counts,
+      verdict_legend: legend,
+      matched: meHits.length,
+      items: meHits.map((e) => {
+        if (meCompact) {
+          // 判定の意味は verdict_legend に1回だけ置く（27件ぶん繰り返さない）
+          return {
+            event_type: e.event_type,
+            name: e.name,
+            verdict: e.verdict,
+            samples: e.samples,
+          };
+        }
+        const o = {
+          event_type: e.event_type,
+          name: e.name,
+          aliases: e.aliases,
+          samples: e.samples,
+          period: e.period,
+          verdict: e.verdict,
+          verdict_note: e.verdict_note,
+          verdict_secondary: e.verdict_secondary,
+          peak_day: e.peak_day,
+          half_life_day: e.half_life_day,
+          windows: e.windows.map((w) => {
+            const x = {
+              days: w.days,
+              label: w.label,
+              excess_pct: w.excess_pct,
+              win_rate_pct: w.win_rate_pct,
+              p_value: w.p_value,
+              significant: w.significant,
+            };
+            if (detail) x.market_pct = w.market_pct;
+            return x;
+          }),
+        };
+        if (detail) o.samples_all = e.samples_all;
+        return o;
+      }),
+    };
+    if (meCompact) {
+      out.market_events.items_note = detail
+        ? "一覧のため判定のみ。全27件の詳細は 50KB を超えるため返せない。event に出来事の名前を渡すと窓別の超過収益・勝率・p値を返す(部分一致)"
+        : "一覧のため判定のみ。窓別の超過収益・勝率・p値が要るときは event に出来事の名前を渡す(部分一致)";
+    }
+    if (q && meHits.length === 0) out.market_events.available_events = meAll.map((e) => e.name);
   }
-  if (q && hits.length === 0) {
-    out.available_events = all.map((e) => e.name);
-    out.hint = "event は部分一致(日英の別名可)。上の available_events から選び直すか、event を省略して全件を取得する";
+
+  // ---- 決算後のドリフト
+  if (ed) {
+    const summary = {
+      source: ed.source_book,
+      universe: ed.universe,
+      period: ed.period,
+      data_source: ed.data_source,
+      headline: ed.headline,
+      // ★好反応を買っても取れない、が最も大事な点★
+      key_finding: ed.key_finding,
+    };
+    if (!edHit) {
+      // 引き当たっていないときも見出しだけは出す（あることを知らせる）
+      out.earnings_drift = {
+        ...summary,
+        hint: "event に「決算」を渡すと、分位別のドリフトとロングショートの数字を返す",
+      };
+    } else {
+      out.earnings_drift = {
+        ...summary,
+        method: ed.method,
+        by_quantile: ed.by_quantile,
+        long_short: ed.long_short,
+        how_to_read: ed.how_to_read,
+        not_included: ed.not_included,
+      };
+      if (detail) {
+        out.earnings_drift.robustness = ed.robustness;
+        out.earnings_drift.rule_backtest = ed.rule_backtest;
+      } else {
+        out.earnings_drift.detail_note =
+          "区分別(発表時刻・四半期・規模・期間)の内訳とルール別の成績は detail=true で返す";
+      }
+    }
+  }
+
+  // ---- 指数の入替
+  if (sd) {
+    const summary = {
+      source: sd.source_book,
+      data_source: sd.data_source,
+      headline: sd.headline,
+      key_finding: sd.key_finding,
+    };
+    if (sdHits.length === 0) {
+      out.supply_demand = {
+        ...summary,
+        events: sdAll.map((e) => ({ event_id: e.event_id, name: e.name, pressure: e.pressure })),
+        hint: q
+          ? "この言葉では引けなかった。event に「TOPIX」「日経225」などを渡すと測定値を返す"
+          : "event に「TOPIX」「日経225」などを渡すと、区間ごとの平均CARとp値を返す",
+      };
+    } else {
+      out.supply_demand = {
+        ...summary,
+        method: sd.method,
+        matched: sdHits.length,
+        events: sdHits.map((e) => ({
+          event_id: e.event_id,
+          name: e.name,
+          aliases: e.aliases,
+          pressure: e.pressure,
+          what_happened: e.what_happened,
+          measurements: e.measurements,
+        })),
+        how_to_read: sd.how_to_read,
+        // ★自社株買いが無い理由もここに出る★ 黙って落とさない
+        not_included: sd.not_included,
+      };
+    }
+  }
+
+  // ★元データ側の注意はトップにまとめる★
+  // 絞り込んでも省略しても、3冊ぶんの免責が必ず目に入るようにする
+  out.notes = {};
+  if (me) out.notes.market_events = me.disclaimer;
+  if (ed) out.notes.earnings_drift = ed.disclaimer;
+  if (sd) out.notes.supply_demand = sd.disclaimer;
+
+  out.how_to_read = [
+    "超過収益はいずれも市場全体を引いたもの。分類や区分の平均で、個別銘柄の値動きではない",
+    "「有意でない」は「動かない」ではなく「動きを統計的に確認できなかった」という意味",
+    "3つの検証は測り方が違う(分類バスケット / 決算の分位 / イベント前後の累積)。数字を直接くらべない",
+    "判定が「不発」「逆行」のもの、基準に届かなかったものも落とさずに返す",
+  ];
+  out.not_included =
+    "銘柄名・銘柄コード・銘柄バスケットは含まない。" +
+    "元データの明細(連想のバスケット・決算の銘柄別・自社株買いの企業別)は生成側でも開いていない。";
+  if (q && meHits.length === 0 && !edHit && sdHits.length === 0) {
+    out.hint =
+      "どの検証にも当たらなかった。出来事の名前(地震 / 利上げ / 関税 …)、「決算」、" +
+      "「TOPIX」「日経225」のいずれかで引ける。event を省略すると3つすべての要約を返す";
   }
   return out;
 }
@@ -888,7 +1072,7 @@ async function listToolsGuide() {
       get_candlestick_verdict:
         "書籍刊行時点の固定データ(東証プライム1,550銘柄・2016-01〜2026-08で検証)。日次更新はしない",
       get_event_reaction:
-        "書籍刊行時点の固定データ(出来事27種・東証プライム)。日次更新はしない",
+        "書籍刊行時点の固定データ(出来事27種・決算後ドリフト・指数の入替の3つ)。日次更新はしない",
       get_indicator_verdict:
         "書籍刊行時点の固定データ(TOPIX500・2016-2025で検証)。日次更新はしない",
       get_etf_decay:
@@ -908,6 +1092,8 @@ async function listToolsGuide() {
       "判定が × や ? のものも含めて全50本を返す。「効かなかったこと」の検証結果も同じ重みで扱う",
       "酒田五法12本はいずれも著者の採用基準を満たしていない(採用ゼロ本)。not_adopted は検証の結果であって、その形が必ず外れるという意味ではない",
       "出来事の判定が「初動型」のものは、前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てから動くのでは間に合わないものが多い",
+      "出来事・決算・指数の入替の3つは、いずれも「通過する前に動き、通過したら終わる」同じ形を示している。ニュースを見てから動くのでは間に合わないものが多い",
+      "決算後のドリフトで差が出たのは好反応側ではない。最も反応の良かった分位を翌日買っても+5日の超過収益は統計的にゼロと区別できなかった",
       "テクニカル指標の「使える9個」は、8区分すべてで超過収益が +0.3% を超えたもの。判定は基準に対するもので、指標そのものの優劣ではない",
       "レバレッジ・インバースETFの数字は、日経が12年で約4倍になった上昇相場のもの。verification_caveats を必ず一緒に読むこと",
     ],
