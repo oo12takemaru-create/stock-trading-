@@ -171,6 +171,29 @@ npx @modelcontextprotocol/mcp-publisher login github
 npx @modelcontextprotocol/mcp-publisher publish
 ```
 
+**B-0. いちばん簡単な方法（2026-09-17 追加）**
+
+```powershell
+cd "D:\マイドキュメント\Claude\Projects\stock-trading\mcpegistry"; .\publish.ps1
+```
+
+これだけ。スクリプトが
+
+1. `server.dns.json` を `_secrets\server.json` に置く（exe は同じフォルダの `server.json` を読む）
+2. publish する内容を表示して **y/N を聞く**（違っていたらここで止められる）
+3. 鍵を `_secrets\mcp_registry_private_hex.txt` から読む（**画面には出さない**）
+4. login → publish
+5. レジストリを叩いて version が変わったか確認
+
+までやる。`name` が前回と違う場合は**実行せずに止まる**（名前は識別子で、
+変えると別サーバー扱いになるため）。
+
+詳しい中身は `publish.ps1` を読むこと。下の B-1・B-2 は手で叩く場合の手順。
+
+> ⚠️ **PowerShell 5.1 は BOM 無し UTF-8 を cp932 として読む。**
+> `publish.ps1` を編集したら **BOM 付き UTF-8 で保存する**こと。
+> BOM が無いと日本語が壊れて構文エラーになる（2026-09-17 に実際に踏んだ）。
+
 **B-2. ドメイン認証（2026-09-05 Fable の決定でこちらを採用）**
 
 **鍵は生成済み。手順は `集客サイト企画/TXT追加手順_MCPレジストリ_2026-09-05.md` にまとめてある。**
