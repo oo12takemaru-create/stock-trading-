@@ -110,3 +110,8 @@ precompute/cache/
 # 相場の暦（イベントの答え合わせ）
 !docs/event_score.json
 !event_dates.json
+# 企画B 誰が買っているか（xlsのキャッシュはコミットしない）
+investor_cache/
+!docs/investor_hist.json
+!docs/investor_score.json
+!docs/karauri_hist.json
