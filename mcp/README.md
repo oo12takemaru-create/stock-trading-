@@ -1,4 +1,4 @@
-# Rule Trade MCP — free tier / ルールトレード MCP(無料版)
+# Rule Trade MCP / ルールトレード MCP
 
 **Endpoint: `https://ruletrade.jp/mcp`**
 (`llms.txt`: `https://ruletrade.jp/mcp/llms.txt` · OpenAPI: `https://ruletrade.jp/mcp/openapi.json` · health: `https://ruletrade.jp/mcp/health`)
@@ -18,14 +18,14 @@ Zero dependencies, no API key, no registration.
 
 | Tool | Returns |
 |---|---|
-| `get_daily_signals` | Stocks that matched a published mean-reversion rule (25-day moving-average deviation ≤ -15%), plus near-miss watch candidates. Delayed one trading day, top 3 by deviation. |
-| `get_market_regime` | Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, VIX, Nikkei 225, daily history. No stock names. |
+| `get_daily_signals` | **One** stock that matched a published mean-reversion rule (25-day moving-average deviation ≤ -15%), delayed one trading day. Counts are returned; the full list of matches is not distributed. |
+| `get_market_regime` | Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, VIX, Nikkei 225, daily history, and a **three-axis score** (trend, short-term risk, supply and demand) with the reasoning behind each axis. No stock names. |
 | `get_anomaly_summary` | **50 Japanese market anomalies tested over 61 years** — verdict, win rate, mean return, sample size, p-value, control group. Filter by `name`. Plus five crash-precursor gauges and a 7-flag ignition meter verified over 26 years. |
 | `get_candlestick_verdict` | **All 12 classic Japanese candlestick patterns tested on 1,550 TSE Prime stocks over 10.5 years** — trades, win rate, profit factor, excess return, p-value, losing years, and which of the five adoption criteria each one failed. **None of them cleared the bar.** The one with the highest profit factor (3.04) flipped sign between the first and second halves of the sample. |
 | `get_event_reaction` | **What followed an event, from three separate studies** — 27 event types (earthquakes, rate decisions, tariffs, pandemics), post-earnings drift across ~26,000 announcements, and index additions and deletions. All three point the same way: the move happens before the event clears. Per-stock rows and sector baskets are deliberately excluded. |
 | `get_indicator_verdict` | **26 technical indicators traded exactly as the textbooks describe** — TOPIX500, 10 years, ~500,000 trades. Win rate, expectancy, profit factor and excess return over random entry, across two exits. Nine cleared every regime; thirteen did not, and those thirteen are mostly the ones beginners learn first. |
 | `get_etf_decay` | **Twelve years of measured decay in leveraged and inverse ETFs** — yearly theory against actual, win rate by holding period, profit factor by market condition, and 305 attempts to hold and wait for a position to come back (99.3% came back; the ones that did not lost 32.5%). |
-| `list_tools_guide` | Update times (JST), delays, free-tier limits, disclaimer, roadmap. Call this first. |
+| `list_tools_guide` | Update times (JST), delays, what is deliberately not returned, disclaimer, roadmap. Call this first. |
 
 ### What you cannot get — by design
 
@@ -73,8 +73,8 @@ ruletrade.jp(Vercel)の `vercel.json` で rewrite しているため、配信先
 
 | ツール | 読むJSON | 内容 |
 |---|---|---|
-| `get_daily_signals` | free_scanner.json | BNF 25日線乖離ルールの該当/監視(1営業日遅れ・上位3件) |
-| `get_market_regime` | radar.json / market_jiai.json / radar_history.json | 地合い BULLISH〜PANIC・HALT・VIX・日経・履歴 |
+| `get_daily_signals` | free_scanner.json | BNF 25日線乖離ルールの該当銘柄(1営業日遅れ)。**返すのは1件のみ**・件数は返す |
+| `get_market_regime` | radar.json / market_jiai.json / radar_history.json / score3.json | 地合い BULLISH〜PANIC・HALT・VIX・日経・履歴 ＋ **3軸スコア**(トレンド/短期リスク/需給・5段階・軸ごとの根拠) |
 | `get_anomaly_summary` | anomaly_results.json / gauge.json / crash.json | ジンクス50本の検証結果(61年・判定/勝率/p値。`name` で絞り込み)+ 『暴落は、減衰する』5つの前兆 + 着火メーター(26年検証) |
 | `get_candlestick_verdict` | candlestick_verdict.json | 酒田五法12本の検証結果(東証プライム・10年半)。**12本すべて不採用**・落ちた基準・不採用の理由。`pattern` で絞り込み(日英の別名可) |
 | `get_event_reaction` | event_reaction.json / earnings_drift.json / supply_demand_events.json | **出来事のあとに何が起きたかを3つの検証から**。①出来事27種(地震・利上げ・関税ほか) ②決算後のドリフト ③指数の入替。`event` で絞り込み(地震 / 決算 / TOPIX など) |
@@ -83,6 +83,7 @@ ruletrade.jp(Vercel)の `vercel.json` で rewrite しているため、配信先
 | `list_tools_guide` | (静的) | 使い方・更新時刻・遅延・免責・今後の予定 |
 
 法務線は人向けサイトと同一:
+- **銘柄を返すのは1件だけ**(2026-09-17 に上位3件から縮小)。該当した全銘柄の一覧は配布しない。件数は返す
 - 推奨語(推奨/おすすめ/買うべき/儲かる 等 `src/legal.js` の `NG_WORDS`)は出力から伏せ字にする
 - 全レスポンスに `disclaimer` キーを常設
 - 価格・株数・利確/損切ライン・本番の調整済み閾値は出さない(free_scanner.json 生成時点で既に落ちている)
@@ -151,13 +152,13 @@ JSON 非対応の `NaN` を `null` に置換したコピー。更新するとき
 | `CACHE_TTL_MS` | インスタンス内キャッシュ(既定 60000) |
 
 呼び出しログの形: `{"ts","event":"tool_call","tool","args","ok","ms","scrubbed","client"}`
-(`initialize` 時は `clientInfo` も記録。有料化判断はこの数字を見てから)
+(`initialize` 時は `clientInfo` も記録。実際にどう使われているかを見るための数字)
 
 ## ローカル
 
 ```bash
 cd mcp
-npm test        # 実際の docs/*.json をフィクスチャに18テスト(推奨語ゼロ検査を含む)
+npm test        # 実際の docs/*.json をフィクスチャに35テスト(推奨語ゼロ・銘柄コードゼロの検査を含む)
 node dev.js     # http://localhost:8787/mcp
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/mcp -H 'content-type: application/json' \
@@ -166,5 +167,5 @@ curl -s -X POST localhost:8787/mcp -H 'content-type: application/json' \
 
 ## 今後
 
-- `run_rule_backtest`(有料)は、バックテスト基盤(backtest_grid)ができた時点で追加。エンジンは二重に作らない
+- `run_rule_backtest` は、検証基盤(backtest_grid)ができた時点で検討。エンジンは二重に作らない
 - Week 1 は「読むだけ」。書き込み・発注・個別助言に相当する機能は入れない

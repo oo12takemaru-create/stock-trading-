@@ -14,17 +14,19 @@ import {
 const DISCLAIMER_EN =
   "Output describes whether published, mechanical rules matched — it is not investment advice, " +
   "not a solicitation, and not a recommendation to buy or sell any security. " +
-  "No future return is promised. Free-tier data is delayed by one trading day.";
+  "No future return is promised. Daily data is delayed by one trading day; " +
+  "the book-derived studies are fixed snapshots taken at publication.";
 
 // llms.txt は英語圏のエージェントに読ませるためのもの。TOOL_DEFS の title は
 // 日本語なので流用せず、英語の1行説明をここに持つ(ツールを増やしたらここも足す)。
 const TOOL_LINES_EN = {
   get_daily_signals:
-    "Stocks that matched the published mean-reversion rule (25-day moving-average deviation), " +
-    "plus near-miss watch candidates. One trading day delayed, top 3 by deviation.",
+    "The single stock that matched the published mean-reversion rule (25-day moving-average deviation of " +
+    "-15% or lower), one trading day delayed. Counts are returned; the full list of matches is not distributed.",
   get_market_regime:
-    "Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, " +
-    "VIX, Nikkei 225, and optional daily history. No stock names.",
+    "Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, VIX, " +
+    "Nikkei 225, and a three-axis score (trend, short-term risk, supply and demand) with the reasoning " +
+    "behind each axis. Optional daily history. No stock names.",
   get_anomaly_summary:
     "50 Japanese market anomalies tested over 61 years - verdict, win rate, mean return, sample size, " +
     "p-value. Filter by `name`. Plus five crash-precursor gauges and a 7-flag ignition meter.",
@@ -46,7 +48,7 @@ const TOOL_LINES_EN = {
     + "win rate by holding period, profit factor by market condition, and what happened across 305 attempts to "
     + "hold and wait for a position to come back.",
   list_tools_guide:
-    "Update times (JST), data delays, free-tier limits, disclaimer, and roadmap. Call this first.",
+    "Update times (JST), data delays, what is deliberately not returned, disclaimer, and roadmap. Call this first.",
 };
 
 export function llmsTxt() {
@@ -57,7 +59,7 @@ export function llmsTxt() {
 
 > A verification layer for Japanese equities. It returns *what already happened* when
 > published, mechanical rules were applied — not price data, not financial statements,
-> and not recommendations. Free tier, no API key, no registration.
+> and not recommendations. No API key, no registration, no charge.
 
 Endpoint: ${CANONICAL_ENDPOINT}
 Transport: MCP Streamable HTTP (POST JSON-RPC 2.0, stateless)
@@ -72,6 +74,7 @@ ${tools}
 
 ## What you cannot get (by design)
 
+- The full list of stocks matching a rule on a given day (one stock is returned; counts are returned)
 - Raw price series, OHLCV, or financial statement values
 - Position sizing, entry/exit prices, stop-loss or take-profit levels
 - The production thresholds used by the operator's own system
@@ -156,7 +159,7 @@ export function openApi() {
   return {
     openapi: "3.1.0",
     info: {
-      title: "Rule Trade MCP (free tier)",
+      title: "Rule Trade MCP",
       version: SERVER_VERSION,
       summary: "Verification layer for Japanese equities. Returns rule-match facts and statistics only.",
       description:

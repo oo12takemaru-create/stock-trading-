@@ -71,22 +71,41 @@ test("tools/list に8本", async () => {
   for (const t of body.result.tools) assert.equal(t.inputSchema.type, "object");
 });
 
-test("get_daily_signals: free_scanner.json を変換し売買情報を含まない", async () => {
+test("get_daily_signals: ★銘柄は1件だけ★ 一覧を配らない", async () => {
+  // 引継ぎ §12-5「by_code はその日1件のみ」/ §19-9「銘柄名1件＋地合いラベルまで」
+  // 2026-09-17 に上位3件から縮小した。銘柄リストを配る道具にしない。
   const r = await call("get_daily_signals", { strategy: "bnf" });
   const p = r.structuredContent;
   assert.equal(r.isError, false);
   assert.equal(p.strategy, "bnf");
   assert.ok(p.disclaimer);
   assert.match(p.target_date, /^\d{4}-\d{2}-\d{2}$/);
-  assert.ok(Array.isArray(p.items) && p.items.length <= 3);
-  for (const it of p.items) {
-    assert.ok(["rule_hit", "watch"].includes(it.status));
-    assert.equal(typeof it.ma25_deviation_pct, "number");
-    assert.equal(it.price, undefined);
-    assert.equal(it.shares, undefined);
+
+  // ★配列で銘柄を返すキーが1つも無いこと★
+  assert.equal(p.items, undefined, "items（複数の銘柄）が残っている");
+  for (const [k, v] of Object.entries(p)) {
+    if (Array.isArray(v)) {
+      assert.equal(v.some((x) => x && typeof x === "object" && x.code), false,
+        `${k} に銘柄の配列が入っている`);
+    }
   }
-  const onlyHit = await call("get_daily_signals", { include_watch: false });
-  assert.ok(onlyHit.structuredContent.items.every((i) => i.status === "rule_hit"));
+
+  // 返すのは top_hit の1件だけ。無い日は null と理由
+  if (p.top_hit) {
+    assert.equal(p.top_hit.status, "rule_hit");
+    assert.equal(typeof p.top_hit.ma25_deviation_pct, "number");
+    assert.equal(p.top_hit.price, undefined);
+    assert.equal(p.top_hit.shares, undefined);
+  }
+  assert.ok(p.top_hit_note, "1件しか返さない理由が書かれていない");
+
+  // 件数は返す（銘柄を明かさずに「今日は何件か」に答えられる）
+  assert.equal(typeof p.counts.rule_hit, "number");
+  assert.equal(typeof p.counts.watch, "number");
+  assert.ok(p.counts.scope.includes("上位3件"), "件数の範囲が書かれていない");
+
+  // 本番システム側も1件まで
+  assert.ok("published_one" in p.full_system_today);
   assert.doesNotMatch(r.content[0].text, /[¥￥]\s*[\d,]+/); // 価格が漏れていない
 });
 
@@ -563,6 +582,72 @@ test("Step2: 応答サイズが 1ツール 50KB を超えない", async () => {
     const bytes = Buffer.byteLength(r.content[0].text, "utf8");
     assert.ok(bytes <= 51200, `${name}(${JSON.stringify(args)}) が ${bytes} バイト`);
   }
+});
+
+test("get_market_regime: 3軸スコア(トレンド・短期リスク・需給)", async () => {
+  const p = (await call("get_market_regime", {})).structuredContent;
+  const s = p.score3;
+  assert.ok(s, "3軸スコアが無い");
+  assert.equal(s.available, undefined, `score3 を取得できていない: ${s.reason || ""}`);
+
+  // 3軸それぞれに点数と「なぜその点数か」
+  assert.equal(s.axes.length, 3, "3軸そろっていない");
+  assert.deepEqual(s.axes.map((a) => a.key), ["trend", "risk", "flow"]);
+  for (const a of s.axes) {
+    assert.equal(typeof a.score, "number");
+    assert.ok(a.score >= -2 && a.score <= 2, `${a.key} の点数が範囲外: ${a.score}`);
+    // ★数字だけ渡さない★ 何を見てその点数になったかを必ず添える
+    assert.ok(Array.isArray(a.reasons) && a.reasons.length > 0, `${a.key} に根拠が無い`);
+    assert.ok(a.label, `${a.key} に日本語の名前が無い`);
+  }
+
+  // 合計と5段階
+  assert.equal(s.total, s.axes.reduce((x, a) => x + a.score, 0), "合計が軸の和と違う");
+  assert.equal(s.range.min, -6);
+  assert.equal(s.range.max, 6);
+  assert.equal(s.stages.length, 5, "5段階そろっていない");
+  assert.ok(s.stance && s.stance_label, "段階の名前が無い");
+  // total がどの段階に入るか、stages の定義と合っているか
+  const stage = s.stages.filter((x) => s.total >= x.min).sort((a, b) => b.min - a.min)[0];
+  assert.equal(s.stance, stage.key, `total=${s.total} なのに stance=${s.stance}`);
+  assert.equal(s.stance_label, stage.jp);
+
+  assert.ok(s.note.includes("予想ではな"), "相場予想ではないことが書かれていない");
+  // ★regime と食い違うことがある★ 黙っていると誤読される
+  assert.ok(s.vs_regime.includes("食い違う"), "regime との関係が書かれていない");
+  assert.ok(p.how_to_read.some((x) => x.includes("食い違")), "読み方に注意が無い");
+  assert.ok(Array.isArray(s.events_within_5days));
+  // 個別銘柄の値は入れない（市場全体の数字だけ）
+  assert.equal(s.metrics, undefined, "日経の終値・移動平均の生値が出ている");
+});
+
+test("★方針★ 区分や課金を示す語を1つも書かない(2026-09-14)", async () => {
+  // Stripe を閉じて有料は作らない、と決めた。"free tier" のような語は
+  // 「他に区分がある」と読めるので、新しく書かない。
+  const BANNED = ["有料", "プラン", "free tier", "free-tier", "無料版",
+                  "paid", "premium", "upgrade", "subscription", "課金"];
+  const seen = [];
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+                      "get_candlestick_verdict", "get_event_reaction",
+                      "get_indicator_verdict", "get_etf_decay", "list_tools_guide"]) {
+    const t = (await call(name)).content[0].text.toLowerCase();
+    for (const w of BANNED) if (t.includes(w.toLowerCase())) seen.push(`${name}: ${w}`);
+  }
+  // ツールの一覧(tools/list)と、エージェント向けの2ファイルも見る
+  const listed = JSON.stringify((await rpc("tools/list")).body.result).toLowerCase();
+  for (const w of BANNED) if (listed.includes(w.toLowerCase())) seen.push(`tools/list: ${w}`);
+  const txt = await (await handle(new Request("https://x.test/llms.txt"), {})).text();
+  for (const w of BANNED) if (txt.toLowerCase().includes(w.toLowerCase())) seen.push(`llms.txt: ${w}`);
+  const spec = JSON.stringify(await (await handle(new Request("https://x.test/openapi.json"), {})).json());
+  for (const w of BANNED) if (spec.toLowerCase().includes(w.toLowerCase())) seen.push(`openapi: ${w}`);
+  assert.deepEqual(seen, [], "区分・課金を示す語が残っている");
+
+  // 代わりに「要らない」という事実は書く
+  const g = (await call("list_tools_guide")).structuredContent;
+  assert.ok(g.server.access.includes("不要"), "APIキー・登録が不要であることが書かれていない");
+  assert.equal(g.server.tier, undefined, "tier が残っている");
+  assert.equal(g.free_tier_limits, undefined, "free_tier_limits が残っている");
+  assert.ok(g.limits.some((x) => x.includes("1件")), "1件だけ返すことが limits に無い");
 });
 
 test("list_tools_guide", async () => {
