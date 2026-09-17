@@ -28,6 +28,12 @@ ENV/
 !docs/market_jiai.json
 # ジンクス(アノマリー)50本の検証結果。MCP の get_anomaly_summary が読む
 !docs/anomaly_results.json
+# 酒田五法12本の検証結果。MCP の get_candlestick_verdict が読む
+# (mcp/tools/build_candlestick_verdict.py が生成・verify_* が元CSVと照合)
+!docs/candlestick_verdict.json
+# 出来事27種のあとの動き。MCP の get_event_reaction が読む
+# (mcp/tools/build_event_reaction.py が生成・verify_* が元CSVと照合)
+!docs/event_reaction.json
 # 🔒 trades.json / stops.json は非公開リポジトリ(stock-trading-private)管理。
 #    公開リポジトリには絶対コミットしない(例外を作らないこと)
 cost_tax_analysis_result.csv

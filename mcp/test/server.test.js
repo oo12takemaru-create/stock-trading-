@@ -60,11 +60,12 @@ test("notifications は 202", async () => {
   assert.equal(res.status, 202);
 });
 
-test("tools/list に4本", async () => {
+test("tools/list に6本", async () => {
   const { body } = await rpc("tools/list");
   assert.deepEqual(
     body.result.tools.map((t) => t.name),
-    ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"],
+    ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"],
   );
   for (const t of body.result.tools) assert.equal(t.inputSchema.type, "object");
 });
@@ -195,9 +196,158 @@ test("ジンクス検証データに推奨語が残らない(saying は出力し
   assert.equal(hasNg(scrubText(raw.find((x) => hasNg(String(x.saying || ""))).saying)), false);
 });
 
+// ---- v0.2: 書籍の検証結果を返す2本 -----------------------------------------
+// このツールの値打ちは「効いたものを並べる」ことではなく
+// 「効かなかったことも同じ重みで返す」ことにある。そこを test で固定する。
+
+test("get_candlestick_verdict: 12本すべて不採用(採用ゼロ本)", async () => {
+  const p = (await call("get_candlestick_verdict", {})).structuredContent;
+  assert.equal(p.matched, 12, "12本読めていない");
+  assert.equal(p.items.length, 12);
+  assert.equal(p.summary.adopted, 0, "採用ゼロ本のはず");
+  assert.equal(p.summary.not_adopted, 12);
+  for (const it of p.items) {
+    assert.equal(it.verdict, "not_adopted", `${it.name} の verdict が ${it.verdict}`);
+    assert.ok(Array.isArray(it.checks_failed) && it.checks_failed.length > 0,
+      `${it.name}: どの基準で落ちたかが無い`);
+  }
+  // 一覧モードは軽い形(統計の全部は出さない)
+  assert.equal(p.items[0].primary, undefined, "一覧モードで統計値が出ている");
+  assert.ok(p.items_note.includes("pattern"), "一覧モードの案内がない");
+  assert.ok(p.headline.includes("1本も無かった"), "結論の1行が無い");
+  assert.ok(p.criteria.min_pf, "採用基準が無い");
+});
+
+test("get_candlestick_verdict: 高PFでも不採用の理由を要約せずに返す", async () => {
+  // ★このツールで最も価値のある答え★
+  // PF 3.04 は12本で最高。それでも落ちている理由が全文で出ること。
+  const p = (await call("get_candlestick_verdict", { pattern: "三空叩き込み" })).structuredContent;
+  assert.equal(p.matched, 1);
+  const it = p.items[0];
+  assert.equal(it.primary.pf, 3.036, "PF が元データと違う");
+  assert.equal(it.verdict, "not_adopted");
+  for (const w of ["発見期", "確認期", "符号が反転", "全期間の平均だけが良く見える"]) {
+    assert.ok(it.rejection_reason.includes(w), `不採用理由から「${w}」が落ちている`);
+  }
+  // key_finding にも同じ趣旨が入っている(一覧だけ見る相手にも届くように)
+  assert.ok(p.key_finding.includes("3.04"), "key_finding に高PFの例が無い");
+  // 絞り込むと統計が付く
+  assert.equal(typeof it.primary.win_rate_pct, "number");
+  assert.equal(typeof it.primary.p_value, "number");
+  assert.equal(it.by_horizon, undefined, "detail なしで窓別が出ている");
+
+  const d = (await call("get_candlestick_verdict", { pattern: "三空叩き込み", detail: true }))
+    .structuredContent.items[0];
+  assert.equal(d.by_horizon.length, 3, "5/10/20営業日の3窓が無い");
+  assert.ok(d.regime.above_75ma, "相場環境別が無い");
+  // 別基盤の参考値は★注記ごと★返す。数字だけ渡すと採用判定に見える
+  assert.ok(d.size_reference.note.includes("採用判定には使わない"), "参考値の注記が落ちている");
+});
+
+test("get_candlestick_verdict: 別枠は逆三尊のみ・社内向けの語を出さない", async () => {
+  const p = (await call("get_candlestick_verdict", { detail: true })).structuredContent;
+  const filters = p.items.filter((x) => x.filter_candidate);
+  assert.equal(filters.length, 1);
+  assert.equal(filters[0].name, "逆三尊");
+  assert.equal(filters[0].verdict, "not_adopted", "別枠でも採用ではない");
+  // 元データの理由には「回避フィルターの候補」「買わない」という検証者の設計メモが
+  // 入っている。そのまま出すと行動の指示に読めるので、事実までに留める
+  const text = (await call("get_candlestick_verdict", { pattern: "逆三尊" })).content[0].text;
+  for (const w of ["回避フィルター", "買わない", "ビルダー側"]) {
+    assert.equal(text.includes(w), false, `社内向けの語が出ている: ${w}`);
+  }
+  assert.ok(filters[0].filter_note, "別枠である旨の説明が無い");
+});
+
+test("get_candlestick_verdict: 日英の別名で引ける・外したときは候補を返す", async () => {
+  for (const q of ["三尊", "head and shoulders", "赤三兵", "three white soldiers", "sanku"]) {
+    const r = (await call("get_candlestick_verdict", { pattern: q })).structuredContent;
+    assert.ok(r.matched > 0, `別名で引けない: ${q}`);
+  }
+  const none = (await call("get_candlestick_verdict", { pattern: "存在しない形" })).structuredContent;
+  assert.equal(none.matched, 0);
+  assert.equal(none.available_patterns.length, 12);
+});
+
+test("get_event_reaction: 27種・5つの窓・初動型の注意", async () => {
+  const p = (await call("get_event_reaction", {})).structuredContent;
+  assert.equal(p.total, 27, "27種読めていない");
+  assert.equal(p.matched, 27);
+  assert.ok(p.key_finding.includes("初動型"), "初動型の注意が無い");
+  // 一覧モードは判定のみ
+  assert.equal(p.items[0].windows, undefined, "一覧モードで窓が出ている");
+  assert.ok(p.items.every((x) => x.name && x.verdict));
+  assert.ok(Object.values(p.verdict_counts).reduce((a, b) => a + b, 0) === 27);
+
+  const one = (await call("get_event_reaction", { event: "地震" })).structuredContent;
+  assert.equal(one.matched, 1);
+  const it = one.items[0];
+  assert.equal(it.windows.length, 5, "当日/翌日/5日/1か月/3か月の5窓が無い");
+  for (const w of it.windows) {
+    assert.equal(typeof w.excess_pct, "number");
+    assert.equal(typeof w.significant, "boolean");
+    assert.equal(w.market_pct, undefined, "detail なしで市場全体の値が出ている");
+  }
+  const d = (await call("get_event_reaction", { event: "地震", detail: true })).structuredContent.items[0];
+  assert.equal(typeof d.windows[0].market_pct, "number");
+  assert.equal(typeof d.samples_all, "number");
+
+  // 英語の別名でも引ける
+  assert.ok((await call("get_event_reaction", { event: "earthquake" })).structuredContent.matched > 0);
+  const none = (await call("get_event_reaction", { event: "存在しない出来事" })).structuredContent;
+  assert.equal(none.matched, 0);
+  assert.equal(none.available_events.length, 27);
+});
+
+test("★法務の線★ 書籍2本の出力に銘柄コード・銘柄名が1つも無い", async () => {
+  // 連想の元データには銘柄バスケット(499行・code と name)が併存している。
+  // 取り違えると「出来事 → 買う銘柄」を返す道具になる。生成側で読み込んでいないが、
+  // 万一混ざったらここで落とす。
+  for (const [name, args] of [
+    ["get_candlestick_verdict", { detail: true }],
+    ["get_event_reaction", { detail: true }],
+    ["get_candlestick_verdict", { pattern: "三空叩き込み", detail: true }],
+    ["get_event_reaction", { event: "地震", detail: true }],
+  ]) {
+    const r = await call(name, args);
+    // ★数値の中は見ない★ p値 0.0135 の小数部が銘柄コードに見えるため、
+    // 文字列の値とキーだけを集めて調べる
+    const texts = [];
+    const walk = (v) => {
+      if (typeof v === "string") texts.push(v);
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === "object") {
+        for (const [k, x] of Object.entries(v)) { texts.push(k); walk(x); }
+      }
+    };
+    walk(r.structuredContent);
+    const codes = (texts.join(" ").match(/\b\d{4}\b/g) || [])
+      .filter((c) => !(Number(c) >= 1990 && Number(c) <= 2100)); // 年号は除く
+    assert.deepEqual(codes, [], `${name}: 銘柄コードらしき4桁がある`);
+    assert.equal(hasNg(r.content[0].text), false, `${name} に推奨語がある`);
+    assert.ok(r.structuredContent.disclaimer.length > 20, `${name} に免責が無い`);
+    assert.ok(r.structuredContent.note, `${name} に元データ側の注意が無い`);
+  }
+});
+
+test("v0.2: 応答サイズが 1ツール 50KB を超えない", async () => {
+  // 上限を超えると一部のクライアントで切り詰められ、免責ごと落ちる。
+  // 一覧は軽い形、詳細は1件ずつ、という設計が効いているかを数字で見る。
+  for (const [name, args] of [
+    ["get_candlestick_verdict", {}],
+    ["get_candlestick_verdict", { detail: true }],
+    ["get_event_reaction", {}],
+    ["get_event_reaction", { detail: true }],
+  ]) {
+    const r = await call(name, args);
+    const bytes = Buffer.byteLength(r.content[0].text, "utf8");
+    assert.ok(bytes <= 51200, `${name}(${JSON.stringify(args)}) が ${bytes} バイト`);
+  }
+});
+
 test("list_tools_guide", async () => {
   const p = (await call("list_tools_guide")).structuredContent;
-  assert.equal(p.tools.length, 4);
+  assert.equal(p.tools.length, 6);
   assert.ok(p.legal.disclaimer);
   assert.ok(p.data_schedule_jst.get_daily_signals);
 });
@@ -207,6 +357,8 @@ test("法務線: 全ツール出力に推奨語が含まれず、免責キーが
     ["get_daily_signals", {}],
     ["get_market_regime", { history_days: 10 }],
     ["get_anomaly_summary", { detail: true }],
+    ["get_candlestick_verdict", { detail: true }],
+    ["get_event_reaction", { detail: true }],
     ["list_tools_guide", {}],
   ]) {
     const r = await call(name, args);
@@ -269,7 +421,8 @@ test("案内する URL が正規URL(ruletrade.jp)に統一されている", asyn
   assert.equal(g.contact, "https://ruletrade.jp/");
 
   // 全ツールに source_site / data_site が付く
-  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
     const p = (await call(name)).structuredContent;
     assert.equal(p.source_site, "https://ruletrade.jp/", name);
     assert.equal(p.data_site, "https://kaburadar.jp", name);
@@ -289,7 +442,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   const txt = await t.text();
   assert.ok(txt.includes("https://ruletrade.jp/mcp"), "正規URLが書かれていない");
   assert.equal(txt.includes("workers.dev"), false, "workers.dev を案内している");
-  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
     assert.ok(txt.includes(name), `${name} が載っていない`);
   }
   assert.ok(/not investment advice/i.test(txt), "英語の免責がない");
@@ -297,7 +451,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   // TOOL_DEFS の日本語 title を流用しない)
   const toolBlock = txt.split("## What you can get")[1].split("##")[0];
   assert.equal(/[ぁ-んァ-ン一-龥]/.test(toolBlock), false, "ツール一覧に日本語が混ざっている");
-  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
     const line = toolBlock.split("\n").find((l) => l.startsWith("- " + `\`${name}\`` + " — "));
     assert.ok(line, `${name} の行がない`);
     const desc = line.split(" — ")[1] || "";
@@ -315,7 +470,8 @@ test("llms.txt と openapi.json(エージェント向けの発見用)", async ()
   assert.ok(spec.paths["/mcp"].post, "/mcp の POST が記述されていない");
   assert.equal(spec.paths["/mcp"].get.responses["405"] !== undefined, true);
   // ツール4本ぶんの引数スキーマが載っている
-  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary", "list_tools_guide"]) {
+  for (const name of ["get_daily_signals", "get_market_regime", "get_anomaly_summary",
+    "get_candlestick_verdict", "get_event_reaction", "list_tools_guide"]) {
     assert.ok(spec.components.schemas[`${name}_arguments`], `${name} のスキーマがない`);
   }
   assert.ok(spec.components.schemas.ToolResult.required.includes("disclaimer"));

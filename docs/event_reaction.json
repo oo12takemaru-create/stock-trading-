@@ -1,0 +1,1636 @@
+{
+ "schema": "event_reaction/1",
+ "source_book": "株の連想大全（36）",
+ "source_file": "36_株の連想大全/検証/out/summary_main.csv",
+ "universe": "東証プライム（分類ごとのバスケット）",
+ "method": {
+  "excess": "分類の平均リターンから市場全体（TOPIX）を引いた超過収益",
+  "entry": "出来事の判明日の翌営業日始値",
+  "windows": "当日・翌日・5営業日後・1か月後・3か月後",
+  "significant": "p < 0.10 を有意として扱う（標本数が少ない出来事があるため）",
+  "peak_day": "累積の超過収益が最も大きくなった営業日（出来事の翌営業日を0日目として63日目まで探した）。窓ごとの有意性とは別の指標で、peak_day が先でも判定が「初動型」になることはある",
+  "half_day": "累積の超過収益がピークの半分まで戻った営業日。63日以内に戻らなければ null"
+ },
+ "key_finding": "「初動型」は前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てから買うのでは間に合わないものが多い。",
+ "not_included": "銘柄名・銘柄コード・個別銘柄の値動きは含まない。返すのは分類と統計だけ。",
+ "events": [
+  {
+   "event_type": "A1",
+   "name": "日銀利上げ・引き締め",
+   "aliases": [
+    "日銀",
+    "利上げ",
+    "引き締め",
+    "boj",
+    "rate hike"
+   ],
+   "samples": 11,
+   "samples_all": 11,
+   "period": "2000-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "初動型",
+   "peak_day": 1.0,
+   "half_life_day": 2.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.36,
+     "win_rate_pct": 70.0,
+     "p_value": 0.2989,
+     "significant": false,
+     "market_pct": 0.23
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 2.2,
+     "win_rate_pct": 50.0,
+     "p_value": 0.2733,
+     "significant": false,
+     "market_pct": 0.46
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -0.15,
+     "win_rate_pct": 30.0,
+     "p_value": 0.945,
+     "significant": false,
+     "market_pct": -0.27
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -0.32,
+     "win_rate_pct": 50.0,
+     "p_value": 0.9091,
+     "significant": false,
+     "market_pct": 2.0
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -1.03,
+     "win_rate_pct": 50.0,
+     "p_value": 0.7988,
+     "significant": false,
+     "market_pct": 0.15
+    }
+   ]
+  },
+  {
+   "event_type": "A2",
+   "name": "日銀利下げ・緩和拡大",
+   "aliases": [
+    "日銀",
+    "利下げ",
+    "緩和",
+    "boj",
+    "rate cut",
+    "easing"
+   ],
+   "samples": 13,
+   "samples_all": 13,
+   "period": "2001-2020",
+   "verdict": "持続型",
+   "verdict_note": "反応が数週間から数か月続いた",
+   "verdict_secondary": "初動型",
+   "peak_day": 23.0,
+   "half_life_day": 55.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.14,
+     "win_rate_pct": 66.7,
+     "p_value": 0.2086,
+     "significant": false,
+     "market_pct": 0.52
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 2.27,
+     "win_rate_pct": 83.3,
+     "p_value": 0.1743,
+     "significant": false,
+     "market_pct": 2.0
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 1.85,
+     "win_rate_pct": 66.7,
+     "p_value": 0.2174,
+     "significant": false,
+     "market_pct": 3.25
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 4.2,
+     "win_rate_pct": 91.7,
+     "p_value": 0.0084,
+     "significant": true,
+     "market_pct": 4.05
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 3.04,
+     "win_rate_pct": 66.7,
+     "p_value": 0.2054,
+     "significant": false,
+     "market_pct": 9.15
+    }
+   ]
+  },
+  {
+   "event_type": "A3",
+   "name": "FOMC利上げ",
+   "aliases": [
+    "fomc",
+    "利上げ",
+    "fed",
+    "rate hike"
+   ],
+   "samples": 37,
+   "samples_all": 37,
+   "period": "2004-2023",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "逆行",
+   "peak_day": 18.0,
+   "half_life_day": 25.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": -0.1,
+     "win_rate_pct": 45.9,
+     "p_value": 0.6389,
+     "significant": false,
+     "market_pct": 0.08
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": -0.29,
+     "win_rate_pct": 40.5,
+     "p_value": 0.3043,
+     "significant": false,
+     "market_pct": -0.22
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.08,
+     "win_rate_pct": 59.5,
+     "p_value": 0.8859,
+     "significant": false,
+     "market_pct": -0.15
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.64,
+     "win_rate_pct": 54.1,
+     "p_value": 0.488,
+     "significant": false,
+     "market_pct": -0.16
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -3.16,
+     "win_rate_pct": 43.2,
+     "p_value": 0.1157,
+     "significant": false,
+     "market_pct": 2.64
+    }
+   ]
+  },
+  {
+   "event_type": "A4",
+   "name": "FOMC利下げ",
+   "aliases": [
+    "fomc",
+    "利下げ",
+    "fed",
+    "rate cut"
+   ],
+   "samples": 28,
+   "samples_all": 34,
+   "period": "2001-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 4.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": -0.14,
+     "win_rate_pct": 35.7,
+     "p_value": 0.6422,
+     "significant": false,
+     "market_pct": 0.58
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": -0.25,
+     "win_rate_pct": 53.6,
+     "p_value": 0.5971,
+     "significant": false,
+     "market_pct": 0.37
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -0.63,
+     "win_rate_pct": 46.4,
+     "p_value": 0.5341,
+     "significant": false,
+     "market_pct": -0.0
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -1.09,
+     "win_rate_pct": 46.4,
+     "p_value": 0.5701,
+     "significant": false,
+     "market_pct": 0.19
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -1.76,
+     "win_rate_pct": 53.6,
+     "p_value": 0.5095,
+     "significant": false,
+     "market_pct": -0.14
+    }
+   ]
+  },
+  {
+   "event_type": "A5",
+   "name": "急激な円高(5日で2.5%)",
+   "aliases": [
+    "円高",
+    "為替",
+    "yen",
+    "strong yen"
+   ],
+   "samples": 71,
+   "samples_all": 72,
+   "period": "2000-2026",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "初動型",
+   "peak_day": 13.0,
+   "half_life_day": 19.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.02,
+     "win_rate_pct": 63.4,
+     "p_value": 0.0001,
+     "significant": true,
+     "market_pct": -0.73
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.88,
+     "win_rate_pct": 62.0,
+     "p_value": 0.0045,
+     "significant": true,
+     "market_pct": -0.11
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -0.1,
+     "win_rate_pct": 47.9,
+     "p_value": 0.8326,
+     "significant": false,
+     "market_pct": 0.51
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.5,
+     "win_rate_pct": 52.1,
+     "p_value": 0.6102,
+     "significant": false,
+     "market_pct": 0.33
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 0.57,
+     "win_rate_pct": 53.5,
+     "p_value": 0.672,
+     "significant": false,
+     "market_pct": 0.01
+    }
+   ]
+  },
+  {
+   "event_type": "A6",
+   "name": "急激な円安(5日で2.5%)",
+   "aliases": [
+    "円安",
+    "為替",
+    "yen",
+    "weak yen"
+   ],
+   "samples": 63,
+   "samples_all": 66,
+   "period": "2000-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 54.0,
+   "half_life_day": 57.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.32,
+     "win_rate_pct": 57.1,
+     "p_value": 0.2249,
+     "significant": false,
+     "market_pct": 0.53
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.22,
+     "win_rate_pct": 52.4,
+     "p_value": 0.5238,
+     "significant": false,
+     "market_pct": 0.67
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.16,
+     "win_rate_pct": 44.4,
+     "p_value": 0.7986,
+     "significant": false,
+     "market_pct": 1.1
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -0.24,
+     "win_rate_pct": 49.2,
+     "p_value": 0.8312,
+     "significant": false,
+     "market_pct": 2.26
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -0.35,
+     "win_rate_pct": 57.1,
+     "p_value": 0.8559,
+     "significant": false,
+     "market_pct": 3.74
+    }
+   ]
+  },
+  {
+   "event_type": "A7",
+   "name": "原油急騰(1ヶ月+20%)",
+   "aliases": [
+    "原油",
+    "oil",
+    "crude"
+   ],
+   "samples": 22,
+   "samples_all": 22,
+   "period": "2002-2026",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "持続型",
+   "peak_day": 43.0,
+   "half_life_day": 45.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.23,
+     "win_rate_pct": 45.5,
+     "p_value": 0.549,
+     "significant": false,
+     "market_pct": 0.04
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": -0.36,
+     "win_rate_pct": 36.4,
+     "p_value": 0.5315,
+     "significant": false,
+     "market_pct": -0.11
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.22,
+     "win_rate_pct": 54.5,
+     "p_value": 0.8058,
+     "significant": false,
+     "market_pct": -0.81
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -0.57,
+     "win_rate_pct": 40.9,
+     "p_value": 0.6801,
+     "significant": false,
+     "market_pct": -0.29
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -0.46,
+     "win_rate_pct": 40.9,
+     "p_value": 0.7712,
+     "significant": false,
+     "market_pct": 3.4
+    }
+   ]
+  },
+  {
+   "event_type": "A8",
+   "name": "原油急落(1ヶ月-20%)",
+   "aliases": [
+    "原油",
+    "oil",
+    "crude"
+   ],
+   "samples": 17,
+   "samples_all": 17,
+   "period": "2000-2022",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "初動型",
+   "peak_day": 19.0,
+   "half_life_day": 21.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.87,
+     "win_rate_pct": 82.4,
+     "p_value": 0.0364,
+     "significant": true,
+     "market_pct": -0.43
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.79,
+     "win_rate_pct": 64.7,
+     "p_value": 0.0631,
+     "significant": true,
+     "market_pct": -0.64
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.4,
+     "win_rate_pct": 47.1,
+     "p_value": 0.6352,
+     "significant": false,
+     "market_pct": 0.4
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.48,
+     "win_rate_pct": 52.9,
+     "p_value": 0.6553,
+     "significant": false,
+     "market_pct": -1.41
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -2.11,
+     "win_rate_pct": 41.2,
+     "p_value": 0.3459,
+     "significant": false,
+     "market_pct": -2.51
+    }
+   ]
+  },
+  {
+   "event_type": "A9",
+   "name": "米長期金利急騰(1ヶ月+50bp)",
+   "aliases": [
+    "金利",
+    "米金利",
+    "treasury",
+    "yield"
+   ],
+   "samples": 21,
+   "samples_all": 21,
+   "period": "2000-2024",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 61.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.8,
+     "win_rate_pct": 66.7,
+     "p_value": 0.2337,
+     "significant": false,
+     "market_pct": 0.15
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 1.07,
+     "win_rate_pct": 53.3,
+     "p_value": 0.378,
+     "significant": false,
+     "market_pct": -0.68
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.32,
+     "win_rate_pct": 53.3,
+     "p_value": 0.7773,
+     "significant": false,
+     "market_pct": -0.97
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 1.22,
+     "win_rate_pct": 60.0,
+     "p_value": 0.6187,
+     "significant": false,
+     "market_pct": -0.9
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 3.91,
+     "win_rate_pct": 60.0,
+     "p_value": 0.5033,
+     "significant": false,
+     "market_pct": 0.34
+    }
+   ]
+  },
+  {
+   "event_type": "A10",
+   "name": "VIX急騰(30超え)",
+   "aliases": [
+    "vix",
+    "恐怖指数",
+    "volatility"
+   ],
+   "samples": 28,
+   "samples_all": 28,
+   "period": "2000-2026",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 38.0,
+   "half_life_day": 42.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.92,
+     "win_rate_pct": 82.1,
+     "p_value": 0.0997,
+     "significant": false,
+     "market_pct": -1.68
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 1.22,
+     "win_rate_pct": 64.3,
+     "p_value": 0.0874,
+     "significant": false,
+     "market_pct": -1.97
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.63,
+     "win_rate_pct": 57.1,
+     "p_value": 0.505,
+     "significant": false,
+     "market_pct": -1.29
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.18,
+     "win_rate_pct": 42.9,
+     "p_value": 0.9326,
+     "significant": false,
+     "market_pct": -0.91
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -2.62,
+     "win_rate_pct": 42.9,
+     "p_value": 0.4147,
+     "significant": false,
+     "market_pct": 0.88
+    }
+   ]
+  },
+  {
+   "event_type": "B1",
+   "name": "震度6弱以上の地震",
+   "aliases": [
+    "地震",
+    "earthquake",
+    "震災",
+    "災害"
+   ],
+   "samples": 31,
+   "samples_all": 33,
+   "period": "2000-2024",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "初動型",
+   "peak_day": 12.0,
+   "half_life_day": 28.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.56,
+     "win_rate_pct": 70.0,
+     "p_value": 0.092,
+     "significant": true,
+     "market_pct": 0.06
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 1.59,
+     "win_rate_pct": 56.7,
+     "p_value": 0.0632,
+     "significant": true,
+     "market_pct": -0.45
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 2.18,
+     "win_rate_pct": 63.3,
+     "p_value": 0.0814,
+     "significant": true,
+     "market_pct": 0.76
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 2.02,
+     "win_rate_pct": 60.0,
+     "p_value": 0.2141,
+     "significant": false,
+     "market_pct": 1.68
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 1.66,
+     "win_rate_pct": 50.0,
+     "p_value": 0.5266,
+     "significant": false,
+     "market_pct": 1.33
+    }
+   ]
+  },
+  {
+   "event_type": "B2",
+   "name": "台風・豪雨(激甚災害級)",
+   "aliases": [
+    "台風",
+    "豪雨",
+    "typhoon",
+    "flood",
+    "災害"
+   ],
+   "samples": 20,
+   "samples_all": 21,
+   "period": "2004-2024",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "不発",
+   "peak_day": 12.0,
+   "half_life_day": 21.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.38,
+     "win_rate_pct": 55.0,
+     "p_value": 0.2628,
+     "significant": false,
+     "market_pct": 0.18
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.76,
+     "win_rate_pct": 60.0,
+     "p_value": 0.1211,
+     "significant": false,
+     "market_pct": 0.17
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.94,
+     "win_rate_pct": 70.0,
+     "p_value": 0.0194,
+     "significant": true,
+     "market_pct": -0.26
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.67,
+     "win_rate_pct": 50.0,
+     "p_value": 0.5767,
+     "significant": false,
+     "market_pct": 1.68
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 0.92,
+     "win_rate_pct": 50.0,
+     "p_value": 0.6233,
+     "significant": false,
+     "market_pct": 3.6
+    }
+   ]
+  },
+  {
+   "event_type": "B4",
+   "name": "記録的猛暑(最高気温更新)",
+   "aliases": [
+    "猛暑",
+    "気温",
+    "heat",
+    "heatwave"
+   ],
+   "samples": 7,
+   "samples_all": 8,
+   "period": "2007-2025",
+   "verdict": "逆行",
+   "verdict_note": "想定と逆の方向に動いた",
+   "verdict_secondary": "-",
+   "peak_day": 46.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": -0.02,
+     "win_rate_pct": 57.1,
+     "p_value": 0.9482,
+     "significant": false,
+     "market_pct": 0.03
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": -0.75,
+     "win_rate_pct": 14.3,
+     "p_value": 0.0467,
+     "significant": false,
+     "market_pct": 0.79
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -1.62,
+     "win_rate_pct": 28.6,
+     "p_value": 0.1629,
+     "significant": false,
+     "market_pct": -0.34
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -2.55,
+     "win_rate_pct": 42.9,
+     "p_value": 0.2366,
+     "significant": false,
+     "market_pct": 2.11
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -6.41,
+     "win_rate_pct": 28.6,
+     "p_value": 0.0852,
+     "significant": false,
+     "market_pct": 4.89
+    }
+   ]
+  },
+  {
+   "event_type": "B6",
+   "name": "大雪",
+   "aliases": [
+    "大雪",
+    "snow",
+    "災害"
+   ],
+   "samples": 9,
+   "samples_all": 11,
+   "period": "2013-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 63.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": -0.09,
+     "win_rate_pct": 44.4,
+     "p_value": 0.8082,
+     "significant": false,
+     "market_pct": 0.04
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.21,
+     "win_rate_pct": 55.6,
+     "p_value": 0.7236,
+     "significant": false,
+     "market_pct": -0.36
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.79,
+     "win_rate_pct": 55.6,
+     "p_value": 0.4333,
+     "significant": false,
+     "market_pct": 0.25
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -0.23,
+     "win_rate_pct": 55.6,
+     "p_value": 0.916,
+     "significant": false,
+     "market_pct": -0.62
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 2.15,
+     "win_rate_pct": 66.7,
+     "p_value": 0.4857,
+     "significant": false,
+     "market_pct": 1.29
+    }
+   ]
+  },
+  {
+   "event_type": "B7",
+   "name": "噴火",
+   "aliases": [
+    "噴火",
+    "volcano",
+    "eruption",
+    "災害"
+   ],
+   "samples": 7,
+   "samples_all": 7,
+   "period": "2000-2018",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "-",
+   "peak_day": 12.0,
+   "half_life_day": 14.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.93,
+     "win_rate_pct": 100.0,
+     "p_value": 0.0756,
+     "significant": true,
+     "market_pct": 0.21
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.87,
+     "win_rate_pct": 100.0,
+     "p_value": 0.0486,
+     "significant": true,
+     "market_pct": 0.08
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 2.18,
+     "win_rate_pct": 60.0,
+     "p_value": 0.3046,
+     "significant": false,
+     "market_pct": -1.4
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.85,
+     "win_rate_pct": 60.0,
+     "p_value": 0.6548,
+     "significant": false,
+     "market_pct": -4.49
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 0.71,
+     "win_rate_pct": 40.0,
+     "p_value": 0.9398,
+     "significant": false,
+     "market_pct": -4.72
+    }
+   ]
+  },
+  {
+   "event_type": "C1",
+   "name": "戦争・軍事衝突・中東緊張",
+   "aliases": [
+    "戦争",
+    "軍事",
+    "中東",
+    "war",
+    "conflict"
+   ],
+   "samples": 9,
+   "samples_all": 11,
+   "period": "2001-2025",
+   "verdict": "持続型",
+   "verdict_note": "反応が数週間から数か月続いた",
+   "verdict_secondary": "不発",
+   "peak_day": 63.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 2.44,
+     "win_rate_pct": 77.8,
+     "p_value": 0.0165,
+     "significant": true,
+     "market_pct": -1.0
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 2.34,
+     "win_rate_pct": 88.9,
+     "p_value": 0.1253,
+     "significant": false,
+     "market_pct": -0.25
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 4.36,
+     "win_rate_pct": 77.8,
+     "p_value": 0.0173,
+     "significant": true,
+     "market_pct": 0.24
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 3.72,
+     "win_rate_pct": 77.8,
+     "p_value": 0.0367,
+     "significant": true,
+     "market_pct": 1.62
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 6.2,
+     "win_rate_pct": 66.7,
+     "p_value": 0.2537,
+     "significant": false,
+     "market_pct": 5.19
+    }
+   ]
+  },
+  {
+   "event_type": "C2",
+   "name": "北朝鮮ミサイル・核実験",
+   "aliases": [
+    "北朝鮮",
+    "ミサイル",
+    "north korea",
+    "missile"
+   ],
+   "samples": 10,
+   "samples_all": 12,
+   "period": "2006-2022",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 43.0,
+   "half_life_day": 63.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.6,
+     "win_rate_pct": 80.0,
+     "p_value": 0.049,
+     "significant": true,
+     "market_pct": 0.61
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.68,
+     "win_rate_pct": 60.0,
+     "p_value": 0.5103,
+     "significant": false,
+     "market_pct": 0.03
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 2.6,
+     "win_rate_pct": 40.0,
+     "p_value": 0.4322,
+     "significant": false,
+     "market_pct": -0.23
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 4.71,
+     "win_rate_pct": 70.0,
+     "p_value": 0.2646,
+     "significant": false,
+     "market_pct": 1.92
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 5.77,
+     "win_rate_pct": 70.0,
+     "p_value": 0.1366,
+     "significant": false,
+     "market_pct": 6.98
+    }
+   ]
+  },
+  {
+   "event_type": "C4",
+   "name": "台湾海峡緊張",
+   "aliases": [
+    "台湾",
+    "taiwan",
+    "海峡"
+   ],
+   "samples": 4,
+   "samples_all": 4,
+   "period": "2022-2024",
+   "verdict": "参考(n<5)",
+   "verdict_note": "標本が5件未満。統計として扱えないため参考値として載せる",
+   "verdict_secondary": "参考(n<5)",
+   "peak_day": 62.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": -0.55,
+     "win_rate_pct": 25.0,
+     "p_value": 0.4024,
+     "significant": false,
+     "market_pct": 0.87
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": -0.4,
+     "win_rate_pct": 50.0,
+     "p_value": 0.8255,
+     "significant": false,
+     "market_pct": 0.09
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -2.78,
+     "win_rate_pct": 25.0,
+     "p_value": 0.4347,
+     "significant": false,
+     "market_pct": -0.23
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 2.47,
+     "win_rate_pct": 75.0,
+     "p_value": 0.6141,
+     "significant": false,
+     "market_pct": 0.86
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 14.19,
+     "win_rate_pct": 75.0,
+     "p_value": 0.2184,
+     "significant": false,
+     "market_pct": 1.27
+    }
+   ]
+  },
+  {
+   "event_type": "D1",
+   "name": "首相交代(総裁選)",
+   "aliases": [
+    "首相",
+    "総裁選",
+    "政治",
+    "prime minister",
+    "election"
+   ],
+   "samples": 13,
+   "samples_all": 13,
+   "period": "2001-2025",
+   "verdict": "市場全体のみ",
+   "verdict_note": "特定の分類ではなく市場全体が動いた",
+   "verdict_secondary": "-",
+   "peak_day": null,
+   "half_life_day": null,
+   "windows": []
+  },
+  {
+   "event_type": "D2",
+   "name": "衆院選結果",
+   "aliases": [
+    "衆院選",
+    "選挙",
+    "政治",
+    "election"
+   ],
+   "samples": 9,
+   "samples_all": 9,
+   "period": "2000-2024",
+   "verdict": "市場全体のみ",
+   "verdict_note": "特定の分類ではなく市場全体が動いた",
+   "verdict_secondary": "-",
+   "peak_day": null,
+   "half_life_day": null,
+   "windows": []
+  },
+  {
+   "event_type": "E1",
+   "name": "感染症流行",
+   "aliases": [
+    "感染症",
+    "パンデミック",
+    "pandemic",
+    "covid",
+    "疫病"
+   ],
+   "samples": 5,
+   "samples_all": 6,
+   "period": "2003-2020",
+   "verdict": "初動型",
+   "verdict_note": "反応は当日から数日で終わる。遅れて入ると取れない",
+   "verdict_secondary": "持続型",
+   "peak_day": 45.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 1.24,
+     "win_rate_pct": 60.0,
+     "p_value": 0.2452,
+     "significant": false,
+     "market_pct": -0.21
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 4.66,
+     "win_rate_pct": 80.0,
+     "p_value": 0.1343,
+     "significant": true,
+     "market_pct": 0.5
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 6.22,
+     "win_rate_pct": 40.0,
+     "p_value": 0.3977,
+     "significant": false,
+     "market_pct": 2.43
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 1.93,
+     "win_rate_pct": 40.0,
+     "p_value": 0.678,
+     "significant": false,
+     "market_pct": 1.61
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 5.4,
+     "win_rate_pct": 60.0,
+     "p_value": 0.5295,
+     "significant": false,
+     "market_pct": 4.86
+    }
+   ]
+  },
+  {
+   "event_type": "E2",
+   "name": "五輪・万博決定",
+   "aliases": [
+    "五輪",
+    "万博",
+    "olympic",
+    "expo"
+   ],
+   "samples": 2,
+   "samples_all": 2,
+   "period": "2013-2018",
+   "verdict": "参考(n<5)",
+   "verdict_note": "標本が5件未満。統計として扱えないため参考値として載せる",
+   "verdict_secondary": "参考(n<5)",
+   "peak_day": 33.0,
+   "half_life_day": 42.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 2.59,
+     "win_rate_pct": 100.0,
+     "p_value": null,
+     "significant": false,
+     "market_pct": 1.62
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 4.19,
+     "win_rate_pct": 100.0,
+     "p_value": null,
+     "significant": false,
+     "market_pct": 2.74
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 1.7,
+     "win_rate_pct": 50.0,
+     "p_value": null,
+     "significant": false,
+     "market_pct": 3.77
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 3.85,
+     "win_rate_pct": 100.0,
+     "p_value": null,
+     "significant": false,
+     "market_pct": -4.15
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -1.48,
+     "win_rate_pct": 50.0,
+     "p_value": null,
+     "significant": false,
+     "market_pct": 6.37
+    }
+   ]
+  },
+  {
+   "event_type": "F1",
+   "name": "米国株急落(S&P 5日で-5%)",
+   "aliases": [
+    "米国株",
+    "s&p",
+    "米株急落",
+    "us stocks"
+   ],
+   "samples": 34,
+   "samples_all": 34,
+   "period": "2000-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 28.0,
+   "half_life_day": 30.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.54,
+     "win_rate_pct": 61.8,
+     "p_value": 0.2919,
+     "significant": false,
+     "market_pct": -0.87
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.57,
+     "win_rate_pct": 55.9,
+     "p_value": 0.3797,
+     "significant": false,
+     "market_pct": -1.25
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.11,
+     "win_rate_pct": 52.9,
+     "p_value": 0.9089,
+     "significant": false,
+     "market_pct": -1.02
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": -0.17,
+     "win_rate_pct": 50.0,
+     "p_value": 0.9212,
+     "significant": false,
+     "market_pct": -2.3
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -1.8,
+     "win_rate_pct": 52.9,
+     "p_value": 0.4836,
+     "significant": false,
+     "market_pct": -1.03
+    }
+   ]
+  },
+  {
+   "event_type": "F2",
+   "name": "中国株急落(上海 5日で-7%)",
+   "aliases": [
+    "中国株",
+    "上海",
+    "china"
+   ],
+   "samples": 35,
+   "samples_all": 35,
+   "period": "2000-2025",
+   "verdict": "不発",
+   "verdict_note": "指数を上回る動きは確認できなかった",
+   "verdict_secondary": "不発",
+   "peak_day": 18.0,
+   "half_life_day": 23.0,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 0.34,
+     "win_rate_pct": 54.3,
+     "p_value": 0.3311,
+     "significant": false,
+     "market_pct": 0.15
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 0.56,
+     "win_rate_pct": 54.3,
+     "p_value": 0.1272,
+     "significant": false,
+     "market_pct": -0.17
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": -0.4,
+     "win_rate_pct": 48.6,
+     "p_value": 0.6568,
+     "significant": false,
+     "market_pct": 0.62
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 0.51,
+     "win_rate_pct": 48.6,
+     "p_value": 0.669,
+     "significant": false,
+     "market_pct": 0.51
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": -1.56,
+     "win_rate_pct": 48.6,
+     "p_value": 0.4848,
+     "significant": false,
+     "market_pct": -0.44
+    }
+   ]
+  },
+  {
+   "event_type": "F3",
+   "name": "米大統領選",
+   "aliases": [
+    "大統領選",
+    "米大統領",
+    "us election"
+   ],
+   "samples": 7,
+   "samples_all": 7,
+   "period": "2000-2024",
+   "verdict": "市場全体のみ",
+   "verdict_note": "特定の分類ではなく市場全体が動いた",
+   "verdict_secondary": "-",
+   "peak_day": null,
+   "half_life_day": null,
+   "windows": []
+  },
+  {
+   "event_type": "G1",
+   "name": "関税・貿易ショック",
+   "aliases": [
+    "関税",
+    "貿易",
+    "tariff",
+    "trade"
+   ],
+   "samples": 7,
+   "samples_all": 10,
+   "period": "2018-2025",
+   "verdict": "持続型",
+   "verdict_note": "反応が数週間から数か月続いた",
+   "verdict_secondary": "持続型",
+   "peak_day": 63.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 2.1,
+     "win_rate_pct": 100.0,
+     "p_value": 0.0088,
+     "significant": true,
+     "market_pct": -1.24
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 2.25,
+     "win_rate_pct": 71.4,
+     "p_value": 0.0367,
+     "significant": true,
+     "market_pct": -2.04
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 3.13,
+     "win_rate_pct": 71.4,
+     "p_value": 0.0677,
+     "significant": true,
+     "market_pct": -2.76
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 4.73,
+     "win_rate_pct": 100.0,
+     "p_value": 0.0189,
+     "significant": true,
+     "market_pct": -3.83
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 9.0,
+     "win_rate_pct": 85.7,
+     "p_value": 0.0058,
+     "significant": true,
+     "market_pct": -0.54
+    }
+   ]
+  },
+  {
+   "event_type": "H1",
+   "name": "金融ショック(銀行破綻等)",
+   "aliases": [
+    "金融ショック",
+    "銀行",
+    "banking",
+    "financial crisis"
+   ],
+   "samples": 4,
+   "samples_all": 5,
+   "period": "2008-2023",
+   "verdict": "参考(n<5)",
+   "verdict_note": "標本が5件未満。統計として扱えないため参考値として載せる",
+   "verdict_secondary": "参考(n<5)",
+   "peak_day": 46.0,
+   "half_life_day": null,
+   "windows": [
+    {
+     "days": 0,
+     "label": "当日",
+     "excess_pct": 2.65,
+     "win_rate_pct": 100.0,
+     "p_value": 0.1275,
+     "significant": false,
+     "market_pct": -2.99
+    },
+    {
+     "days": 1,
+     "label": "翌日",
+     "excess_pct": 4.35,
+     "win_rate_pct": 100.0,
+     "p_value": 0.1118,
+     "significant": false,
+     "market_pct": -3.29
+    },
+    {
+     "days": 5,
+     "label": "5営業日後",
+     "excess_pct": 0.97,
+     "win_rate_pct": 50.0,
+     "p_value": 0.831,
+     "significant": false,
+     "market_pct": -0.81
+    },
+    {
+     "days": 21,
+     "label": "1か月後",
+     "excess_pct": 3.04,
+     "win_rate_pct": 75.0,
+     "p_value": 0.5169,
+     "significant": false,
+     "market_pct": -7.32
+    },
+    {
+     "days": 63,
+     "label": "3か月後",
+     "excess_pct": 6.16,
+     "win_rate_pct": 75.0,
+     "p_value": 0.6257,
+     "significant": false,
+     "market_pct": 0.55
+    }
+   ]
+  }
+ ],
+ "disclaimer": "過去の出来事への当てはめであり、将来の値動きを示すものではありません。特定の銘柄や売買を勧めるものでもありません。標本数の少ない出来事が含まれます（n<5 は参考値）。"
+}

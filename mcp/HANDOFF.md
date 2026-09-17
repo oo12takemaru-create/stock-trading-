@@ -49,16 +49,51 @@ mcp/
 ルート `.gitignore` は `*.json` を無視する設定なので、`!mcp/package.json` `!mcp/vercel.json` の例外を追加済み。
 **mcp/ に新しい JSON を足すときは .gitignore に例外を追加すること。**
 
-## 4. ツール4本と読んでいるJSON
+## 4. ツール6本と読んでいるJSON
 
 | ツール | 読むJSON | 引数 | 備考 |
 |---|---|---|---|
 | `get_daily_signals` | `docs/free_scanner.json` | `strategy`(bnfのみ), `include_watch` | judge=signal→`rule_hit`、watch→`watch` に言い換え。価格・株数は元JSONに無い |
 | `get_market_regime` | `docs/radar.json`, `docs/market_jiai.json`, `docs/radar_history.json` | `history_days`(0〜60) | 銘柄名なし・件数のみ |
 | `get_anomaly_summary` | `docs/anomaly_results.json`, `docs/gauge.json`, `docs/crash.json` | `name`, `detail` | ジンクス50本の検証結果 + 『暴落は、減衰する』5前兆 + 着火メーター7フラグ |
+| `get_candlestick_verdict` | `docs/candlestick_verdict.json` | `pattern`, `detail` | 酒田五法12本。**採用ゼロ本**。落ちた基準と不採用理由を返す |
+| `get_event_reaction` | `docs/event_reaction.json` | `event`, `detail` | 出来事27種のあとの動き。5つの窓の超過収益・勝率・p値 |
 | `list_tools_guide` | なし(静的) | なし | 更新時刻・遅延・制限・免責・ロードマップ |
 
 エンドポイント: `POST /mcp`(MCP本体)、`GET /health`(5JSONの疎通)、`GET /llms.txt`、`GET /openapi.json`、`GET /`(概要)。`GET /mcp` は仕様どおり 405。
+
+### 4-0. 書籍の検証結果を返す2本(2026-09-17 追加・v0.2)
+
+- 実体: `docs/candlestick_verdict.json`(12本・49KB)、`docs/event_reaction.json`(27件・36KB)。
+  どちらも **日次更新ではなく書籍刊行時点の固定データ**。
+- 生成: `mcp/tools/build_candlestick_verdict.py` / `build_event_reaction.py`。
+  検証の生出力(CSV・JSON)から**機械変換**する。**数字を手で書き写さない**。
+- 検証: `mcp/tools/verify_candlestick_verdict.py` / `verify_event_reaction.py`。
+  **元CSVまで遡って**1つずつ突き合わせる(中間ファイルがずれていても効く)。
+  元データが変わったら気づけるよう、`adoption` が全部 `rejected` かも見ている。
+
+**★酒田は採用ゼロ本★**(2026-09-17 Fable 判断)
+
+- 元データ12本すべてが `adoption: "rejected"`。`verdict` は `not_adopted` の1値だけを使う。
+  **`adopted` は使わない**。起動文には「採用2本」とあったが、実データが正。
+- 逆三尊のみ `filter_candidate: true` を併記(元データの `status` が `candidate`)。
+  ただし verdict は `not_adopted`。採用ではない。
+- **三空叩き込み(PF 3.04)の不採用理由は要約せず全文で返す。**
+  「発見期と確認期に分けると符号が反転する」— PF が高くても採用できない理由は
+  他のどこにも書いていない。このツールで最も価値のある答えなので、test で固定している。
+- **逆三尊の不採用理由だけは元の文を使わない。** 元には「『この形が出た直後は買わない』という
+  回避フィルターの候補」という検証者の設計メモが入っており、そのまま出すと行動の指示に読める。
+  `build_candlestick_verdict.py` の `REASON_OVERRIDE` で差し替え、verify が差し替え済みかを確かめる。
+
+**★連想は銘柄バスケットを読み込まない★**
+
+- 元データの同じフォルダに `baskets.csv`(499行・code と name)がある。混ぜた瞬間に
+  「出来事 → 買う銘柄」を返す道具になり、法務の線を越える。**生成側で開かない**。
+- verify が「バスケットの銘柄名が1つも入っていないか」を機械で確かめている。
+
+**★4桁の検査で数値の中を見ないこと★**
+p値 `0.0045` を正規表現で拾うと `0045` が銘柄コードに見える。銘柄コードが紛れ込むとしたら
+**文字列の値**(名前・別名・説明)なので、JSON を walk して文字列だけを集めて調べる。
 
 ### 4-1. ジンクス検証データ(2026-09-04 追加)
 
