@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: event-score
@@ -39,8 +40,14 @@ jobs:
       - name: Build event_score.json
         run: python -X utf8 event_score.py
 
-      - name: Commit
+      - name: Commit（main はPR必須なので、ブランチに出してPRにする）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # ※他の日次ワークフローは main に直接pushできているが、このワークフローだけ
+          #   GH013（Changes must be made through a pull request）で拒否される。
+          #   原因を特定できていないので、ルールに沿ってPR経由に倒しておく。
+          #   月1回なのでPRが増えても負担にならない。
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/event_score.json event_dates.json
@@ -48,10 +55,8 @@ jobs:
             echo "変更なし"
             exit 0
           fi
+          BR="auto/event-score-$(TZ='Asia/Tokyo' date +%Y%m)"
           git commit -m "📅 相場の暦を更新 ($(TZ='Asia/Tokyo' date +%Y-%m))"
-          for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push && exit 0
-            echo "push 再試行 $i"
-            sleep $((i * 5))
-          done
-          exit 1
+          git push -f origin "HEAD:$BR"
+          gh pr create --base main --head "$BR"             --title "📅 相場の暦を更新 ($(TZ='Asia/Tokyo' date +%Y-%m))"             --body "月次の自動更新です（event-score.yml）。" 2>/dev/null || echo "PRは既にあります"
+          gh pr merge "$BR" --squash --delete-branch ||             gh pr merge "$BR" --squash --auto --delete-branch
