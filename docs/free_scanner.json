@@ -1,33 +1,33 @@
 {
- "target_date": "2026-09-15",
- "generated_at": "2026-09-16T18:03:08+09:00",
+ "target_date": "2026-09-16",
+ "generated_at": "2026-09-17T18:03:16+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
-   "judge": "watch",
-   "code": "3436",
-   "name": "SUMCO",
-   "sector": "半導体",
-   "kairi": -14.09
-  },
-  {
-   "judge": "watch",
+   "judge": "signal",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -12.59
+   "kairi": -17.32
   },
   {
    "judge": "watch",
    "code": "6146",
    "name": "ディスコ",
    "sector": "半導体製造装置",
-   "kairi": -11.82
+   "kairi": -11.78
+  },
+  {
+   "judge": "watch",
+   "code": "3436",
+   "name": "SUMCO",
+   "sector": "半導体",
+   "kairi": -11.13
   }
  ],
- "asof": "2026-09-16",
+ "asof": "2026-09-17",
  "stale": false,
- "signals_today_date": "2026-09-16",
+ "signals_today_date": "2026-09-17",
  "is_halt": false,
  "signals_today_count": 0,
  "signal_of_day": null,
