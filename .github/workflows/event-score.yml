@@ -1,0 +1,58 @@
+name: Event Score Monthly (kaburadar.jp)
+
+# 相場の暦＝イベントの答え合わせ。月1回で足りる。
+# 日程表（event_dates.json）は年1回しか変わらず、日経の日足も1か月で大きくは動かない。
+# ※BLSはbot対策で素のHTTPに403を返すため、米CPI・米雇用統計の日付は
+#   event_dates.py 内に出所つきで持っている（CIでは取りに行かない）。
+on:
+  schedule:
+    - cron: '0 20 1 * *'    # 毎月1日 20:00 UTC = 2日 05:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: event-score
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas numpy scipy
+
+      - name: Refresh event dates (日銀・FOMC は公式サイトから取り直す)
+        run: python -X utf8 event_dates.py || echo "日程の更新に失敗。既存の event_dates.json を使う"
+
+      - name: Build event_score.json
+        run: python -X utf8 event_score.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/event_score.json event_dates.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📅 相場の暦を更新 ($(TZ='Asia/Tokyo' date +%Y-%m))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1

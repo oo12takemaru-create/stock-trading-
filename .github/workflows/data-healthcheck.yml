@@ -97,6 +97,7 @@ jobs:
               ("docs/karauri_score.json","空売りの答え合わせ",  9),
               ("docs/cot_score.json",    "投機筋の答え合わせ",  9),
               ("docs/cot_scale.json",    "投機筋の10年の物差し", 9),
+              ("docs/event_score.json",  "相場の暦",           40),
               ("docs/ai_weekly.json",     "週末版AI",           8),
           ]
           problems = []
