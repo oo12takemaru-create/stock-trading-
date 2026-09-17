@@ -65,6 +65,34 @@ MCP 側でやること:
 - `test("★方針★ 区分や課金を示す語を1つも書かない")` が、8本の応答・tools/list・
   llms.txt・openapi.json すべてを機械検査している
 
+### 3-11. 本番の機械検査（`mcp/tools/check_live.py`）
+
+```
+python mcp/tools/check_live.py
+python mcp/tools/check_live.py --base http://localhost:8787   # ローカル
+```
+
+**`npm test` では捕まらないものを見る。** テストはリポジトリの `docs/*.json` を
+フィクスチャにして動くので、**デプロイ漏れ・配信漏れ・rewrite の壊れ**は素通りする。
+
+見るもの: health / tools/list が8本 / 8本すべてが応答 / 推奨語ゼロ /
+銘柄コードの混入 / 区分・課金を示す語 / 50KB 以内 / llms.txt・openapi.json に8本 /
+workers.dev を案内していないか。
+
+**★2つ踏んだ罠（2026-09-17）★**
+
+1. **Python の既定 UA は 403 になる。** `Python-urllib/3.x` のままだと配信側に弾かれる。
+   `user-agent` を必ず名乗る(`UA` 定数)。呼び出しログの client 欄にもこれが残る。
+2. **llms.txt / openapi.json は Vercel のエッジで最大1時間キャッシュされる。**
+   デプロイ直後は「Worker は新しいのに配信は古い」状態になり、**直っているものを
+   不合格にする**。`fresh=True`(キャッシュバスター)で Worker が返す版を検査し、
+   配信されている版が古い場合は不合格ではなく「待つ」として知らせる。
+
+   実際に 2026-09-17 のデプロイ直後、`llms.txt` が `Age=1755 / max-age=3600` で
+   4本時代の内容を返していた（Worker 自体は8本を返していた）。
+   **`docs.js` の `cache-control: public, max-age=3600` を短くするかは Fable 判断。**
+   ツール定義が変わるたびに更新されるファイルなので、1時間は長い可能性がある。
+
 ### 3-10. レジストリの再publish（v0.1.0 → v0.2.0）
 
 **掲載済み**: MCP 公式レジストリ `jp.ruletrade/mcp` v0.1.0 `status: active`（2026-09-05・
