@@ -210,14 +210,27 @@ jobs:
       # 鍵がズレると壊れずに「ただ遅い」だけになる。見張りが2本ある。
       #   precompute/tests/verify_cache_key.py  … Python と TS の正規化が一致するか
       #   ruletrade-app: npm run test:warm-hit  … 画面が送る形が実際に当たるか
-      - name: Warm starter types cache
-        if: steps.guard.outputs.skip != 'true'
+      # ★このステップに if を付けない（2026-09-16）★
+      #   もとは `if: steps.guard.outputs.skip != 'true'` が付いていて、
+      #   「データを更新したときだけ温める」作りだった。
+      #   ところが daily_metrics は別の経路で先に埋まるため、この関門は毎回
+      #   「もう新しい」と判定し、更新も温めもまとめて飛ばしていた。
+      #   ★結果、このステップは入ってから4回とも skipped で、一度も走っていない。★
+      #   壊れず、エラーも出ず、「初回表示がただ遅い」だけなので気づけなかった。
+      #   温めは冷えていなければ上書きするだけなので、毎回走ってよい。
+      #
+      # ★--types-only ではなく --no-adjust（2026-09-16）★
+      #   --types-only は型3本だけで、**規定値3本の手前で return する**。
+      #   /rules の初回表示を決めているのは規定値3本のほうで、
+      #   本番実測で 28.2秒（温まっていれば 2.4〜3.8秒）かかっていた。
+      #   --no-adjust は型＋規定値まで温めて、1,260通りの調整域は回さない。
+      - name: Warm starter types and preset cache
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -o pipefail
-          python precompute/warm_cache.py --types-only | tee -a update.log
+          python precompute/warm_cache.py --no-adjust | tee -a update.log
 
       - name: Write summary
         if: always()
