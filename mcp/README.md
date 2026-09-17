@@ -21,6 +21,8 @@ Zero dependencies, no API key, no registration.
 | `get_daily_signals` | Stocks that matched a published mean-reversion rule (25-day moving-average deviation ≤ -15%), plus near-miss watch candidates. Delayed one trading day, top 3 by deviation. |
 | `get_market_regime` | Machine-classified market regime (BULLISH / NEUTRAL / BEARISH / PANIC), circuit-breaker state, VIX, Nikkei 225, daily history. No stock names. |
 | `get_anomaly_summary` | **50 Japanese market anomalies tested over 61 years** — verdict, win rate, mean return, sample size, p-value, control group. Filter by `name`. Plus five crash-precursor gauges and a 7-flag ignition meter verified over 26 years. |
+| `get_candlestick_verdict` | **All 12 classic Japanese candlestick patterns tested on 1,550 TSE Prime stocks over 10.5 years** — trades, win rate, profit factor, excess return, p-value, losing years, and which of the five adoption criteria each one failed. **None of them cleared the bar.** The one with the highest profit factor (3.04) flipped sign between the first and second halves of the sample. |
+| `get_event_reaction` | **27 event types and what followed** (earthquakes, rate decisions, tariffs, pandemics) — excess return over the market, win rate, p-value and sample size across five horizons. Sector baskets are deliberately excluded. |
 | `list_tools_guide` | Update times (JST), delays, free-tier limits, disclaimer, roadmap. Call this first. |
 
 ### What you cannot get — by design
@@ -72,6 +74,8 @@ ruletrade.jp(Vercel)の `vercel.json` で rewrite しているため、配信先
 | `get_daily_signals` | free_scanner.json | BNF 25日線乖離ルールの該当/監視(1営業日遅れ・上位3件) |
 | `get_market_regime` | radar.json / market_jiai.json / radar_history.json | 地合い BULLISH〜PANIC・HALT・VIX・日経・履歴 |
 | `get_anomaly_summary` | anomaly_results.json / gauge.json / crash.json | ジンクス50本の検証結果(61年・判定/勝率/p値。`name` で絞り込み)+ 『暴落は、減衰する』5つの前兆 + 着火メーター(26年検証) |
+| `get_candlestick_verdict` | candlestick_verdict.json | 酒田五法12本の検証結果(東証プライム・10年半)。**12本すべて不採用**・落ちた基準・不採用の理由。`pattern` で絞り込み(日英の別名可) |
+| `get_event_reaction` | event_reaction.json | 出来事27種のあとに何が起きたか(地震・利上げ・関税ほか)。5つの窓の超過収益・勝率・p値。`event` で絞り込み(日英の別名可) |
 | `list_tools_guide` | (静的) | 使い方・更新時刻・遅延・免責・今後の予定 |
 
 法務線は人向けサイトと同一:
@@ -79,10 +83,15 @@ ruletrade.jp(Vercel)の `vercel.json` で rewrite しているため、配信先
 - 全レスポンスに `disclaimer` キーを常設
 - 価格・株数・利確/損切ライン・本番の調整済み閾値は出さない(free_scanner.json 生成時点で既に落ちている)
 - ジンクス検証は判定結果と統計値(勝率・平均・標本数・p値)のみ。格言の本文(`saying`)は推奨語を含むため出力しない
+- 酒田五法・連想の検証も統計値のみ。**銘柄名・銘柄コード・銘柄バスケットは返さない**(連想の元データには銘柄バスケットが併存するが、生成側で読み込んでいない)
 
 ## データの出どころ
 
 `docs/*.json` は既存の生成側(Python)が毎日書き出しているもの。MCP は読むだけで、生成側は一切触らない。
+
+`docs/anomaly_results.json` / `docs/candlestick_verdict.json` / `docs/event_reaction.json` の3つは
+日次ではなく **書籍刊行時点の固定データ**。後の2つは `mcp/tools/build_*.py` で検証の生出力から機械変換し、
+`mcp/tools/verify_*.py` で元CSVと1つずつ突き合わせている(手で書き写さない)。
 
 `docs/anomaly_results.json` だけは日次ではなく **書籍刊行時点(2026-08)の固定データ**。
 元は `株式投資開発/jinx_verification/results/results.json`(このリポジトリの外)で、

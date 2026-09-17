@@ -2,7 +2,7 @@
 import { DISCLAIMER } from "./legal.js";
 
 export const SERVER_NAME = "ruletrade-mcp";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 
 // 正規URL。ruletrade.jp(Vercel)から Cloudflare Workers へ rewrite している。
 // Worker 側から見た url.origin は workers.dev のままなので、定数で持つ。
@@ -170,6 +170,61 @@ export const TOOL_DEFS = [
           default: false,
           description:
             "年代別の内訳(extra)・中央値/標準偏差/対照群・書籍上の根拠(book)・着火メーターの統計表と履歴を含めるか",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_candlestick_verdict",
+    title: "酒田五法12本の検証結果(採用ゼロ本)",
+    description:
+      "三尊天井・赤三兵・三空叩き込みなど酒田五法12本を東証プライム1,550銘柄・10年半で検証した結果を返す。" +
+      "取引回数・勝率・PF・平均超過収益・p値・負け年・5つの採用基準のどれで落ちたか・不採用の理由を含む。" +
+      "12本すべてが採用基準を満たさなかった(採用ゼロ本)。" +
+      "最も PF の高い三空叩き込み(PF 3.04)も、期間を前半と後半に分けると符号が反転するため不採用としている。" +
+      "pattern を渡すとその形だけに絞り込める(日本語・英語の別名可。例: 三尊, head and shoulders, 赤三兵)。" +
+      "detail=true で保有日数別・相場環境別の内訳を含める。銘柄名・銘柄コード・価格は含まない。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description:
+            "形の名前で絞り込む(部分一致・日英の別名可。例: 三尊 / 逆三尊 / 三空 / 赤三兵 / morning star)。省略すると12本の一覧を返す",
+        },
+        detail: {
+          type: "boolean",
+          default: false,
+          description:
+            "保有日数別(5/10/20営業日)の内訳・75日移動平均で分けた相場環境別の内訳・検証に使った規定値を含めるか",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_event_reaction",
+    title: "出来事27種のあとに何が起きたか(連想の検証)",
+    description:
+      "地震・利上げ・円安・関税・パンデミックなど出来事27種について、そのあと市場全体を上回る動きがあったかを検証した結果を返す。" +
+      "分類ごとの超過収益・勝率・p値・標本数を、当日/翌日/5営業日後/1か月後/3か月後の5つの窓で返す。" +
+      "判定は 持続型 / 初動型 / 不発 / 逆行 / 市場全体のみ の5種類。" +
+      "「初動型」は前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てからでは間に合わないものが多い。" +
+      "event を渡すとその出来事だけに絞り込める(日本語・英語の別名可。例: 地震, earthquake, 利上げ, 関税)。" +
+      "銘柄名・銘柄コード・銘柄バスケットは含まない。返すのは分類と統計だけ。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        event: {
+          type: "string",
+          description:
+            "出来事の名前で絞り込む(部分一致・日英の別名可。例: 地震 / earthquake / 利上げ / 円安 / 関税 / パンデミック)。省略すると27種の一覧を返す",
+        },
+        detail: {
+          type: "boolean",
+          default: false,
+          description: "分類前の全標本数・各窓での市場全体の動きを含めるか",
         },
       },
       additionalProperties: false,
@@ -410,6 +465,198 @@ async function getAnomalySummary(args, { load, env }) {
   return out;
 }
 
+// ---- 書籍の検証結果を返す2本(v0.2) ------------------------------------------
+// どちらも「検証したが採用しなかった」を含めて返す。
+// 効いたものだけを並べると、当てはめで生まれた数字を選り分けたことが伝わらない。
+
+// 名前・別名・IDのどれかに部分一致するか。エージェントは日本語でも英語でも聞いてくる
+function nameHit(x, key, extraFields = []) {
+  const pool = [x.name, ...(x.aliases || []), ...extraFields.map((f) => x[f])];
+  return pool.some((s) => String(s || "").toLowerCase().includes(key));
+}
+
+/**
+ * 酒田五法12本の検証結果。docs/candlestick_verdict.json を読むだけ。
+ * 生成側は mcp/tools/build_candlestick_verdict.py(書籍32の検証出力から機械変換)。
+ *
+ * ★このツールで最も価値があるのは「PF が高くても採用できない理由」★
+ * 三空叩き込みは PF 3.04 と最も見栄えのする数字が出たが、期間を発見期と確認期に
+ * 分けると符号が反転するため不採用になっている。rejection_reason を要約しないこと。
+ */
+async function getCandlestickVerdict(args, { load }) {
+  const q = typeof args.pattern === "string" ? args.pattern.trim() : "";
+  const detail = !!args.detail;
+  const d = await load("candlestick_verdict.json");
+  const all = Array.isArray(d.patterns) ? d.patterns : [];
+  const key = q.toLowerCase();
+  const hits = key ? all.filter((p) => nameHit(p, key, ["pattern_id"])) : all;
+  // 一覧(12本)は判定と落ちた基準だけの軽い形に。統計値は pattern で絞るか detail=true
+  const compact = !q && !detail;
+
+  const items = hits.map((p) => {
+    if (compact) {
+      return {
+        pattern_id: p.pattern_id,
+        name: p.name,
+        direction: p.direction,
+        verdict: p.verdict,
+        pf: p.primary.pf,
+        trades: p.primary.trades,
+        // なぜ落ちたかは一覧でも出す。「不採用」だけだと理由が伝わらない
+        checks_failed: p.primary.checks_failed,
+        filter_candidate: !!p.filter_candidate,
+      };
+    }
+    const o = {
+      pattern_id: p.pattern_id,
+      name: p.name,
+      aliases: p.aliases,
+      direction: p.direction,
+      direction_note: p.direction_note,
+      verdict: p.verdict,
+      filter_candidate: !!p.filter_candidate,
+      universe: p.universe,
+      period: p.period,
+      entry: p.entry,
+      exit: p.exit,
+      primary: p.primary,
+      rejection_reason: p.rejection_reason,
+    };
+    if (p.filter_note) o.filter_note = p.filter_note;
+    if (detail) {
+      o.by_horizon = p.by_horizon;
+      o.regime = p.regime;
+      o.params_tested = p.params_tested;
+      // 別基盤の参考値。★注記ごと返す★ 数字だけ渡すと採用判定に見える
+      if (p.size_reference) o.size_reference = p.size_reference;
+    }
+    return o;
+  });
+
+  const out = meta({
+    source: d.source_book,
+    universe: d.universe,
+    period: d.period,
+    method: d.method,
+    criteria: d.criteria,
+    policy: d.policy,
+    // ★結論を先に置く★ 一覧を全部読まなくても分かるように
+    headline: d.headline,
+    summary: d.summary,
+    key_finding: d.key_finding,
+    verdict_values: d.verdict_values,
+    not_included: d.not_included,
+    query: q || null,
+    matched: hits.length,
+    items,
+    how_to_read: [
+      "verdict=not_adopted は「著者の採用基準(5つ)を満たさなかった」という事実で、形が必ず外れるという意味ではない",
+      "checks_failed にどの基準で落ちたかが入る。PF だけを見て判断しないこと",
+      "mean_excess_pct は同じ期間の市場全体を引いた超過収益。単体のリターンではない",
+      "sensitivity_same_sign は「規定値をずらしても符号が変わらなかった回数 / 試した回数」",
+      "filter_candidate=true は、トレードルールとしては不採用だが別枠で保持しているもの",
+    ],
+    note: d.disclaimer,
+  });
+  if (compact) {
+    out.items_note =
+      "一覧のため判定と落ちた基準のみ。勝率・平均超過・p値・不採用の理由が要るときは pattern に形の名前を渡す(部分一致)か、detail=true を指定する";
+  }
+  if (q && hits.length === 0) {
+    out.available_patterns = all.map((p) => p.name);
+    out.hint = "pattern は部分一致(日英の別名可)。上の available_patterns から選び直すか、pattern を省略して全件を取得する";
+  }
+  return out;
+}
+
+/**
+ * 出来事27種のあとに何が起きたか。docs/event_reaction.json を読むだけ。
+ * 生成側は mcp/tools/build_event_reaction.py(書籍36の検証出力から機械変換)。
+ *
+ * ★銘柄バスケットは元データ側で読み込んでいない★
+ * 「出来事 → 買う銘柄」を返す道具にしないための線引き。返すのは分類と統計だけ。
+ */
+async function getEventReaction(args, { load }) {
+  const q = typeof args.event === "string" ? args.event.trim() : "";
+  const detail = !!args.detail;
+  const d = await load("event_reaction.json");
+  const all = Array.isArray(d.events) ? d.events : [];
+  const key = q.toLowerCase();
+  const hits = key ? all.filter((e) => nameHit(e, key, ["event_type"])) : all;
+  const compact = !q && !detail;
+
+  const items = hits.map((e) => {
+    if (compact) {
+      return {
+        event_type: e.event_type,
+        name: e.name,
+        verdict: e.verdict,
+        verdict_note: e.verdict_note,
+        samples: e.samples,
+      };
+    }
+    const o = {
+      event_type: e.event_type,
+      name: e.name,
+      aliases: e.aliases,
+      samples: e.samples,
+      period: e.period,
+      verdict: e.verdict,
+      verdict_note: e.verdict_note,
+      verdict_secondary: e.verdict_secondary,
+      peak_day: e.peak_day,
+      half_life_day: e.half_life_day,
+      windows: e.windows.map((w) => {
+        const x = {
+          days: w.days,
+          label: w.label,
+          excess_pct: w.excess_pct,
+          win_rate_pct: w.win_rate_pct,
+          p_value: w.p_value,
+          significant: w.significant,
+        };
+        if (detail) x.market_pct = w.market_pct;
+        return x;
+      }),
+    };
+    if (detail) o.samples_all = e.samples_all;
+    return o;
+  });
+
+  const counts = {};
+  for (const e of all) counts[e.verdict] = (counts[e.verdict] || 0) + 1;
+
+  const out = meta({
+    source: d.source_book,
+    universe: d.universe,
+    method: d.method,
+    // ★この検証でいちばん大事な知見★
+    key_finding: d.key_finding,
+    not_included: d.not_included,
+    total: all.length,
+    verdict_counts: counts,
+    query: q || null,
+    matched: hits.length,
+    items,
+    how_to_read: [
+      "excess_pct は同じ期間の市場全体を引いた超過収益。分類全体の平均で、個別銘柄の値動きではない",
+      "significant は p<0.10。標本数の少ない出来事があるため通常より緩い基準を使っている",
+      "peak_day / half_life_day の意味は method に書いてある。累積の超過収益で測った指標で、窓ごとの有意性とは別物",
+      "判定が「不発」「逆行」のものも落とさずに返す。効かなかったことも検証結果である",
+    ],
+    note: d.disclaimer,
+  });
+  if (compact) {
+    out.items_note =
+      "一覧のため判定のみ。窓別の超過収益・勝率・p値が要るときは event に出来事の名前を渡す(部分一致)か、detail=true を指定する";
+  }
+  if (q && hits.length === 0) {
+    out.available_events = all.map((e) => e.name);
+    out.hint = "event は部分一致(日英の別名可)。上の available_events から選び直すか、event を省略して全件を取得する";
+  }
+  return out;
+}
+
 async function listToolsGuide() {
   return meta({
     server: {
@@ -428,6 +675,10 @@ async function listToolsGuide() {
       get_anomaly_summary:
         "傾斜計: 平日 17:23 / 21:23。着火メーター: 平日 16:47 / 19:47 / 22:47。" +
         "ジンクス50本の検証結果は書籍刊行時点(2026-08)の固定データで、日次更新はしない",
+      get_candlestick_verdict:
+        "書籍刊行時点の固定データ(東証プライム1,550銘柄・2016-01〜2026-08で検証)。日次更新はしない",
+      get_event_reaction:
+        "書籍刊行時点の固定データ(出来事27種・東証プライム)。日次更新はしない",
       note: "祝日・データ取得失敗時は前回値が残る(各レスポンスの updated / asof / stale を確認)",
     },
     free_tier_limits: [
@@ -441,6 +692,8 @@ async function listToolsGuide() {
       "着火メーターの割合は過去データでの発生率。将来の予測ではない",
       "ジンクスの judgment(◎○▲△×?)は過去データでの統計的有意性の分類で、将来そうなるという意味ではない。judgment_legend に定義がある",
       "判定が × や ? のものも含めて全50本を返す。「効かなかったこと」の検証結果も同じ重みで扱う",
+      "酒田五法12本はいずれも著者の採用基準を満たしていない(採用ゼロ本)。not_adopted は検証の結果であって、その形が必ず外れるという意味ではない",
+      "出来事の判定が「初動型」のものは、前日引けから翌朝の寄り付きで反応が終わる。ニュースを見てから動くのでは間に合わないものが多い",
     ],
     roadmap: {
       planned: "run_rule_backtest(ルールの過去検証を実行)。バックテスト基盤の整備後に有料枠として追加予定",
@@ -459,5 +712,7 @@ export const TOOL_HANDLERS = {
   get_daily_signals: getDailySignals,
   get_market_regime: getMarketRegime,
   get_anomaly_summary: getAnomalySummary,
+  get_candlestick_verdict: getCandlestickVerdict,
+  get_event_reaction: getEventReaction,
   list_tools_guide: listToolsGuide,
 };

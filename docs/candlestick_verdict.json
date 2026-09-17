@@ -1,0 +1,1772 @@
+{
+ "schema": "candlestick_verdict/1",
+ "source_book": "酒田五法の全検証（32）",
+ "source_file": "32_本間宗久_酒田五法/検証/ruletrade_sakata_rules.json",
+ "source_generated": "2026-09-10",
+ "universe": "東証プライム1,550銘柄",
+ "period": "2016-01〜2026-08",
+ "method": {
+  "entry": "シグナル成立日の翌営業日始値",
+  "exit": "保有日数の経過後の終値（5・10・20営業日で検証）",
+  "excess": "同じ期間の市場全体を引いた超過収益",
+  "primary": "5・10・20営業日のうち、基準を最も多く通った窓を primary とした"
+ },
+ "criteria": {
+  "min_trades": 200,
+  "min_pf": 1.3,
+  "max_losing_year_ratio": 0.3,
+  "sensitivity": "規定値をずらしても超過の符号が変わらない",
+  "regime": "相場環境別にどこで効くか説明できる(=二段関門を通過)",
+  "note": "5つすべてを満たしたものだけを採用とした"
+ },
+ "policy": "不採用も必ず開示する",
+ "headline": "酒田五法12本すべてを東証プライムで検証したが、採用基準を満たしたものは1本も無かった。",
+ "summary": {
+  "patterns_tested": 12,
+  "adopted": 0,
+  "not_adopted": 12,
+  "filter_candidates": 1
+ },
+ "key_finding": "PF の高さだけでは採用できない。三空叩き込みは PF 3.04 と12本の中で最も高い数字が出たが、期間を発見期（前半6年）と確認期（後半4年）に分けると符号が反転したため不採用とした。全期間の平均だけが良く見える型は、過去への当てはめで生まれる。",
+ "verdict_values": {
+  "not_adopted": "採用基準を満たさなかった。12本すべてがこれに当たる",
+  "filter_candidate": "トレードルールとしては不採用だが、別枠で保持しているもの"
+ },
+ "not_included": "銘柄名・銘柄コード・個別銘柄の値動きは含まない。返すのは形ごとの統計と、採用しなかった理由だけ。",
+ "patterns": [
+  {
+   "pattern_id": "sakata_sanzan",
+   "name": "三山",
+   "aliases": [
+    "三山",
+    "さんざん",
+    "triple top",
+    "sanzan"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "10営業日後の終値",
+   "params_tested": {
+    "window": 60,
+    "peak_distance": 5,
+    "tolerance_pct": 3.0
+   },
+   "primary": {
+    "hold_days": 10,
+    "trades": 4713,
+    "win_rate_pct": 48.86,
+    "pf": 0.882,
+    "mean_excess_pct": 0.202,
+    "p_value": 0.0263,
+    "losing_years": 3,
+    "years": 11,
+    "sensitivity_same_sign": "7/7",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": true,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": true
+    },
+    "checks_passed": 4,
+    "checks_failed": [
+     "PF1_3以上"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 4756,
+     "win_rate_pct": 49.41,
+     "pf": 0.963,
+     "mean_excess_pct": 0.163,
+     "p_value": 0.0129,
+     "losing_years": 4,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 4713,
+     "win_rate_pct": 48.86,
+     "pf": 0.882,
+     "mean_excess_pct": 0.202,
+     "p_value": 0.0263,
+     "losing_years": 3,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": true,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 4,
+     "checks_failed": [
+      "PF1_3以上"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 4686,
+     "win_rate_pct": 46.07,
+     "pf": 0.731,
+     "mean_excess_pct": 0.058,
+     "p_value": 0.3469,
+     "losing_years": 3,
+     "years": 11,
+     "sensitivity_same_sign": "4/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": true,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 2823,
+     "mean_excess_pct": 0.584,
+     "p_value": 0.0
+    },
+    "below_75ma": {
+     "trades": 1890,
+     "mean_excess_pct": -0.283,
+     "p_value": 0.052
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.326,
+     "mid": 0.561,
+     "small": 0.524,
+     "micro": 0.76
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_sanzon",
+   "name": "三尊天井",
+   "aliases": [
+    "三尊",
+    "三尊天井",
+    "ヘッドアンドショルダー",
+    "head and shoulders",
+    "head-and-shoulders top",
+    "sanzon"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "5営業日後の終値",
+   "params_tested": {
+    "window": 60,
+    "peak_distance": 5,
+    "tolerance_pct": 3.0
+   },
+   "primary": {
+    "hold_days": 5,
+    "trades": 1593,
+    "win_rate_pct": 48.09,
+    "pf": 0.827,
+    "mean_excess_pct": -0.148,
+    "p_value": 0.1085,
+    "losing_years": 6,
+    "years": 11,
+    "sensitivity_same_sign": "7/7",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 2,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 1593,
+     "win_rate_pct": 48.09,
+     "pf": 0.827,
+     "mean_excess_pct": -0.148,
+     "p_value": 0.1085,
+     "losing_years": 6,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 1588,
+     "win_rate_pct": 47.1,
+     "pf": 0.763,
+     "mean_excess_pct": -0.263,
+     "p_value": 0.0695,
+     "losing_years": 4,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 1567,
+     "win_rate_pct": 46.39,
+     "pf": 0.732,
+     "mean_excess_pct": -0.131,
+     "p_value": 0.291,
+     "losing_years": 6,
+     "years": 11,
+     "sensitivity_same_sign": "6/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 869,
+     "mean_excess_pct": 0.248,
+     "p_value": 0.0635
+    },
+    "below_75ma": {
+     "trades": 724,
+     "mean_excess_pct": -0.548,
+     "p_value": 0.0045
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": -0.552,
+     "mid": -0.145,
+     "small": 0.257,
+     "micro": 0.585
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_sankawa_triple_bottom",
+   "name": "三川(トリプルボトム)",
+   "aliases": [
+    "三川",
+    "トリプルボトム",
+    "三尊底",
+    "triple bottom",
+    "sankawa"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "20営業日後の終値",
+   "params_tested": {
+    "window": 60,
+    "trough_distance": 5,
+    "tolerance_pct": 3.0
+   },
+   "primary": {
+    "hold_days": 20,
+    "trades": 4740,
+    "win_rate_pct": 52.43,
+    "pf": 1.28,
+    "mean_excess_pct": -0.294,
+    "p_value": 0.0218,
+    "losing_years": 8,
+    "years": 11,
+    "sensitivity_same_sign": "7/7",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": true
+    },
+    "checks_passed": 3,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 4814,
+     "win_rate_pct": 51.64,
+     "pf": 1.145,
+     "mean_excess_pct": -0.007,
+     "p_value": 0.463,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "3/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 4788,
+     "win_rate_pct": 52.17,
+     "pf": 1.18,
+     "mean_excess_pct": -0.136,
+     "p_value": 0.095,
+     "losing_years": 9,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 4740,
+     "win_rate_pct": 52.43,
+     "pf": 1.28,
+     "mean_excess_pct": -0.294,
+     "p_value": 0.0218,
+     "losing_years": 8,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 3457,
+     "mean_excess_pct": 0.027,
+     "p_value": 0.4361
+    },
+    "below_75ma": {
+     "trades": 1283,
+     "mean_excess_pct": -0.9,
+     "p_value": 0.0
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.012,
+     "mid": -0.235,
+     "small": -0.294,
+     "micro": -0.265
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_gyaku_sanzon",
+   "name": "逆三尊",
+   "aliases": [
+    "逆三尊",
+    "ぎゃくさんぞん",
+    "逆ヘッドアンドショルダー",
+    "inverse head and shoulders",
+    "inverted head and shoulders",
+    "gyaku sanzon"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": true,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "5営業日後の終値",
+   "params_tested": {
+    "window": 60,
+    "trough_distance": 5,
+    "tolerance_pct": 3.0
+   },
+   "primary": {
+    "hold_days": 5,
+    "trades": 1667,
+    "win_rate_pct": 50.45,
+    "pf": 0.97,
+    "mean_excess_pct": -0.289,
+    "p_value": 0.0135,
+    "losing_years": 7,
+    "years": 11,
+    "sensitivity_same_sign": "7/7",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": true
+    },
+    "checks_passed": 3,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 1667,
+     "win_rate_pct": 50.45,
+     "pf": 0.97,
+     "mean_excess_pct": -0.289,
+     "p_value": 0.0135,
+     "losing_years": 7,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 1661,
+     "win_rate_pct": 49.19,
+     "pf": 0.935,
+     "mean_excess_pct": -0.693,
+     "p_value": 0.0,
+     "losing_years": 9,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 1640,
+     "win_rate_pct": 50.18,
+     "pf": 1.038,
+     "mean_excess_pct": -0.983,
+     "p_value": 0.0,
+     "losing_years": 10,
+     "years": 11,
+     "sensitivity_same_sign": "7/7",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 1147,
+     "mean_excess_pct": -0.315,
+     "p_value": 0.0095
+    },
+    "below_75ma": {
+     "trades": 520,
+     "mean_excess_pct": -0.202,
+     "p_value": 0.205
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "トレードルールとしては不採用。通説と正反対の成績で、定義21通り・3時代・時価総額4区分・流動性2水準・ユニバース2基盤のすべてで符号が変わらなかったため、別枠で保持している。",
+   "filter_note": "トレードルールとしては不採用だが、すべての切り口で符号が変わらなかったため別枠で保持している。掲載する場合は改めて検証してから。",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.077,
+     "mid": -0.237,
+     "small": -0.19,
+     "micro": -0.74
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_morning_star",
+   "name": "三川(明けの明星)",
+   "aliases": [
+    "明けの明星",
+    "あけのみょうじょう",
+    "三川明けの明星",
+    "morning star"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "20営業日後の終値",
+   "params_tested": {
+    "body1_atr_min": 1.0,
+    "body2_atr_max": 0.3,
+    "recover_pct": 50
+   },
+   "primary": {
+    "hold_days": 20,
+    "trades": 599,
+    "win_rate_pct": 54.76,
+    "pf": 1.493,
+    "mean_excess_pct": 0.353,
+    "p_value": 0.1965,
+    "losing_years": 4,
+    "years": 11,
+    "sensitivity_same_sign": "1/1",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": true,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": false,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 2,
+    "checks_failed": [
+     "負け年3割以下",
+     "閾値ずらしで符号不変",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 604,
+     "win_rate_pct": 50.5,
+     "pf": 1.05,
+     "mean_excess_pct": -0.138,
+     "p_value": 0.247,
+     "losing_years": 7,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 603,
+     "win_rate_pct": 52.24,
+     "pf": 1.199,
+     "mean_excess_pct": -0.057,
+     "p_value": 0.398,
+     "losing_years": 6,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 599,
+     "win_rate_pct": 54.76,
+     "pf": 1.493,
+     "mean_excess_pct": 0.353,
+     "p_value": 0.1965,
+     "losing_years": 4,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": true,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 416,
+     "mean_excess_pct": 0.291,
+     "p_value": 0.2925
+    },
+    "below_75ma": {
+     "trades": 183,
+     "mean_excess_pct": 0.608,
+     "p_value": 0.207
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: 負け年3割以下 / 閾値ずらしで符号不変 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.44,
+     "mid": -0.256,
+     "small": 0.023,
+     "micro": -0.587
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_evening_star",
+   "name": "三川(宵の明星)",
+   "aliases": [
+    "宵の明星",
+    "よいのみょうじょう",
+    "三川宵の明星",
+    "evening star"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "5営業日後の終値",
+   "params_tested": {
+    "body1_atr_min": 1.0,
+    "body2_atr_max": 0.3,
+    "recover_pct": 50
+   },
+   "primary": {
+    "hold_days": 5,
+    "trades": 724,
+    "win_rate_pct": 46.96,
+    "pf": 0.807,
+    "mean_excess_pct": -0.204,
+    "p_value": 0.1385,
+    "losing_years": 5,
+    "years": 11,
+    "sensitivity_same_sign": "1/1",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": false,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 1,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "閾値ずらしで符号不変",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 724,
+     "win_rate_pct": 46.96,
+     "pf": 0.807,
+     "mean_excess_pct": -0.204,
+     "p_value": 0.1385,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 722,
+     "win_rate_pct": 49.58,
+     "pf": 0.796,
+     "mean_excess_pct": -0.142,
+     "p_value": 0.295,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 719,
+     "win_rate_pct": 46.87,
+     "pf": 0.699,
+     "mean_excess_pct": -0.234,
+     "p_value": 0.2605,
+     "losing_years": 7,
+     "years": 11,
+     "sensitivity_same_sign": "1/1",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 498,
+     "mean_excess_pct": -0.099,
+     "p_value": 0.3115
+    },
+    "below_75ma": {
+     "trades": 226,
+     "mean_excess_pct": -0.462,
+     "p_value": 0.0985
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 閾値ずらしで符号不変 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": -0.611,
+     "mid": 0.304,
+     "small": -0.101,
+     "micro": -0.101
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_sanku_tatakikomi",
+   "name": "三空叩き込み",
+   "aliases": [
+    "三空叩き込み",
+    "三空",
+    "さんくうたたきこみ",
+    "three gaps down",
+    "sanku"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "20営業日後の終値",
+   "params_tested": {
+    "gaps": 3,
+    "consecutive": true,
+    "min_gap_pct": 0.0
+   },
+   "primary": {
+    "hold_days": 20,
+    "trades": 983,
+    "win_rate_pct": 66.73,
+    "pf": 3.036,
+    "mean_excess_pct": 3.557,
+    "p_value": 0.0,
+    "losing_years": 2,
+    "years": 10,
+    "sensitivity_same_sign": "6/6",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": true,
+     "負け年3割以下": true,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 4,
+    "checks_failed": [
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 984,
+     "win_rate_pct": 59.55,
+     "pf": 1.54,
+     "mean_excess_pct": 0.796,
+     "p_value": 0.0,
+     "losing_years": 4,
+     "years": 10,
+     "sensitivity_same_sign": "6/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": true,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 983,
+     "win_rate_pct": 59.51,
+     "pf": 1.815,
+     "mean_excess_pct": 1.245,
+     "p_value": 0.0,
+     "losing_years": 4,
+     "years": 10,
+     "sensitivity_same_sign": "6/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": true,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 983,
+     "win_rate_pct": 66.73,
+     "pf": 3.036,
+     "mean_excess_pct": 3.557,
+     "p_value": 0.0,
+     "losing_years": 2,
+     "years": 10,
+     "sensitivity_same_sign": "6/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": true,
+      "負け年3割以下": true,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 4,
+     "checks_failed": [
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 161,
+     "mean_excess_pct": -1.714,
+     "p_value": 0.0135
+    },
+    "below_75ma": {
+     "trades": 822,
+     "mean_excess_pct": 3.986,
+     "p_value": 0.0
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "全市場・小型では強い数字が出るが、プライム基盤で発見期(前半6年)と確認期(後半4年)に分けると符号が反転する(発見期マイナス・確認期プラス)。全期間の平均だけが良く見える型のため不採用。",
+   "size_reference": {
+    "excess_pct": {
+     "large": 1.538,
+     "mid": 1.818,
+     "small": 4.635,
+     "micro": 4.722
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_sanku_fumiage",
+   "name": "三空踏み上げ",
+   "aliases": [
+    "三空踏み上げ",
+    "三空",
+    "さんくうふみあげ",
+    "three gaps up",
+    "sanku"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "5営業日後の終値",
+   "params_tested": {
+    "gaps": 3,
+    "consecutive": true,
+    "min_gap_pct": 0.0
+   },
+   "primary": {
+    "hold_days": 5,
+    "trades": 875,
+    "win_rate_pct": 48.23,
+    "pf": 0.8,
+    "mean_excess_pct": -0.236,
+    "p_value": 0.085,
+    "losing_years": 5,
+    "years": 11,
+    "sensitivity_same_sign": "4/6",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": false,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 1,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "閾値ずらしで符号不変",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 875,
+     "win_rate_pct": 48.23,
+     "pf": 0.8,
+     "mean_excess_pct": -0.236,
+     "p_value": 0.085,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "4/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 872,
+     "win_rate_pct": 49.08,
+     "pf": 0.735,
+     "mean_excess_pct": -0.39,
+     "p_value": 0.058,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "4/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 867,
+     "win_rate_pct": 47.17,
+     "pf": 0.784,
+     "mean_excess_pct": 0.175,
+     "p_value": 0.3035,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "5/6",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 711,
+     "mean_excess_pct": -0.602,
+     "p_value": 0.0005
+    },
+    "below_75ma": {
+     "trades": 164,
+     "mean_excess_pct": 1.107,
+     "p_value": 0.005
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 閾値ずらしで符号不変 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": -0.435,
+     "mid": -0.222,
+     "small": 1.046,
+     "micro": 3.742
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_aka_sanpei",
+   "name": "赤三兵",
+   "aliases": [
+    "赤三兵",
+    "あかさんぺい",
+    "three white soldiers"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "20営業日後の終値",
+   "params_tested": {
+    "bars": 3,
+    "body_atr_min": 0.5,
+    "shadow_max_ratio": 0.3
+   },
+   "primary": {
+    "hold_days": 20,
+    "trades": 2944,
+    "win_rate_pct": 50.34,
+    "pf": 1.197,
+    "mean_excess_pct": -0.436,
+    "p_value": 0.009,
+    "losing_years": 8,
+    "years": 11,
+    "sensitivity_same_sign": "3/3",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 2,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 2997,
+     "win_rate_pct": 48.78,
+     "pf": 1.015,
+     "mean_excess_pct": -0.195,
+     "p_value": 0.016,
+     "losing_years": 7,
+     "years": 11,
+     "sensitivity_same_sign": "2/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 2989,
+     "win_rate_pct": 49.28,
+     "pf": 1.077,
+     "mean_excess_pct": -0.306,
+     "p_value": 0.008,
+     "losing_years": 8,
+     "years": 11,
+     "sensitivity_same_sign": "2/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 2944,
+     "win_rate_pct": 50.34,
+     "pf": 1.197,
+     "mean_excess_pct": -0.436,
+     "p_value": 0.009,
+     "losing_years": 8,
+     "years": 11,
+     "sensitivity_same_sign": "3/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 2207,
+     "mean_excess_pct": 0.077,
+     "p_value": 0.368
+    },
+    "below_75ma": {
+     "trades": 737,
+     "mean_excess_pct": -1.608,
+     "p_value": 0.0
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": -0.562,
+     "mid": -0.459,
+     "small": -0.687,
+     "micro": -1.458
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_kuro_sanpei",
+   "name": "黒三兵(三羽烏)",
+   "aliases": [
+    "黒三兵",
+    "三羽烏",
+    "さんばがらす",
+    "くろさんぺい",
+    "three black crows"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "10営業日後の終値",
+   "params_tested": {
+    "bars": 3,
+    "body_atr_min": 0.5,
+    "shadow_max_ratio": 0.3
+   },
+   "primary": {
+    "hold_days": 10,
+    "trades": 2446,
+    "win_rate_pct": 42.56,
+    "pf": 0.579,
+    "mean_excess_pct": -1.043,
+    "p_value": 0.0,
+    "losing_years": 7,
+    "years": 11,
+    "sensitivity_same_sign": "3/3",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": true
+    },
+    "checks_passed": 3,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 2454,
+     "win_rate_pct": 43.72,
+     "pf": 0.65,
+     "mean_excess_pct": -0.65,
+     "p_value": 0.0,
+     "losing_years": 6,
+     "years": 11,
+     "sensitivity_same_sign": "3/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 2446,
+     "win_rate_pct": 42.56,
+     "pf": 0.579,
+     "mean_excess_pct": -1.043,
+     "p_value": 0.0,
+     "losing_years": 7,
+     "years": 11,
+     "sensitivity_same_sign": "3/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 2443,
+     "win_rate_pct": 41.67,
+     "pf": 0.531,
+     "mean_excess_pct": -1.304,
+     "p_value": 0.0,
+     "losing_years": 8,
+     "years": 11,
+     "sensitivity_same_sign": "3/3",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": true
+     },
+     "checks_passed": 3,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 1326,
+     "mean_excess_pct": -0.377,
+     "p_value": 0.0275
+    },
+    "below_75ma": {
+     "trades": 1120,
+     "mean_excess_pct": -1.688,
+     "p_value": 0.0
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下",
+   "size_reference": {
+    "excess_pct": {
+     "large": -0.38,
+     "mid": -1.014,
+     "small": -0.845,
+     "micro": -1.778
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_age_sanpo",
+   "name": "上げ三法",
+   "aliases": [
+    "上げ三法",
+    "あげさんぽう",
+    "rising three methods"
+   ],
+   "direction": "buy",
+   "direction_note": "買い方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "20営業日後の終値",
+   "params_tested": {
+    "small_bars": 3,
+    "containment": "high_low"
+   },
+   "primary": {
+    "hold_days": 20,
+    "trades": 426,
+    "win_rate_pct": 50.7,
+    "pf": 1.246,
+    "mean_excess_pct": -0.274,
+    "p_value": 0.2945,
+    "losing_years": 8,
+    "years": 11,
+    "sensitivity_same_sign": "4/4",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": true,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 2,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 429,
+     "win_rate_pct": 50.82,
+     "pf": 1.084,
+     "mean_excess_pct": -0.08,
+     "p_value": 0.365,
+     "losing_years": 6,
+     "years": 11,
+     "sensitivity_same_sign": "3/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 429,
+     "win_rate_pct": 53.38,
+     "pf": 1.221,
+     "mean_excess_pct": 0.049,
+     "p_value": 0.442,
+     "losing_years": 5,
+     "years": 11,
+     "sensitivity_same_sign": "2/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 426,
+     "win_rate_pct": 50.7,
+     "pf": 1.246,
+     "mean_excess_pct": -0.274,
+     "p_value": 0.2945,
+     "losing_years": 8,
+     "years": 11,
+     "sensitivity_same_sign": "4/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": true,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 2,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 321,
+     "mean_excess_pct": 0.601,
+     "p_value": 0.141
+    },
+    "below_75ma": {
+     "trades": 105,
+     "mean_excess_pct": -2.562,
+     "p_value": 0.005
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.615,
+     "mid": -0.115,
+     "small": -0.672,
+     "micro": 0.36
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  },
+  {
+   "pattern_id": "sakata_sage_sanpo",
+   "name": "下げ三法",
+   "aliases": [
+    "下げ三法",
+    "さげさんぽう",
+    "falling three methods"
+   ],
+   "direction": "sell",
+   "direction_note": "売り方向の形として検証",
+   "verdict": "not_adopted",
+   "filter_candidate": false,
+   "universe": "東証プライム1,550銘柄",
+   "period": "2016-01〜2026-08",
+   "entry": "シグナル成立日の翌営業日始値",
+   "exit": "5営業日後の終値",
+   "params_tested": {
+    "small_bars": 3,
+    "containment": "high_low"
+   },
+   "primary": {
+    "hold_days": 5,
+    "trades": 346,
+    "win_rate_pct": 47.98,
+    "pf": 1.077,
+    "mean_excess_pct": 0.35,
+    "p_value": 0.1065,
+    "losing_years": 6,
+    "years": 9,
+    "sensitivity_same_sign": "2/4",
+    "checks": {
+     "取引回数200以上": true,
+     "PF1_3以上": false,
+     "負け年3割以下": false,
+     "閾値ずらしで符号不変": false,
+     "相場環境別に説明できる": false
+    },
+    "checks_passed": 1,
+    "checks_failed": [
+     "PF1_3以上",
+     "負け年3割以下",
+     "閾値ずらしで符号不変",
+     "相場環境別に説明できる"
+    ]
+   },
+   "by_horizon": [
+    {
+     "hold_days": 5,
+     "trades": 346,
+     "win_rate_pct": 47.98,
+     "pf": 1.077,
+     "mean_excess_pct": 0.35,
+     "p_value": 0.1065,
+     "losing_years": 6,
+     "years": 9,
+     "sensitivity_same_sign": "2/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 10,
+     "trades": 346,
+     "win_rate_pct": 47.11,
+     "pf": 0.867,
+     "mean_excess_pct": 0.181,
+     "p_value": 0.339,
+     "losing_years": 5,
+     "years": 9,
+     "sensitivity_same_sign": "3/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    },
+    {
+     "hold_days": 20,
+     "trades": 343,
+     "win_rate_pct": 43.73,
+     "pf": 0.637,
+     "mean_excess_pct": -0.486,
+     "p_value": 0.182,
+     "losing_years": 7,
+     "years": 9,
+     "sensitivity_same_sign": "3/4",
+     "checks": {
+      "取引回数200以上": true,
+      "PF1_3以上": false,
+      "負け年3割以下": false,
+      "閾値ずらしで符号不変": false,
+      "相場環境別に説明できる": false
+     },
+     "checks_passed": 1,
+     "checks_failed": [
+      "PF1_3以上",
+      "負け年3割以下",
+      "閾値ずらしで符号不変",
+      "相場環境別に説明できる"
+     ]
+    }
+   ],
+   "regime": {
+    "above_75ma": {
+     "trades": 214,
+     "mean_excess_pct": 0.114,
+     "p_value": 0.3615
+    },
+    "below_75ma": {
+     "trades": 132,
+     "mean_excess_pct": 0.764,
+     "p_value": 0.0515
+    },
+    "note": "75日移動平均より上／下で分けた場合の平均超過収益"
+   },
+   "rejection_reason": "採用基準の未達: PF1_3以上 / 負け年3割以下 / 閾値ずらしで符号不変 / 相場環境別に説明できる",
+   "size_reference": {
+    "excess_pct": {
+     "large": 0.37,
+     "mid": -0.002,
+     "small": 0.361,
+     "micro": 0.208
+    },
+    "note": "参考値。東証全市場3,642銘柄・2014-07〜2026-07・流動性5,000万円以上の別基盤。採用判定には使わない"
+   }
+  }
+ ],
+ "disclaimer": "過去の値動きへの当てはめであり、将来の値動きを示すものではありません。特定の銘柄や売買を勧めるものでもありません。ここに載っている形は、いずれも著者の採用基準を満たしていません。"
+}

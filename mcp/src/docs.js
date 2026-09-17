@@ -28,6 +28,13 @@ const TOOL_LINES_EN = {
   get_anomaly_summary:
     "50 Japanese market anomalies tested over 61 years - verdict, win rate, mean return, sample size, " +
     "p-value. Filter by `name`. Plus five crash-precursor gauges and a 7-flag ignition meter.",
+  get_candlestick_verdict:
+    "All 12 classic Japanese candlestick patterns (three soldiers, head-and-shoulders, three gaps and the rest) "
+    + "tested on 1,550 TSE Prime stocks over 10.5 years. None of them cleared the adoption bar - "
+    + "the reason each one failed is the part worth reading.",
+  get_event_reaction:
+    "27 event types (earthquakes, rate decisions, tariffs, pandemics) and what followed: excess return over the "
+    + "market, win rate, p-value and sample size across five horizons. Sector baskets are deliberately excluded.",
   list_tools_guide:
     "Update times (JST), data delays, free-tier limits, disclaimer, and roadmap. Call this first.",
 };
@@ -66,8 +73,14 @@ Every response carries a \`disclaimer\` key. Do not strip it when relaying resul
 
 Japanese-equity MCP servers already cover the *primary data* layer (filings, prices, execution).
 This server covers the *verification* layer: 50 market anomalies tested over 61 years,
+12 candlestick patterns tested on TSE Prime, 27 event types and what followed them,
 a daily mean-reversion rule, a market-regime classifier, and crash-precursor gauges.
 The underlying research is published as books by the operator.
+
+It also returns what did **not** work. All 12 candlestick patterns were rejected, including
+the one with the highest profit factor (3.04) - it flipped sign between the first half of the
+sample and the second, which is what an artifact of hindsight looks like. Results that failed
+are kept and returned with the same weight as results that passed.
 
 ## Disclaimer
 
@@ -84,6 +97,7 @@ Any client:   POST JSON-RPC 2.0 to ${CANONICAL_ENDPOINT}
 
 - Data updates on Japan Exchange trading days; see \`list_tools_guide\` for exact times (JST).
 - The anomaly dataset is a fixed snapshot taken at book publication (2026-08), not updated daily.
+- The candlestick and event datasets are fixed snapshots from the same research, not updated daily.
 - Rate limits are not enforced today; please be reasonable.
 `;
 }
