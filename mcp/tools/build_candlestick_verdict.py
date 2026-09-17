@@ -41,6 +41,9 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import assert_clean  # noqa: E402
+
 SRC = os.path.join(
     r"C:\Users\kawamura takeshi\書籍販売",
     "32_本間宗久_酒田五法", "検証", "ruletrade_sakata_rules.json")
@@ -212,6 +215,9 @@ def main():
             "特定の銘柄や売買を勧めるものでもありません。"
             "ここに載っている形は、いずれも著者の採用基準を満たしていません。",
     }
+
+    # ★書き出す前に止める★ 伏せ字は最後の砦であって、そこに頼らない
+    assert_clean(doc)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8") as fp:

@@ -1,0 +1,1076 @@
+{
+ "schema": "etf_decay/1",
+ "source_book": "日経ダブルインバースの全検証（35）",
+ "source_files": [
+  "00_yearly.csv",
+  "02_table.csv",
+  "06_table.csv",
+  "05_C_summary.csv"
+ ],
+ "period": "2014-07-15〜2026-09-03（約12年・2,964営業日）",
+ "products": {
+  "1357": {
+   "name": "日経ダブルインバース",
+   "aliases": [
+    "ダブルインバース",
+    "ダブルインバ",
+    "1357",
+    "インバース",
+    "double inverse",
+    "inverse etf",
+    "ベア"
+   ],
+   "type": "日々の値動きが日経平均のマイナス2倍になるよう設計されたETF",
+   "primary": true
+  },
+  "1570": {
+   "name": "日経レバレッジ",
+   "aliases": [
+    "レバレッジ",
+    "日経レバ",
+    "1570",
+    "leveraged etf",
+    "ブル"
+   ],
+   "type": "日々の値動きが日経平均の2倍になるよう設計されたETF",
+   "primary": false
+  }
+ },
+ "mechanism": {
+  "why_it_decays": "日々の値動きを−2倍にする商品なので、上下を往復するだけで元に戻らない。日経が+10%のあと−9.1%で元の水準に戻る2日間で、ダブルインバースは 100 → 80 → 94.5 になる。往復するだけで5.5%減る。",
+  "not_a_period_multiple": "「期間の−2倍」ではなく「日々の−2倍」。期間をまたぐほど、期間の−2倍からずれていく。"
+ },
+ "headline": "日経が約4倍になった12年で、ダブルインバースは−99.4%。理論値（期間の−2倍）より悪かった年は13年中9年で、年平均−6.1%の減価。",
+ "key_finding": "「戻るまで待つ」はほとんどの場合うまくいく。年初来高値の翌日に買って戻りを待つ試行を305回行うと、99.3%が投入額まで戻り、そこまでの日数は中央値でわずか2営業日だった。ただし戻ったときの取り分は中央値 +1.1% で、戻らなかった試行は −32.5%。成功する回数は多いが、1回の失敗の大きさが釣り合っていない。",
+ "yearly": [
+  {
+   "year": "2014年(7/15〜)",
+   "nikkei_pct": 13.4,
+   "theory_pct": -26.7,
+   "actual_1357_pct": -27.1,
+   "decay_pct": -0.4,
+   "actual_1570_pct": 27.4
+  },
+  {
+   "year": "2015年",
+   "nikkei_pct": 9.1,
+   "theory_pct": -18.1,
+   "actual_1357_pct": -28.9,
+   "decay_pct": -10.8,
+   "actual_1570_pct": 14.7
+  },
+  {
+   "year": "2016年",
+   "nikkei_pct": 0.4,
+   "theory_pct": -0.8,
+   "actual_1357_pct": -26.4,
+   "decay_pct": -25.5,
+   "actual_1570_pct": -4.1
+  },
+  {
+   "year": "2017年",
+   "nikkei_pct": 19.1,
+   "theory_pct": -38.2,
+   "actual_1357_pct": -35.8,
+   "decay_pct": 2.4,
+   "actual_1570_pct": 43.8
+  },
+  {
+   "year": "2018年",
+   "nikkei_pct": -12.1,
+   "theory_pct": 24.2,
+   "actual_1357_pct": 9.2,
+   "decay_pct": -14.9,
+   "actual_1570_pct": -24.0
+  },
+  {
+   "year": "2019年",
+   "nikkei_pct": 18.2,
+   "theory_pct": -36.4,
+   "actual_1357_pct": -37.0,
+   "decay_pct": -0.6,
+   "actual_1570_pct": 42.0
+  },
+  {
+   "year": "2020年",
+   "nikkei_pct": 16.0,
+   "theory_pct": -32.0,
+   "actual_1357_pct": -43.9,
+   "decay_pct": -11.9,
+   "actual_1570_pct": 28.6
+  },
+  {
+   "year": "2021年",
+   "nikkei_pct": 4.9,
+   "theory_pct": -9.8,
+   "actual_1357_pct": -22.1,
+   "decay_pct": -12.2,
+   "actual_1570_pct": 8.3
+  },
+  {
+   "year": "2022年",
+   "nikkei_pct": -9.4,
+   "theory_pct": 18.7,
+   "actual_1357_pct": 1.6,
+   "decay_pct": -17.2,
+   "actual_1570_pct": -18.6
+  },
+  {
+   "year": "2023年",
+   "nikkei_pct": 28.2,
+   "theory_pct": -56.5,
+   "actual_1357_pct": -46.8,
+   "decay_pct": 9.7,
+   "actual_1570_pct": 65.1
+  },
+  {
+   "year": "2024年",
+   "nikkei_pct": 19.2,
+   "theory_pct": -38.4,
+   "actual_1357_pct": -45.1,
+   "decay_pct": -6.7,
+   "actual_1570_pct": 33.8
+  },
+  {
+   "year": "2025年",
+   "nikkei_pct": 26.2,
+   "theory_pct": -52.4,
+   "actual_1357_pct": -48.8,
+   "decay_pct": 3.6,
+   "actual_1570_pct": 53.0
+  },
+  {
+   "year": "2026年(〜9/3)",
+   "nikkei_pct": 27.6,
+   "theory_pct": -55.1,
+   "actual_1357_pct": -50.2,
+   "decay_pct": 5.0,
+   "actual_1570_pct": 51.4
+  }
+ ],
+ "by_holding_days": [
+  {
+   "hold_days": 1,
+   "cases": 2963,
+   "mean_pct": -0.14,
+   "median_pct": -0.19,
+   "win_rate_pct": 43.84,
+   "win_rate_with_cost_pct": 43.1,
+   "worst_5pct": -4.2,
+   "worst_pct": -19.62,
+   "theory_mean_pct": -0.12,
+   "gap_mean_pct": -0.02,
+   "worse_than_theory_pct": 52.89
+  },
+  {
+   "hold_days": 5,
+   "cases": 2959,
+   "mean_pct": -0.71,
+   "median_pct": -1.01,
+   "win_rate_pct": 40.18,
+   "win_rate_with_cost_pct": 39.81,
+   "worst_5pct": -9.18,
+   "worst_pct": -28.71,
+   "theory_mean_pct": -0.58,
+   "gap_mean_pct": -0.13,
+   "worse_than_theory_pct": 61.24
+  },
+  {
+   "hold_days": 20,
+   "cases": 2944,
+   "mean_pct": -2.95,
+   "median_pct": -3.56,
+   "win_rate_pct": 33.15,
+   "win_rate_with_cost_pct": 33.02,
+   "worst_5pct": -17.92,
+   "worst_pct": -38.28,
+   "theory_mean_pct": -2.3,
+   "gap_mean_pct": -0.65,
+   "worse_than_theory_pct": 76.43
+  },
+  {
+   "hold_days": 60,
+   "cases": 2904,
+   "mean_pct": -8.92,
+   "median_pct": -9.2,
+   "win_rate_pct": 25.62,
+   "win_rate_with_cost_pct": 25.52,
+   "worst_5pct": -31.53,
+   "worst_pct": -52.61,
+   "theory_mean_pct": -6.9,
+   "gap_mean_pct": -2.02,
+   "worse_than_theory_pct": 76.79
+  },
+  {
+   "hold_days": 120,
+   "cases": 2844,
+   "mean_pct": -16.8,
+   "median_pct": -16.09,
+   "win_rate_pct": 17.41,
+   "win_rate_with_cost_pct": 17.26,
+   "worst_5pct": -45.77,
+   "worst_pct": -59.92,
+   "theory_mean_pct": -13.26,
+   "gap_mean_pct": -3.53,
+   "worse_than_theory_pct": 70.5
+  },
+  {
+   "hold_days": 250,
+   "cases": 2714,
+   "mean_pct": -29.98,
+   "median_pct": -33.42,
+   "win_rate_pct": 9.47,
+   "win_rate_with_cost_pct": 9.47,
+   "worst_5pct": -63.02,
+   "worst_pct": -78.62,
+   "theory_mean_pct": -25.43,
+   "gap_mean_pct": -4.55,
+   "worse_than_theory_pct": 71.15
+  }
+ ],
+ "by_condition": [
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 2963,
+   "win_rate_pct": 43.84,
+   "mean_pct": -0.14,
+   "median_pct": -0.19,
+   "pf": 0.86,
+   "max_dd_pct": -99.58
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 2963,
+   "win_rate_pct": 43.1,
+   "mean_pct": -0.24,
+   "median_pct": -0.29,
+   "pf": 0.78,
+   "max_dd_pct": -99.98
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 2961,
+   "win_rate_pct": 42.59,
+   "mean_pct": -0.42,
+   "median_pct": -0.52,
+   "pf": 0.77,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 2961,
+   "win_rate_pct": 42.11,
+   "mean_pct": -0.52,
+   "median_pct": -0.62,
+   "pf": 0.73,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 2959,
+   "win_rate_pct": 40.18,
+   "mean_pct": -0.71,
+   "median_pct": -1.01,
+   "pf": 0.71,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 2959,
+   "win_rate_pct": 39.81,
+   "mean_pct": -0.81,
+   "median_pct": -1.11,
+   "pf": 0.68,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 2954,
+   "win_rate_pct": 38.25,
+   "mean_pct": -1.45,
+   "median_pct": -1.98,
+   "pf": 0.61,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "無条件(全日)",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 2954,
+   "win_rate_pct": 37.95,
+   "mean_pct": -1.55,
+   "median_pct": -2.08,
+   "pf": 0.59,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 1911,
+   "win_rate_pct": 44.58,
+   "mean_pct": -0.08,
+   "median_pct": -0.1,
+   "pf": 0.9,
+   "max_dd_pct": -89.98
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 1911,
+   "win_rate_pct": 43.64,
+   "mean_pct": -0.18,
+   "median_pct": -0.2,
+   "pf": 0.8,
+   "max_dd_pct": -98.47
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 1911,
+   "win_rate_pct": 44.85,
+   "mean_pct": -0.25,
+   "median_pct": -0.31,
+   "pf": 0.84,
+   "max_dd_pct": -99.92
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 1911,
+   "win_rate_pct": 44.27,
+   "mean_pct": -0.35,
+   "median_pct": -0.41,
+   "pf": 0.78,
+   "max_dd_pct": -99.99
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 1911,
+   "win_rate_pct": 42.91,
+   "mean_pct": -0.47,
+   "median_pct": -0.65,
+   "pf": 0.78,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 1911,
+   "win_rate_pct": 42.39,
+   "mean_pct": -0.57,
+   "median_pct": -0.75,
+   "pf": 0.74,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 1910,
+   "win_rate_pct": 41.57,
+   "mean_pct": -0.97,
+   "median_pct": -1.31,
+   "pf": 0.69,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の上で買う",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 1910,
+   "win_rate_pct": 41.2,
+   "mean_pct": -1.07,
+   "median_pct": -1.41,
+   "pf": 0.67,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 92,
+   "win_rate_pct": 42.39,
+   "mean_pct": -0.18,
+   "median_pct": -0.52,
+   "pf": 0.87,
+   "max_dd_pct": -26.14
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 92,
+   "win_rate_pct": 41.3,
+   "mean_pct": -0.28,
+   "median_pct": -0.62,
+   "pf": 0.81,
+   "max_dd_pct": -29.3
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 92,
+   "win_rate_pct": 43.48,
+   "mean_pct": -0.48,
+   "median_pct": -0.96,
+   "pf": 0.78,
+   "max_dd_pct": -49.28
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 92,
+   "win_rate_pct": 42.39,
+   "mean_pct": -0.58,
+   "median_pct": -1.06,
+   "pf": 0.74,
+   "max_dd_pct": -53.68
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 92,
+   "win_rate_pct": 39.13,
+   "mean_pct": -0.72,
+   "median_pct": -1.48,
+   "pf": 0.74,
+   "max_dd_pct": -65.81
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 92,
+   "win_rate_pct": 39.13,
+   "mean_pct": -0.82,
+   "median_pct": -1.58,
+   "pf": 0.71,
+   "max_dd_pct": -68.7
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 91,
+   "win_rate_pct": 41.76,
+   "mean_pct": -1.05,
+   "median_pct": -1.99,
+   "pf": 0.73,
+   "max_dd_pct": -85.36
+  },
+  {
+   "condition": "75日線割れ初日",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 91,
+   "win_rate_pct": 40.66,
+   "mean_pct": -1.15,
+   "median_pct": -2.09,
+   "pf": 0.71,
+   "max_dd_pct": -86.49
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 978,
+   "win_rate_pct": 42.33,
+   "mean_pct": -0.24,
+   "median_pct": -0.4,
+   "pf": 0.82,
+   "max_dd_pct": -96.36
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 978,
+   "win_rate_pct": 41.92,
+   "mean_pct": -0.34,
+   "median_pct": -0.5,
+   "pf": 0.75,
+   "max_dd_pct": -98.52
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 976,
+   "win_rate_pct": 38.52,
+   "mean_pct": -0.72,
+   "median_pct": -1.14,
+   "pf": 0.69,
+   "max_dd_pct": -99.99
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 976,
+   "win_rate_pct": 38.22,
+   "mean_pct": -0.82,
+   "median_pct": -1.24,
+   "pf": 0.66,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 974,
+   "win_rate_pct": 35.32,
+   "mean_pct": -1.14,
+   "median_pct": -1.82,
+   "pf": 0.64,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 974,
+   "win_rate_pct": 35.22,
+   "mean_pct": -1.24,
+   "median_pct": -1.92,
+   "pf": 0.61,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 970,
+   "win_rate_pct": 31.96,
+   "mean_pct": -2.28,
+   "median_pct": -3.18,
+   "pf": 0.51,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "75日線の下で買う(全日)",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 970,
+   "win_rate_pct": 31.75,
+   "mean_pct": -2.38,
+   "median_pct": -3.28,
+   "pf": 0.5,
+   "max_dd_pct": -100.0
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 160,
+   "win_rate_pct": 38.75,
+   "mean_pct": -0.4,
+   "median_pct": -0.48,
+   "pf": 0.66,
+   "max_dd_pct": -50.61
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 160,
+   "win_rate_pct": 38.75,
+   "mean_pct": -0.5,
+   "median_pct": -0.58,
+   "pf": 0.6,
+   "max_dd_pct": -57.86
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 159,
+   "win_rate_pct": 42.77,
+   "mean_pct": -0.65,
+   "median_pct": -0.69,
+   "pf": 0.69,
+   "max_dd_pct": -74.69
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 159,
+   "win_rate_pct": 41.51,
+   "mean_pct": -0.75,
+   "median_pct": -0.79,
+   "pf": 0.65,
+   "max_dd_pct": -78.03
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 159,
+   "win_rate_pct": 38.99,
+   "mean_pct": -0.77,
+   "median_pct": -1.53,
+   "pf": 0.71,
+   "max_dd_pct": -85.26
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 159,
+   "win_rate_pct": 38.99,
+   "mean_pct": -0.87,
+   "median_pct": -1.63,
+   "pf": 0.68,
+   "max_dd_pct": -87.21
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 158,
+   "win_rate_pct": 34.18,
+   "mean_pct": -1.36,
+   "median_pct": -3.15,
+   "pf": 0.66,
+   "max_dd_pct": -95.29
+  },
+  {
+   "condition": "25日線割れ初日",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 158,
+   "win_rate_pct": 33.54,
+   "mean_pct": -1.46,
+   "median_pct": -3.25,
+   "pf": 0.64,
+   "max_dd_pct": -95.88
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 56,
+   "win_rate_pct": 44.64,
+   "mean_pct": 0.48,
+   "median_pct": -0.15,
+   "pf": 1.39,
+   "max_dd_pct": -21.62
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 56,
+   "win_rate_pct": 42.86,
+   "mean_pct": 0.38,
+   "median_pct": -0.25,
+   "pf": 1.29,
+   "max_dd_pct": -23.32
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 56,
+   "win_rate_pct": 42.86,
+   "mean_pct": -0.35,
+   "median_pct": -0.97,
+   "pf": 0.84,
+   "max_dd_pct": -36.42
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 56,
+   "win_rate_pct": 41.07,
+   "mean_pct": -0.45,
+   "median_pct": -1.07,
+   "pf": 0.79,
+   "max_dd_pct": -37.14
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 56,
+   "win_rate_pct": 33.93,
+   "mean_pct": -0.83,
+   "median_pct": -2.21,
+   "pf": 0.7,
+   "max_dd_pct": -51.86
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 56,
+   "win_rate_pct": 33.93,
+   "mean_pct": -0.93,
+   "median_pct": -2.31,
+   "pf": 0.67,
+   "max_dd_pct": -53.78
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 56,
+   "win_rate_pct": 32.14,
+   "mean_pct": -1.77,
+   "median_pct": -3.02,
+   "pf": 0.57,
+   "max_dd_pct": -75.59
+  },
+  {
+   "condition": "200日線割れ初日",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 56,
+   "win_rate_pct": 32.14,
+   "mean_pct": -1.87,
+   "median_pct": -3.12,
+   "pf": 0.55,
+   "max_dd_pct": -76.86
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 127,
+   "win_rate_pct": 40.94,
+   "mean_pct": -0.75,
+   "median_pct": -1.04,
+   "pf": 0.69,
+   "max_dd_pct": -69.85
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 127,
+   "win_rate_pct": 40.94,
+   "mean_pct": -0.85,
+   "median_pct": -1.14,
+   "pf": 0.66,
+   "max_dd_pct": -73.27
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 127,
+   "win_rate_pct": 30.71,
+   "mean_pct": -2.34,
+   "median_pct": -2.6,
+   "pf": 0.48,
+   "max_dd_pct": -97.1
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 127,
+   "win_rate_pct": 30.71,
+   "mean_pct": -2.44,
+   "median_pct": -2.7,
+   "pf": 0.46,
+   "max_dd_pct": -97.45
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 127,
+   "win_rate_pct": 31.5,
+   "mean_pct": -2.96,
+   "median_pct": -4.04,
+   "pf": 0.48,
+   "max_dd_pct": -98.98
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 127,
+   "win_rate_pct": 31.5,
+   "mean_pct": -3.06,
+   "median_pct": -4.14,
+   "pf": 0.47,
+   "max_dd_pct": -99.1
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 126,
+   "win_rate_pct": 26.19,
+   "mean_pct": -4.43,
+   "median_pct": -5.87,
+   "pf": 0.43,
+   "max_dd_pct": -99.9
+  },
+  {
+   "condition": "5日騰落率−5%以下",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 126,
+   "win_rate_pct": 26.19,
+   "mean_pct": -4.53,
+   "median_pct": -5.97,
+   "pf": 0.42,
+   "max_dd_pct": -99.91
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 60,
+   "win_rate_pct": 40.0,
+   "mean_pct": -1.19,
+   "median_pct": -1.04,
+   "pf": 0.48,
+   "max_dd_pct": -65.99
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 60,
+   "win_rate_pct": 40.0,
+   "mean_pct": -1.29,
+   "median_pct": -1.14,
+   "pf": 0.45,
+   "max_dd_pct": -67.46
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 60,
+   "win_rate_pct": 28.33,
+   "mean_pct": -3.03,
+   "median_pct": -2.73,
+   "pf": 0.31,
+   "max_dd_pct": -87.1
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 60,
+   "win_rate_pct": 28.33,
+   "mean_pct": -3.13,
+   "median_pct": -2.83,
+   "pf": 0.3,
+   "max_dd_pct": -87.87
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 60,
+   "win_rate_pct": 26.67,
+   "mean_pct": -3.27,
+   "median_pct": -4.12,
+   "pf": 0.37,
+   "max_dd_pct": -89.81
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 60,
+   "win_rate_pct": 26.67,
+   "mean_pct": -3.37,
+   "median_pct": -4.22,
+   "pf": 0.36,
+   "max_dd_pct": -90.42
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 59,
+   "win_rate_pct": 23.73,
+   "mean_pct": -4.26,
+   "median_pct": -5.17,
+   "pf": 0.37,
+   "max_dd_pct": -94.69
+  },
+  {
+   "condition": "5日騰落率−5%以下の初日",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 59,
+   "win_rate_pct": 23.73,
+   "mean_pct": -4.36,
+   "median_pct": -5.27,
+   "pf": 0.36,
+   "max_dd_pct": -95.0
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 1,
+   "cost": "なし",
+   "cases": 71,
+   "win_rate_pct": 38.03,
+   "mean_pct": -0.31,
+   "median_pct": -0.66,
+   "pf": 0.79,
+   "max_dd_pct": -27.97
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 1,
+   "cost": "往復0.1%",
+   "cases": 71,
+   "win_rate_pct": 36.62,
+   "mean_pct": -0.41,
+   "median_pct": -0.76,
+   "pf": 0.74,
+   "max_dd_pct": -30.36
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 3,
+   "cost": "なし",
+   "cases": 71,
+   "win_rate_pct": 40.85,
+   "mean_pct": -0.49,
+   "median_pct": -1.26,
+   "pf": 0.79,
+   "max_dd_pct": -43.53
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 3,
+   "cost": "往復0.1%",
+   "cases": 71,
+   "win_rate_pct": 39.44,
+   "mean_pct": -0.59,
+   "median_pct": -1.36,
+   "pf": 0.75,
+   "max_dd_pct": -47.33
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 5,
+   "cost": "なし",
+   "cases": 71,
+   "win_rate_pct": 36.62,
+   "mean_pct": -0.67,
+   "median_pct": -1.8,
+   "pf": 0.77,
+   "max_dd_pct": -57.8
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 5,
+   "cost": "往復0.1%",
+   "cases": 71,
+   "win_rate_pct": 36.62,
+   "mean_pct": -0.77,
+   "median_pct": -1.9,
+   "pf": 0.74,
+   "max_dd_pct": -60.53
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 10,
+   "cost": "なし",
+   "cases": 71,
+   "win_rate_pct": 43.66,
+   "mean_pct": -0.97,
+   "median_pct": -2.66,
+   "pf": 0.77,
+   "max_dd_pct": -80.35
+  },
+  {
+   "condition": "75日線割れ初日かつ25日線割れ",
+   "hold_days": 10,
+   "cost": "往復0.1%",
+   "cases": 71,
+   "win_rate_pct": 42.25,
+   "mean_pct": -1.07,
+   "median_pct": -2.76,
+   "pf": 0.74,
+   "max_dd_pct": -81.51
+  }
+ ],
+ "wait_for_recovery": {
+  "setup": "年初来高値を更新した翌日に10万円ぶん買い、そこから+3%上がるごとに10万円ずつ追加（上限10回）、戻ったら全部売る、を2014年以降で305回試した",
+  "results": [
+   {
+    "rule": "A: 日経が買い平均まで戻ったら売る",
+    "trials": 305,
+    "recovered_pct": 100.0,
+    "return_mean_pct": 1.0,
+    "return_median_pct": 0.8,
+    "positive_pct": 78.7,
+    "days_to_recover_median": 2.0,
+    "days_to_recover_max": 172.0,
+    "unrecovered_mean_pct": null,
+    "worst_unrealized_pct": -23.4,
+    "extra_buys_mean": 0.5
+   },
+   {
+    "rule": "B: 1357が投入額まで戻ったら売る",
+    "trials": 305,
+    "recovered_pct": 99.3,
+    "return_mean_pct": 1.4,
+    "return_median_pct": 1.1,
+    "positive_pct": 92.1,
+    "days_to_recover_median": 2.0,
+    "days_to_recover_max": 325.0,
+    "unrecovered_mean_pct": -32.5,
+    "worst_unrealized_pct": -44.1,
+    "extra_buys_mean": 0.7
+   }
+  ]
+ },
+ "verification_caveats": {
+  "by_holding_days": [
+   "日経平均が12年で約4倍になった上昇相場のデータ。下落相場が長引けば分布は変わる(ただし減価=乖離は相場方向に関係なく発生する)。",
+   "総当たりは重複期間を含むため独立サンプルではない。勝率は「傾向」として読む。",
+   "理論値は期間全体の−2倍。日々−2倍の商品に期間−2倍を期待するのがそもそも誤りだが、個人はそう期待して買うので比較対象にした。"
+  ],
+  "by_condition": [
+   "75日線割れ初日は既刊BNF本の地合いフィルターと同一定義(終値ベース)。買いは当日終値、売りはN日後終値。",
+   "件数が少ない条件(数十回)のPFは1〜2回の暴落で大きく動く。2020/3・2024/8を除いた再計算で結論が変わらないかを本文で断る。",
+   "サンプルは日経が長期上昇した12年。下落相場では「75日線の上で買う」側の成績が改善する可能性がある。"
+  ],
+  "wait_for_recovery": [
+   "「買い平均値」は各購入時点の日経平均の単純平均(等金額買いのため)。Bは1357の評価額が投入額以上になった最初の日に売る。",
+   "起点は「年初来高値更新の翌日」。高値更新日は押し目が来やすい日なので、結果が良く見えるのは起点の性質による。「高値圏で買って、上がり続けた場合」の痛みは追加3回以上の試行と未回収2試行に集中している。",
+   "全305試行は重複期間を含む(連続する高値更新日を全部起点にしている)。独立サンプルは年別13試行。取引コスト・金利は未考慮。"
+  ],
+  "note": "★この前提を落とすと結果を読み違える★日経平均が12年で約4倍になった上昇相場のデータであり、下落相場が長引けば分布は変わる。ただし減価そのものは相場の方向に関係なく起きる。"
+ },
+ "not_included": "日足の価格系列は含まない。個別株の銘柄名・銘柄コードも含まない。ETFのコード（1357 など）は「何を検証したか」を示す識別子として載せている。",
+ "disclaimer": "過去の値動きの記録であり、将来の値動きを示すものではありません。特定の商品や売買を勧めるものでも、保有・売却を促すものでもありません。取引コスト・スプレッド・信用取引の金利は原則として含んでいません。"
+}

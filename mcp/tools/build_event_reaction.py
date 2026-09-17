@@ -30,6 +30,9 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import assert_clean  # noqa: E402
+
 SRC = os.path.join(
     r"C:\Users\kawamura takeshi\書籍販売",
     "36_株の連想大全", "検証", "out", "summary_main.csv")
@@ -177,6 +180,9 @@ def main():
             "特定の銘柄や売買を勧めるものでもありません。標本数の少ない出来事が"
             "含まれます（n<5 は参考値）。",
     }
+
+    # ★書き出す前に止める★ 伏せ字は最後の砦であって、そこに頼らない
+    assert_clean(doc)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8") as fp:
