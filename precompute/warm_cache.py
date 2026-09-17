@@ -420,7 +420,9 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--limit", type=int, default=0, help="入り口の組み合わせを先頭N件だけ")
     p.add_argument("--types-only", action="store_true",
-                   help="はじめての方向けの型3本だけ温める（夜間はこれ。1,260通りは回さない）")
+                   help="はじめての方向けの型3本だけ温める（1,260通りも規定値も回さない）")
+    p.add_argument("--no-adjust", action="store_true",
+                   help="型3本と規定値3本を温めて、1,260通りの調整域は回さない（日次はこれ）")
     return p.parse_args()
 
 
@@ -445,9 +447,7 @@ def main():
     type_saved, type_failed = warm_types(url, key, date_to, args.dry_run)
     log("  型: 保存 %d 件 / 失敗 %d 件" % (type_saved, len(type_failed)))
 
-    # ★夜間はここまで（--types-only）★
-    #   1,260通りの調整域は通信量が大きいので戻さない（2026-09-10 案A のまま）。
-    #   規定値3本も、いまは画面を開いた人が最初の1回で温める。
+    # ★型だけで止める（--types-only）★
     if args.types_only:
         log("型だけ温めて終わります（%.1f分）" % ((time.time() - t0) / 60))
         if type_failed:
@@ -459,6 +459,21 @@ def main():
     log("規定値3本を温めます（/rules の初回表示）")
     preset_saved, preset_failed = warm_presets(url, key, date_to, args.dry_run)
     log("  規定値: 保存 %d 件 / 失敗 %d 件" % (preset_saved, len(preset_failed)))
+
+    # ★日次はここまで（--no-adjust）★
+    #   1,260通りの調整域は通信量が大きいので戻さない（2026-09-10 案A のまま）。
+    #   ★規定値3本はここに含める（2026-09-16）★
+    #     --types-only だと型しか温まらず、**/rules の初回表示は冷えたまま**だった。
+    #     本番で実測して 28.2秒（温まっていれば 2.4〜3.8秒）。
+    #     告知で来た人が最初に押すのが「ルール設定」なので、ここが一番効く。
+    if args.no_adjust:
+        log("型と規定値を温めて終わります（%.1f分）" % ((time.time() - t0) / 60))
+        bad = list(type_failed) + list(preset_failed)
+        if bad:
+            for tid, why in bad:
+                log("  ★温められませんでした: %s（%s）" % (tid, why))
+            sys.exit(1)
+        return
 
     sets = list(entry_sets())
     if args.limit:
