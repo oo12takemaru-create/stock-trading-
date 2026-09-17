@@ -1,0 +1,2258 @@
+{
+ "boj": {
+  "label": "日銀 金融政策決定会合",
+  "react": "same",
+  "note": "結果発表は会合最終日の昼ごろ。当日の引けで反応する",
+  "dates": [
+   {
+    "d": "2013-01-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-02-14",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-03-07",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-04-04",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-04-26",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-05-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-06-11",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-07-11",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-08-08",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-09-05",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-10-04",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-11-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2013-12-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-01-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-02-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-03-11",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-04-08",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-04-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-05-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-06-13",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-07-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-08-08",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-09-04",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-10-07",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-11-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2014-12-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-01-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-02-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-03-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-04-08",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-04-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-05-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-06-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-07-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-08-07",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-09-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-10-07",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-10-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-11-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2015-12-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-01-29",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-03-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-04-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-06-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-07-29",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-09-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-11-01",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2016-12-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-01-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-03-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-04-27",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-06-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-07-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-09-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2017-12-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-01-23",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-03-09",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-04-27",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-06-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-07-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-09-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2018-12-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-01-23",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-03-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-04-25",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-06-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-07-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-09-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2019-12-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-01-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-03-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-04-27",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-05-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-06-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-07-15",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-09-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-10-29",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2020-12-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-01-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-03-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-04-27",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-06-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-07-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-09-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-10-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2021-12-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-01-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-03-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-04-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-06-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-07-21",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-09-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-10-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2022-12-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-01-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-03-10",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-04-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-06-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-07-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-09-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2023-12-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-01-23",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-03-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-04-26",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-06-14",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-07-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-09-20",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-10-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2024-12-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-01-24",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-03-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-05-01",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-06-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-07-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-09-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-10-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2025-12-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/past.htm"
+   },
+   {
+    "d": "2026-01-23",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+   },
+   {
+    "d": "2026-03-19",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+   },
+   {
+    "d": "2026-04-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+   },
+   {
+    "d": "2026-06-16",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+   },
+   {
+    "d": "2026-07-31",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+   }
+  ]
+ },
+ "fomc": {
+  "label": "FOMC",
+  "react": "next",
+  "note": "結果発表は米国時間の午後。日本では翌営業日の寄りから反応する",
+  "dates": [
+   {
+    "d": "2013-01-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-03-20",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-05-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-06-19",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-07-31",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-09-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-10-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2013-12-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2013.htm"
+   },
+   {
+    "d": "2014-01-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-03-19",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-04-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-06-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-07-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-09-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-10-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2014-12-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2014.htm"
+   },
+   {
+    "d": "2015-01-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-03-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-04-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-06-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-07-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-09-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-10-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2015-12-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2015.htm"
+   },
+   {
+    "d": "2016-01-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-03-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-04-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-06-15",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-07-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-09-21",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-11-02",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2016-12-14",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2016.htm"
+   },
+   {
+    "d": "2017-02-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-03-15",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-05-03",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-06-14",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-07-26",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-09-20",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-11-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2017-12-13",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2017.htm"
+   },
+   {
+    "d": "2018-01-31",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-03-21",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-05-02",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-06-13",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-08-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-09-26",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-11-08",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2018-12-19",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2018.htm"
+   },
+   {
+    "d": "2019-01-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-03-20",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-05-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-06-19",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-07-31",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-09-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-10-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2019-12-11",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm"
+   },
+   {
+    "d": "2020-01-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-04-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-06-10",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-07-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-09-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-11-05",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2020-12-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+   },
+   {
+    "d": "2021-01-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-03-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-04-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-06-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-07-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-09-22",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-11-03",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2021-12-15",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-01-26",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-03-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-05-04",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-06-15",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-07-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-09-21",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-11-02",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2022-12-14",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-02-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-03-22",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-05-03",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-06-14",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-07-26",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-09-20",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-11-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2023-12-13",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-01-31",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-03-20",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-05-01",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-06-12",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-07-31",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-09-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-11-07",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2024-12-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-01-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-03-19",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-05-07",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-06-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-07-30",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-09-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-10-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2025-12-10",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-01-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-03-18",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-04-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-06-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-07-29",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-09-16",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-10-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2026-12-09",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-01-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-03-17",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-04-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-06-09",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-07-28",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-09-15",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-10-27",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   },
+   {
+    "d": "2027-12-08",
+    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+   }
+  ]
+ },
+ "cpi": {
+  "label": "米CPI",
+  "react": "next",
+  "note": "発表は米国時間8:30（日本時間21:30／冬22:30）。翌営業日で反応する",
+  "dates": [
+   {
+    "d": "2013-01-16",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-02-21",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-03-15",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-04-16",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-05-16",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-06-18",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-07-16",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-08-15",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-09-17",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-10-30",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-11-20",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-12-17",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2014-01-16",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-02-20",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-03-18",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-04-15",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-05-15",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-06-17",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-07-22",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-08-19",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-09-17",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-10-22",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-11-20",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-12-17",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2015-01-16",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-02-26",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-03-24",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-04-17",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-05-22",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-06-18",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-07-17",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-08-19",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-09-16",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-10-15",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-11-17",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-12-15",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2016-01-20",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-02-19",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-03-16",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-04-14",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-05-17",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-06-16",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-07-15",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-08-16",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-09-16",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-10-18",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-11-17",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-12-15",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2017-01-18",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-02-15",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-03-15",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-04-14",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-05-12",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-06-14",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-07-14",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-08-11",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-09-14",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-10-13",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-11-15",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-12-13",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2018-01-12",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-02-14",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-03-13",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-04-11",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-05-10",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-06-12",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-07-12",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-08-10",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-09-13",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-10-11",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-11-14",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-12-12",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2019-01-11",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-02-13",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-03-12",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-04-10",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-05-10",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-06-12",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-07-11",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-08-13",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-09-12",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-10-10",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-11-13",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-12-11",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2020-01-14",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-02-13",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-03-11",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-04-10",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-05-12",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-06-10",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-07-14",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-08-12",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-09-11",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-10-13",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-11-12",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-12-10",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2021-01-13",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-02-10",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-03-10",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-04-13",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-05-12",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-06-10",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-07-13",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-08-11",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-09-14",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-10-13",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-11-10",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-12-10",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2022-01-12",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-02-10",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-03-10",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-04-12",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-05-11",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-06-10",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-07-13",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-08-10",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-09-13",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-10-13",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-11-10",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-12-13",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2023-01-12",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-02-14",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-03-14",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-04-12",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-05-10",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-06-13",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-07-12",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-08-10",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-09-13",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-10-12",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-11-14",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-12-12",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2024-01-11",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-02-13",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-03-12",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-04-10",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-05-15",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-06-12",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-07-11",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-08-14",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-09-11",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-10-10",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-11-13",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-12-11",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2025-01-15",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-02-12",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-03-12",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-04-10",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-05-13",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-06-11",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-07-15",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-08-12",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-09-11",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-10-24",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-12-18",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   }
+  ]
+ },
+ "payroll": {
+  "label": "米雇用統計",
+  "react": "next",
+  "note": "発表は米国時間8:30（日本時間21:30／冬22:30）。翌営業日で反応する",
+  "dates": [
+   {
+    "d": "2013-01-04",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-02-01",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-03-08",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-04-05",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-05-03",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-06-07",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-07-05",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-08-02",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-09-06",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-10-22",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-11-08",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2013-12-06",
+    "source": "https://www.bls.gov/schedule/2013/home.htm"
+   },
+   {
+    "d": "2014-01-10",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-02-07",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-03-07",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-04-04",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-05-02",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-06-06",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-07-03",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-08-01",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-09-05",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-10-03",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-11-07",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2014-12-05",
+    "source": "https://www.bls.gov/schedule/2014/home.htm"
+   },
+   {
+    "d": "2015-01-09",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-02-06",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-03-06",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-04-03",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-05-08",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-06-05",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-07-02",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-08-07",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-09-04",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-10-02",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-11-06",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2015-12-04",
+    "source": "https://www.bls.gov/schedule/2015/home.htm"
+   },
+   {
+    "d": "2016-01-08",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-02-05",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-03-04",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-04-01",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-05-06",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-06-03",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-07-08",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-08-05",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-09-02",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-10-07",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-11-04",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2016-12-02",
+    "source": "https://www.bls.gov/schedule/2016/home.htm"
+   },
+   {
+    "d": "2017-01-06",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-02-03",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-03-10",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-04-07",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-05-05",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-06-02",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-07-07",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-08-04",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-09-01",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-10-06",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-11-03",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2017-12-08",
+    "source": "https://www.bls.gov/schedule/2017/home.htm"
+   },
+   {
+    "d": "2018-01-05",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-02-02",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-03-09",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-04-06",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-05-04",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-06-01",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-07-06",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-08-03",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-09-07",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-10-05",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-11-02",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2018-12-07",
+    "source": "https://www.bls.gov/schedule/2018/home.htm"
+   },
+   {
+    "d": "2019-01-04",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-02-01",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-03-08",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-04-05",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-05-03",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-06-07",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-07-05",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-08-02",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-09-06",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-10-04",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-11-01",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2019-12-06",
+    "source": "https://www.bls.gov/schedule/2019/home.htm"
+   },
+   {
+    "d": "2020-01-10",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-02-07",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-03-06",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-04-03",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-05-08",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-06-05",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-07-02",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-08-07",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-09-04",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-10-02",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-11-06",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2020-12-04",
+    "source": "https://www.bls.gov/schedule/2020/home.htm"
+   },
+   {
+    "d": "2021-01-08",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-02-05",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-03-05",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-04-02",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-05-07",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-06-04",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-07-02",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-08-06",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-09-03",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-10-08",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-11-05",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2021-12-03",
+    "source": "https://www.bls.gov/schedule/2021/home.htm"
+   },
+   {
+    "d": "2022-01-07",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-02-04",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-03-04",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-04-01",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-05-06",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-06-03",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-07-08",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-08-05",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-09-02",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-10-07",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-11-04",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2022-12-02",
+    "source": "https://www.bls.gov/schedule/2022/home.htm"
+   },
+   {
+    "d": "2023-01-06",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-02-03",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-03-10",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-04-07",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-05-05",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-06-02",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-07-07",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-08-04",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-09-01",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-10-06",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-11-03",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2023-12-08",
+    "source": "https://www.bls.gov/schedule/2023/home.htm"
+   },
+   {
+    "d": "2024-01-05",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-02-02",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-03-08",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-04-05",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-05-03",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-06-07",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-07-05",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-08-02",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-09-06",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-10-04",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-11-01",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2024-12-06",
+    "source": "https://www.bls.gov/schedule/2024/home.htm"
+   },
+   {
+    "d": "2025-01-10",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-02-07",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-03-07",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-04-04",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-05-02",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-06-06",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-07-03",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-08-01",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-09-05",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-11-20",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2025-12-16",
+    "source": "https://www.bls.gov/schedule/2025/home.htm"
+   }
+  ]
+ }
+}

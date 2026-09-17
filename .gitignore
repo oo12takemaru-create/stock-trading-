@@ -107,3 +107,6 @@ precompute/cache/
 !docs/cot_scale.json
 # トップの要約1本
 !docs/board.json
+# 相場の暦（イベントの答え合わせ）
+!docs/event_score.json
+!event_dates.json
