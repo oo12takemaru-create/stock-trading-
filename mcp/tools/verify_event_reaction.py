@@ -30,6 +30,9 @@ BASKETS = os.path.join(r"C:\Users\kawamura takeshi\書籍販売",
 
 TAGS = {0: "t0", 1: "t1", 5: "t5", 21: "t21", 63: "t63"}
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import find_codes  # noqa: E402
+
 fails = []
 
 
@@ -120,8 +123,7 @@ def main():
 
     walk(doc)
     joined = " ".join(texts)
-    codes = [c for c in re.findall(r"\b\d{4}\b", joined)
-             if not (1990 <= int(c) <= 2100)]          # 年号は除く
+    codes = find_codes(doc)   # 共通の検査（legal_check.py）
     if codes:
         ng("銘柄コードらしき4桁が文字列に混ざっている: %s" % sorted(set(codes))[:10])
     else:

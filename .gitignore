@@ -40,6 +40,12 @@ ENV/
 # レバレッジ・インバースETFの減価。MCP の get_etf_decay が読む
 # (mcp/tools/build_etf_decay.py が生成・verify_* が元CSVと元mdと照合)
 !docs/etf_decay.json
+# 決算後ドリフト(PEAD)。MCP の get_event_reaction が読む
+# (mcp/tools/build_earnings_drift.py が生成。★明細 events_raw.csv は開かない★)
+!docs/earnings_drift.json
+# 指数の入替(需給イベント)。MCP の get_event_reaction が読む
+# (mcp/tools/build_supply_demand.py が生成。★明細 buyback_*.csv は開かない★)
+!docs/supply_demand_events.json
 # 🔒 trades.json / stops.json は非公開リポジトリ(stock-trading-private)管理。
 #    公開リポジトリには絶対コミットしない(例外を作らないこと)
 cost_tax_analysis_result.csv

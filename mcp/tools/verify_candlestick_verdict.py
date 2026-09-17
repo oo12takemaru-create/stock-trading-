@@ -61,6 +61,9 @@ NG_WORDS = [
     "儲か", "利益が出ます", "有望",
 ]
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import find_codes  # noqa: E402
+
 fails = []
 ok = lambda m: print("OK   %s" % m)
 
@@ -220,9 +223,7 @@ def main():
 
     walk(doc)
     joined = " ".join(texts)
-    codes = [c for c in re.findall(r"\b\d{4}\b", joined)
-             if not (1990 <= int(c) <= 2100)]
-    # 「東証プライム1,550銘柄」「3,642銘柄」はカンマ入りなので \b\d{4}\b に当たらない
+    codes = find_codes(doc)   # 共通の検査（legal_check.py）
     if codes:
         ng("銘柄コードらしき4桁が文字列に混ざっている: %s" % sorted(set(codes))[:10])
     else:

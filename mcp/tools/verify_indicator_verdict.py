@@ -41,6 +41,9 @@ REGIME_COLS = ["A_上昇局面超過%", "A_下落局面超過%", "A_前半超過
 NG_WORDS = ["推奨", "おすすめ", "お勧め", "買うべき", "売るべき", "買い時", "売り時",
             "儲か", "必勝", "狙い目", "勝てる"]
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legal_check import find_codes  # noqa: E402
+
 fails = []
 ok = lambda m: print("OK   %s" % m)
 
@@ -190,8 +193,7 @@ def main():
     walk(doc)
     joined = " ".join(texts)
     # ★数値の中は見ない★（期待値 0.0045 のような小数が4桁コードに見える）
-    codes = [c for c in re.findall(r"\b\d{4}\b", joined)
-             if not (1990 <= int(c) <= 2100)]
+    codes = find_codes(doc)   # 共通の検査（legal_check.py）
     # TOPIX500 は指数名、490銘柄は母集団の数。4桁ではないので当たらない
     if codes:
         ng("銘柄コードらしき4桁が文字列に混ざっている: %s" % sorted(set(codes))[:10])

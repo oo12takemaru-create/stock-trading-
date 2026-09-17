@@ -78,3 +78,26 @@ def assert_clean(doc, extra=()):
         lines.append("  [%s] %s" % (w, path))
         lines.append("      %s" % (text[:110] + ("…" if len(text) > 110 else "")))
     raise SystemExit("\n".join(lines))
+
+
+# 銘柄コードらしき4桁を探す正規表現。
+#
+# ★2回踏んだ罠★
+#   1回目: JSON 全体を文字列にして探し、p値 0.0045 の小数部が「0045」に見えた
+#          → 文字列の値だけを walk するようにした
+#   2回目: 文章に「p=0.0007」と書いたため、文字列の中に本当に「0007」があった
+#          → 小数点のすぐ後ろ・数字の途中は数えない、ここで直した
+#
+# 直前・直後に数字か小数点が無い4桁だけを拾う。
+_CODE_RE = re.compile(r"(?<![\d.])\d{4}(?![\d.])")
+
+
+def find_codes(doc, allowed=()):
+    """JSON に混ざった銘柄コードらしき4桁を返す（年号と allowed は除く）。
+
+    ★数値の中は見ない★ 文字列の値とキーだけを対象にする。
+    allowed には検証対象そのものの証券コード（ETF など）を渡す。
+    """
+    joined = " ".join(t for _, t in walk_strings(doc))
+    return sorted({c for c in _CODE_RE.findall(joined)
+                   if not (1990 <= int(c) <= 2100)} - set(allowed))
