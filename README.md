@@ -48,6 +48,10 @@ BNF + Minervini + MOMENTUM の統合戦略を、過去10年データで実証最
 |---|---|
 | `.github/workflows/daily-signal.yml` | 毎日3回(朝・昼・夕)シグナル自動生成 |
 
+> **新しいワークフローを作るときは `actions/checkout` に `ssh-key: ${{ secrets.DEPLOY_KEY }}` を渡すこと。**
+> main のルールセットでバイパスできるのは Deploy key だけで、素の `GITHUB_TOKEN`（github-actions[bot]）の
+> push は「PR必須」に弾かれる（GH013: Changes must be made through a pull request）。
+
 ## 🚀 GitHub Actions 自動実行
 
 このリポジトリを GitHub に置くと、以下のスケジュールで自動実行されます:
