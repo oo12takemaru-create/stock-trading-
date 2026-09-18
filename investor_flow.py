@@ -61,7 +61,8 @@ def parse_file(url):
     import pandas as pd
     import io
     raw = fetch(url)
-    df = pd.read_excel(io.BytesIO(raw), sheet_name="TSE Prime", header=None)
+    sheet = "TSE Prime"
+    df = pd.read_excel(io.BytesIO(raw), sheet_name=sheet, header=None)
 
     # 週ラベル(例: 2026年7月第4週 2026/7 week4  ( 7/21 - 7/24 ))
     week_label = None
@@ -92,17 +93,17 @@ def parse_file(url):
                         "buy_oku": round(buy / 100000),
                         "net_oku": round(net_oku),
                     }
-    return week_label, result
+    return week_label, result, sheet
 
 
 def main():
     dst = sys.argv[1] if len(sys.argv) > 1 else "docs/investor_flow.json"
     urls = find_latest_files()
-    week_label, latest = parse_file(urls[0])
+    week_label, latest, sheet = parse_file(urls[0])
     prev = {}
     if len(urls) > 1:
         try:
-            _, prev = parse_file(urls[1])
+            _, prev, _ = parse_file(urls[1])
         except Exception as e:
             print(f"前週の取得失敗(継続): {e}", file=sys.stderr)
 
@@ -126,6 +127,8 @@ def main():
         "unit": "億円",
         "source": "JPX 投資部門別売買状況(週間)",
         "source_file": urls[0],
+        # 市場区分の判定に使う。日付ではなくシート名で決める（investor_hist.market_of）
+        "sheet": sheet,
         "items": items,
     }
     with open(dst, "w", encoding="utf-8") as f:

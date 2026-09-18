@@ -106,6 +106,31 @@ def sheet_for(xl):
     return xl.sheet_names[0]
 
 
+def market_of(sheet):
+    """シート名から市場区分を決める。日付ではなくシート名で判定する
+    （JPXが区分を変えたらシート名も変わる。日付でハードコードすると次の再編で壊れる）"""
+    s = (sheet or "").strip().lower()
+    if s.startswith("tse prime"):
+        return "prime"
+    if s.startswith("tse 1st"):
+        return "tse1"
+    return "unknown"
+
+
+def week_dates(label, code):
+    """週ラベル末尾の "( 9/1 - 9/4 )" と ファイル名の YYMMWW から開始日・終了日を作る"""
+    y = 2000 + int(code[:2])
+    m = re.search(r"\(\s*(\d{1,2})/(\d{1,2})\s*-\s*(\d{1,2})/(\d{1,2})\s*\)", label or "")
+    if not m:
+        return None, None
+    m1, d1, m2, d2 = (int(x) for x in m.groups())
+    try:
+        # 年をまたぐ週（12/29 - 1/4 のような形）
+        return date(y, m1, d1).isoformat(), date(y + 1 if m2 < m1 else y, m2, d2).isoformat()
+    except ValueError:
+        return None, None
+
+
 def parse(raw, code):
     import pandas as pd
     xl = pd.ExcelFile(io.BytesIO(raw))
@@ -122,18 +147,7 @@ def parse(raw, code):
         if label:
             break
 
-    # ラベル末尾の "( 9/1 - 9/4 )" から週の開始・終了日を作る（年はファイル名から）
-    y = 2000 + int(code[:2])
-    start = end = None
-    m = re.search(r"\(\s*(\d{1,2})/(\d{1,2})\s*-\s*(\d{1,2})/(\d{1,2})\s*\)", label or "")
-    if m:
-        m1, d1, m2, d2 = (int(x) for x in m.groups())
-        try:
-            start = date(y, m1, d1).isoformat()
-            # 年をまたぐ週（12/29 - 1/4 のような形）
-            end = date(y + 1 if m2 < m1 else y, m2, d2).isoformat()
-        except ValueError:
-            start = end = None
+    start, end = week_dates(label, code)
 
     res = {}
     for i in range(len(df) - 1):
@@ -194,7 +208,8 @@ def main():
                      "to": weeks[-1]["end"] if weeks else None,
                      "skipped": len(bad),
                      "note": "JPXのアーカイブは2016年までしか遡れません。それ以前は取得していません"},
-        "weeks": [{"s": w["start"], "e": w["end"], "m": ("prime" if w["start"] >= REORG else "tse1"),
+        # 区分は日付ではなくシート名で決める（次に再編があってもここは壊れない）
+        "weeks": [{"s": w["start"], "e": w["end"], "m": market_of(w["sheet"]),
                    "net": w["net"]} for w in weeks],
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
