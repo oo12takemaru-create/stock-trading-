@@ -83,6 +83,7 @@ jobs:
               ("docs/score3.json",       "3軸スコア",          0),
               ("docs/cot.json",           "投機筋(COT)",        6),
               ("docs/investor_flow.json", "投資部門別",         6),
+              ("docs/investor_hist.json", "投資部門別の履歴",   9),
               ("docs/tenbagger.json",     "十倍株スキャナー",   6),
               ("docs/karauri.json",       "空売り残高",         2),
               ("docs/kessan.json",        "決算カレンダー",     2),
