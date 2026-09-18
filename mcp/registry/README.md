@@ -7,12 +7,16 @@
 
 | | |
 |---|---|
-| MCP 公式レジストリ | **掲載済み**。`jp.ruletrade/mcp` **v0.1.0** `status: active`（2026-09-05） |
+| MCP 公式レジストリ | **v0.2.0 が active・isLatest**（2026-09-18 11:28 publish）。v0.1.0 は履歴として残存 |
 | 認証方式 | ドメイン認証（`ruletrade.jp` の apex に TXT 1本） |
 | Smithery | **掲載済み** |
-| いまの `server.*.json` | **v0.2.0・ツール8本**（このPRで更新。**まだ publish していない**） |
+| いまの `server.*.json` | **v0.2.0・ツール8本**（publish 済み） |
 
 確認: `https://registry.modelcontextprotocol.io/v0/servers?search=ruletrade`
+
+### v0.2.0 の publish は完了している（2026-09-18）
+
+下の順序どおりに進めた。**次に版を上げるときも同じ順で。**
 
 ### ★再publish の順序（2026-09-17 Fable）★
 
