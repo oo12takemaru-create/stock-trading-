@@ -1,10 +1,11 @@
 {
- "updated": "2026-09-17T21:26:53+09:00",
+ "updated": "2026-09-18T21:19:37+09:00",
  "week": "2026年9月第2週 2026/9 week2 ( 9/7 - 9/11 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
  "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000001yhs9-att/stock_val_1_260902.xls",
+ "sheet": "TSE Prime",
  "items": [
   {
    "key": "foreigners",
