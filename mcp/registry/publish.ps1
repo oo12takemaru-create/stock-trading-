@@ -96,19 +96,27 @@ Start-Sleep -Seconds 3
 try {
   $r = Invoke-RestMethod -Uri "https://registry.modelcontextprotocol.io/v0/servers?search=ruletrade" `
                          -Headers @{ "user-agent" = "ruletrade-publish/0.2" } -TimeoutSec 30
-  $hit = $r.servers | Where-Object { $_.name -eq $new.name } | Select-Object -First 1
+  # ★レスポンスは { servers: [ { server: {...}, _meta: {...} } ] } とネストしている★
+  # 直下から name を読むと必ず空振りして「まだ出ていません」と出る（2026-09-18 に実際に出した）
+  $hit = $r.servers |
+         Where-Object { $_.server.name -eq $new.name } |
+         Sort-Object { $_._meta.'io.modelcontextprotocol.registry/official'.updatedAt } -Descending |
+         Select-Object -First 1
   if ($null -eq $hit) {
     Write-Host "レジストリにまだ出ていません（反映待ちのことがあります。数分後に再確認してください）" -ForegroundColor Yellow
   } else {
-    Write-Host ("  name    : " + $hit.name)
-    Write-Host ("  version : " + $hit.version)
-    Write-Host ("  status  : " + $hit.status)
-    if ($hit.version -eq $new.version) {
+    $meta = $hit._meta.'io.modelcontextprotocol.registry/official'
+    Write-Host ("  name    : " + $hit.server.name)
+    Write-Host ("  version : " + $hit.server.version)
+    Write-Host ("  status  : " + $meta.status)
+    Write-Host ("  isLatest: " + $meta.isLatest)
+    Write-Host ("  updated : " + $meta.updatedAt)
+    if ($hit.server.version -eq $new.version) {
       Write-Host ""
       Write-Host "OK  レジストリが $($new.version) になりました。" -ForegroundColor Green
     } else {
       Write-Host ""
-      Write-Host "まだ $($hit.version) です。反映に少しかかることがあります。" -ForegroundColor Yellow
+      Write-Host "まだ $($hit.server.version) です。反映に少しかかることがあります。" -ForegroundColor Yellow
     }
   }
 } catch {
