@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-18T21:22:41+09:00",
+ "updated": "2026-09-18T23:40:40+09:00",
  "trade_date": "2026-09-18",
  "n225": 65018.95,
  "horizon": 20,
@@ -26,9 +26,9 @@
    "key": "vix_high",
    "label": "VIXが20以上",
    "on": false,
-   "value": "15.43",
+   "value": "15.51",
    "threshold": "20以上",
-   "distance": "あと4.57",
+   "distance": "あと4.49",
    "ratio": 1.42,
    "why": "市場が平常時より不安定と見ている水準"
   },
@@ -36,9 +36,9 @@
    "key": "spx_ma200_dev",
    "label": "S&P500が200日線割れ",
    "on": false,
-   "value": "+6.36%",
+   "value": "+6.17%",
    "threshold": "0%未満",
-   "distance": "あと6.36%",
+   "distance": "あと6.17%",
    "ratio": 1.72,
    "why": "米国株が長期トレンドを割ると、日本株の下落も深くなりやすい"
   },
@@ -56,9 +56,9 @@
    "key": "usdjpy_chg20",
    "label": "20営業日で3%以上の円高",
    "on": false,
-   "value": "-0.64%",
+   "value": "-0.71%",
    "threshold": "-3%未満",
-   "distance": "あと2.36%",
+   "distance": "あと2.29%",
    "ratio": 1.98,
    "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
@@ -66,9 +66,9 @@
    "key": "vix_chg5",
    "label": "VIXが5日で15%以上上昇",
    "on": false,
-   "value": "-2.59%",
+   "value": "-2.08%",
    "threshold": "15%以上",
-   "distance": "あと17.59%",
+   "distance": "あと17.08%",
    "ratio": 1.82,
    "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
   },
@@ -76,9 +76,9 @@
    "key": "gold_chg20",
    "label": "金が20営業日で5%以上上昇",
    "on": false,
-   "value": "-5.79%",
+   "value": "-6.35%",
    "threshold": "5%以上",
-   "distance": "あと10.79%",
+   "distance": "あと11.35%",
    "ratio": 1.28,
    "why": "株を持ちながら保険を買う動き。資金が逃げ場を探しているサイン"
   }
