@@ -34,7 +34,9 @@ import pandas as pd
 
 JST = timezone(timedelta(hours=9))
 OUT = Path(__file__).parent / "docs" / "gauge.json"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0)"}
+# 連絡先URLを入れておく。FREDは素性の分からないbotを弾くことがあり、
+# これが無い間は逆イールド・信用・金融の3つが丸ごと未判定になっていた。
+UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0; +https://kaburadar.jp)"}
 
 FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id="
 # 本の基準値
