@@ -50,6 +50,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # 中身の点検が「前営業日はどうだったか」を git の履歴から読むため、
+          # 浅いclone（既定の depth:1）では足りない。
+          fetch-depth: 0
 
       - name: Check data freshness
         id: chk
@@ -135,14 +139,32 @@ jobs:
           cat report.md >> $GITHUB_STEP_SUMMARY
           if grep -q "要対応" report.md; then echo "stale=true" >> $GITHUB_OUTPUT; else echo "stale=false" >> $GITHUB_OUTPUT; fi
 
+      # 鮮度だけでは「毎日更新されているのに中身は失敗」を捕まえられない。
+      # FREDが2026-08-15から落ちていたのに1か月気づけなかったのがこれ（Issue化されず）。
+      - name: Check data content (中身が失敗していないか)
+        id: content
+        run: |
+          if python -X utf8 healthcheck_content.py > content.md; then
+            echo "broken=false" >> $GITHUB_OUTPUT
+          else
+            echo "broken=true" >> $GITHUB_OUTPUT
+          fi
+          cat content.md
+          cat content.md >> $GITHUB_STEP_SUMMARY
+          cat content.md >> report.md
+
       # ★パイプラインから呼ばれたとき（mode: check）は Issue を立てない★
       #   23:43 の回と合わせて同じ内容の Issue が1日2本立つ。
       #   「二重通知は欠落より悪い」（引継ぎ.md §19-7）の原則に反する。
       - name: Open issue when stale (単独実行の回だけ)
-        if: steps.chk.outputs.stale == 'true' && inputs.mode != 'check'
+        if: >-
+          (steps.chk.outputs.stale == 'true' || steps.content.outputs.broken == 'true')
+          && inputs.mode != 'check'
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "⚠️ 株レーダー: データ更新が止まっています"
+          # 鮮度と中身で別々にIssueを立てると同じ晩に2本並ぶので、1本にまとめる
+          # （「二重通知は欠落より悪い」引継ぎ.md §19-7）。report.md に両方入っている。
+          title: "⚠️ 株レーダー: データに異常があります（更新停止または中身の失敗）"
           content-filepath: report.md
           labels: data-alert
 
@@ -151,9 +173,11 @@ jobs:
       # success のままなので異常に気づけない・2026-09-05 の4日間放置）。
       # 失敗すれば pipeline-daily 全体が failure になり、summary とメールに出る。
       - name: Fail when stale (パイプライン内)
-        if: steps.chk.outputs.stale == 'true' && inputs.mode == 'check'
+        if: >-
+          (steps.chk.outputs.stale == 'true' || steps.content.outputs.broken == 'true')
+          && inputs.mode == 'check'
         run: |
-          echo "::error::公開JSONが古いままです。パイプラインを失敗として記録します"
+          echo "::error::公開JSONが古い、または中身が失敗しています。パイプラインを失敗として記録します"
           cat report.md
           exit 1
 
