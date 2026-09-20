@@ -10,6 +10,8 @@ import json
 import sys
 from datetime import datetime, timezone, timedelta
 
+from stale_guard import keep_newest
+
 JST = timezone(timedelta(hours=9))
 
 
@@ -116,8 +118,9 @@ def main():
         "count": len(items),
         "items": items,
     }
-    with open(dst, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    # 既に出ている取引日より古ければ書かない（stale_guard 参照）
+    if not keep_newest(dst, out, "trade_date", "ヒートマップ"):
+        return
     up = sum(1 for i in items if i["c"] > 0)
     print(f"heatmap.json 生成: {len(items)}銘柄 取引日={trade_date} (上昇{up}/下落{len(items)-up-sum(1 for i in items if i['c']==0)})")
 

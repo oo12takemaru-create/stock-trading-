@@ -211,7 +211,11 @@ def main():
         "note": "空売り残高割合は発行済株式総数に対する割合。0.5%以上の大口のみ報告義務があるため、実際の空売り総量はこれより多い。公表は計算日の2営業日後。",
     }
     DOCS.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    # 既に出ている報告日より古ければ書かない（stale_guard 参照）。
+    # state はこの後の差分計算に要るので、見送った場合も保存はする。
+    if not keep_newest(OUT, data, "report_date", "空売り残高"):
+        STATE.write_text(json.dumps(state, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        return
     STATE.write_text(json.dumps(state, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     kb = OUT.stat().st_size // 1024
     print(f"OK karauri.json ({kb}KB): 報告日{data['report_date']} "

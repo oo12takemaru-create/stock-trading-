@@ -25,6 +25,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import numpy as np
+
+from stale_guard import keep_newest
 import pandas as pd
 import yfinance as yf
 
@@ -230,8 +232,10 @@ def main():
         "history": hist,
     }
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    # 深夜の回が古い足を受け取って、夕方に入った正しい値を巻き戻すことがある。
+    # 既に出ている取引日より古ければ書かない（stale_guard 参照）。
+    if not keep_newest(OUT, data, "trade_date", "着火判定", indent=1):
+        return
     print(f"OK {OUT.name}: {last:%Y-%m-%d} 該当{cur_score}/{len(FLAGS)}個 → {sjp} "
           f"(実測{data['prob']}% / 全体の{data['ratio']}倍)")
     for fl in flags:
