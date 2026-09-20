@@ -7,6 +7,8 @@ import json
 import sys
 from datetime import datetime, timezone, timedelta
 
+from stale_guard import keep_newest
+
 
 def main() -> None:
     src, dst = sys.argv[1], sys.argv[2]
@@ -32,8 +34,10 @@ def main() -> None:
         "signal_count": len(d.get("signals") or []),
     }
 
-    with open(dst, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=1)
+    # スキャナーが走らなかった日に古い signal.json を読み、2週間前の地合いを
+    # publish したことがある。既に出ているものより古ければ書かない（stale_guard 参照）。
+    if not keep_newest(dst, out, "scanner_timestamp", "地合い", indent=1):
+        return
     print(f"radar.json 生成: {out}")
 
     # ★地合い履歴の蓄積(docs/radar_history.json・1日1エントリ=その日の最後の実行で上書き)
