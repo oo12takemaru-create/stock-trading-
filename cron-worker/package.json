@@ -6,7 +6,8 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "tail": "wrangler tail",
-    "test": "node --test test/"
+    "test": "node --test \"test/*.test.mjs\"",
+    "trading-day": "node tools/trading-day.mjs"
   },
   "devDependencies": {
     "wrangler": "^3.90.0"

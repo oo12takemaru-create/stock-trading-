@@ -202,6 +202,32 @@ npx wrangler dev --test-scheduled
 休場日（土日＋JPX の休場日）は市場データを作るものを起こさない。
 週末バッチだけは土曜に動かす。休場日表は `src/holidays.js`（年1回の手入れ）。
 
+#### 営業日かどうかを調べる
+
+毎朝の確認では「動いていないのは異常か、休場か」を最初に切り分ける。
+そのとき `isTradingDay()` を手で呼ばないこと。**JSTの壁時計をUTCとして持つ
+Date** を取る仕様なので、`new Date("2026-09-21T00:00:00+09:00")` と書くと
+前日を見る。1日ずれたまま答えだけ合う日があり、気づけない
+（2026-09-21 に実際に踏んだ）。
+
+```bash
+node tools/trading-day.mjs                         # 今日（JST）
+node tools/trading-day.mjs 2026-09-24              # その日
+node tools/trading-day.mjs 2026-09-17 2026-09-25   # 範囲
+node tools/trading-day.mjs --prev                  # 直近の営業日
+node tools/trading-day.mjs --next                  # 次の営業日
+```
+
+終了コードは 0=営業日 / 1=休場 / 2=エラー。`--quiet` で表示を止められる。
+
+```bash
+node tools/trading-day.mjs --quiet || echo "今日は休場"
+```
+
+**表に無い年を聞かれたら、答えずに終了コード 2 で止まる。**
+`KNOWN_YEARS` には「入っていてほしい年」ではなく「実際に埋めた年」を書くこと。
+申告が実態と合っていないと、この安全網が丸ごと効かない。
+
 ### 会員向けの朝の通知だけ、GitHub を経由しない
 
 JST 7:30 に `https://ruletrade-app.vercel.app/api/cron/morning-notify` を
