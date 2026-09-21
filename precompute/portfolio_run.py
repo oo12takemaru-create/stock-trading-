@@ -99,6 +99,11 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
             {"year": y, **pe.calc_stats(v)} for y, v in sorted(yearly.items())
         ],
         "exit_reasons": pe.exit_reason_counts(final),
+        # 月ごとのエクイティカーブ（サイトの10年チャート用）。
+        # ★正本と別に計算しない★ 別に計算すると、同じ画面に出る数字と曲線が
+        #   ずれても気づけない。summary と同じ final・同じ歩き方から作る
+        #   （2026-09-21 Fable・案A）。120行ほど・十数KB。
+        "equity_curve": pe.monthly_equity_curve(final, start=start, end=end),
         # {"2016-09-12": 3, ...}。**該当が1件も無い日は入れない**（0を並べない）。
         # 10年で約2,400キー・数十KB。jsonb にそのまま入る大きさ
         "daily_entries": dict(sorted(daily_entries.items())),

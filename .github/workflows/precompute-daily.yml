@@ -130,7 +130,12 @@ jobs:
       # 公開数字を1枚の JSON にして GitHub Pages で配る。
       # 静的サイト（ruletrade.jp）と会員アプリ /dashboard がこの同じ値を見る
       # ＝「一つの定義・一つの数字」（引継ぎ.md §19・起動文 2-4c）。
-      - name: Publish portfolio_stats.json
+      # ★カーブも同じステップで出す★（2026-09-21）
+      #   equity_curve.json は portfolio_stats.json と同じ画面に並ぶ。
+      #   別ステップにすると push が2回になり、片方だけ成功した瞬間に
+      #   **asof の違う2枚**が配られる。同じ行から作って1コミットで出す。
+      #   （export_equity_curve.py 側でも asof と合計の一致を確かめている）
+      - name: Publish portfolio_stats.json / equity_curve.json
         if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -143,12 +148,13 @@ jobs:
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
             python precompute/export_portfolio_json.py ${{ inputs.allow_drift && '--allow-drift' || '' }}
-            git add -f docs/portfolio_stats.json
+            python precompute/export_equity_curve.py
+            git add -f docs/portfolio_stats.json docs/equity_curve.json
             if git diff --staged --quiet; then
               echo "変更なし → 完了"
               exit 0
             fi
-            git commit -m "📊 公開数字を更新（portfolio_stats.json）"
+            git commit -m "📊 公開数字とカーブを更新（portfolio_stats.json / equity_curve.json）"
             if git push; then
               echo "✓ 公開成功（試行${i}回目）"
               exit 0

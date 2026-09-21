@@ -82,7 +82,7 @@ jobs:
       # 公開数字を1枚の JSON にして GitHub Pages で配る。
       # 静的サイト（ruletrade.jp）と会員アプリ /dashboard がこの同じ値を見る
       # ＝「一つの定義・一つの数字」（引継ぎ.md §19・起動文 2-4c）。
-      - name: Publish portfolio_stats.json
+      - name: Publish portfolio_stats.json / equity_curve.json
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -94,12 +94,14 @@ jobs:
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
             python precompute/export_portfolio_json.py
-            git add -f docs/portfolio_stats.json
+            # カーブも同じ行・同じコミットで出す（日次と同じ理由・2026-09-21）
+            python precompute/export_equity_curve.py
+            git add -f docs/portfolio_stats.json docs/equity_curve.json
             if git diff --staged --quiet; then
               echo "変更なし → 完了"
               exit 0
             fi
-            git commit -m "📊 公開数字を更新（portfolio_stats.json）"
+            git commit -m "📊 公開数字とカーブを更新（portfolio_stats.json / equity_curve.json）"
             if git push; then
               echo "✓ 公開成功（試行${i}回目）"
               exit 0
