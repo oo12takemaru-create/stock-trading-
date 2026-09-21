@@ -403,6 +403,82 @@ def calc_stats(trades: list[Trade], initial_capital=INITIAL_CAPITAL) -> dict:
     }
 
 
+def monthly_equity_curve(trades: list[Trade], initial_capital=INITIAL_CAPITAL,
+                         start: str | None = None, end: str | None = None) -> list[dict]:
+    """月ごとの累積リターンとドローダウン（サイトの10年カーブ用）。
+
+    ★calc_stats と同じ歩き方をすること★
+      並びは exit_date 順、1トレード決済ごとに1歩。日々の時価評価ではない。
+      別の歩き方をすると、同じ画面に出る最大DDと、この曲線の谷が食い違う。
+      **公開している値より浅い谷を描く**のがいちばん悪い形なので、
+      calc_stats のすぐ隣に置いて、片方だけ直ることが起きないようにする。
+      結果として min(dd_min_pct) は summary の max_dd と一致する。
+      export 側でそれを機械で確かめる。
+
+    ★円を持たない★
+      返すのは比率だけ。export_portfolio_json.py の FORBIDDEN_KEYS が
+      equity / capital を止めているのと同じ理由で、口座規模が逆算できる値を
+      公開 raw に出さない。
+
+    ★決済の無い月も並べる★
+      daily_entries は0の日を入れない（件数の羅列なので0に意味が薄い）。
+      こちらは曲線なので、月が抜けると横軸が詰まって形そのものが変わる。
+      決済が無い月は前の月の水準を引き継ぎ、新しい谷は付かない。
+
+    返り値: [{"month": "2016-09", "cum_return_pct", "dd_pct",
+              "dd_min_pct", "trades"}, ...]
+        dd_pct     … その月末時点のドローダウン
+        dd_min_pct … その月の中でいちばん深かったドローダウン（月末とは限らない）
+    """
+    st = sorted(trades, key=lambda t: t.exit_date)
+    if not st:
+        return []
+
+    equity = peak = initial_capital
+    # 月 -> [月末のequity, 月末のdd, その月の最深dd, 決済件数]
+    months: dict[str, list] = {}
+    for t in st:
+        equity += t.pnl
+        peak = max(peak, equity)
+        dd = (equity - peak) / peak * 100
+        key = t.exit_date.strftime("%Y-%m")
+        m = months.get(key)
+        if m is None:
+            months[key] = [equity, dd, dd, 1]
+        else:
+            m[0] = equity
+            m[1] = dd
+            m[2] = min(m[2], dd)
+            m[3] += 1
+
+    last_exit = pd.Period(st[-1].exit_date.strftime("%Y-%m"), freq="M")
+    first = pd.Period(start[:7], freq="M") if start else \
+        pd.Period(st[0].exit_date.strftime("%Y-%m"), freq="M")
+    last = pd.Period(end[:7], freq="M") if end else last_exit
+    # 期末強制決済などで、決済が検証期間の末より後に出ることがある。切り落とさない。
+    last = max(last, last_exit)
+
+    out = []
+    cur_equity = initial_capital
+    cur_dd = 0.0
+    p = first
+    while p <= last:
+        m = months.get(str(p))
+        if m is None:
+            n, dd_min = 0, cur_dd     # 動きの無い月。新しい安値は付かない
+        else:
+            cur_equity, cur_dd, dd_min, n = m
+        out.append({
+            "month": str(p),
+            "cum_return_pct": round((cur_equity / initial_capital - 1) * 100, 2),
+            "dd_pct": round(cur_dd, 1),
+            "dd_min_pct": round(dd_min, 1),
+            "trades": n,
+        })
+        p += 1
+    return out
+
+
 def exit_reason_counts(trades: list[Trade]) -> dict:
     out: dict[str, int] = {}
     for t in trades:
