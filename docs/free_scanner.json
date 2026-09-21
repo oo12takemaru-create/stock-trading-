@@ -1,6 +1,6 @@
 {
  "target_date": "2026-09-17",
- "generated_at": "2026-09-21T23:28:22+09:00",
+ "generated_at": "2026-09-22T02:10:15+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -27,18 +27,9 @@
  ],
  "asof": "2026-09-18",
  "stale": true,
- "signals_today_date": "2026-09-21",
+ "signals_today_date": "2026-09-22",
  "is_halt": false,
- "signals_today_count": 1,
- "signal_of_day": {
-  "scan_date": "2026-09-21",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "6594",
-  "name": "ニデック",
-  "sector": "モーター",
-  "reason": "20日高値ブレイク",
-  "carried_over": true
- },
+ "signals_today_count": 0,
+ "signal_of_day": null,
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
