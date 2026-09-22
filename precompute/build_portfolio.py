@@ -22,6 +22,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import panel_from_db  # noqa: E402
 import portfolio_run  # noqa: E402
 import supabase_io  # noqa: E402
 from pipeline import UNIVERSE_VERSION, run_pipeline  # noqa: E402
@@ -40,6 +41,13 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--env-file", default="")
     p.add_argument("--save-trades", default="", help="明細をCSVに出す（任意）")
+    # ★公開数字は正本から作る★（2026-09-22・Fable 案2）
+    #   過去は変わらないものなので、毎回 yfinance に取りに行くこと自体が
+    #   間違いだった。取得が一過性に失敗すると母集団が変わり、同じ10年でも
+    #   別物の数字になる。正本（daily_metrics）から読めば毎回同じになる。
+    #   --from-yfinance は、正本を作り直すとき（pipeline を流す側）だけに使う。
+    p.add_argument("--from-yfinance", action="store_true",
+                   help="正本ではなく yfinance から取り直して計算する（再現しない）")
     return p.parse_args()
 
 
@@ -53,7 +61,12 @@ def main():
     log("規定値ポートフォリオ（同時保有%d・同セクター%d）"
         % (args.max_positions, args.max_per_sector))
     log("=" * 70)
-    panel, market, _ = run_pipeline(log=log)
+    if args.from_yfinance:
+        log("★ yfinance から取り直します（この結果は再現しません）")
+        panel, market, _ = run_pipeline(log=log)
+    else:
+        log("正本（daily_metrics / market_condition）から読みます")
+        panel, market = panel_from_db.load_panel(log=log)
     result, trades = portfolio_run.run(
         panel, market, max_positions=args.max_positions,
         max_per_sector=args.max_per_sector, log=log)

@@ -15,7 +15,7 @@ import config
 import metrics
 import fetching
 from fetching import get_prices
-from universe import JAPAN_STOCKS
+from universe import ACTIVE_TICKERS, JAPAN_STOCKS
 
 # 引継ぎ.md §16-4 判断2（2026-09-05 Fable）: ユニバースの正は daily_scanner_v2_8_0.py の
 # STOCKS（341銘柄）。238（integrated_backtest 側）はその部分集合。
@@ -37,7 +37,10 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
     daily_metrics はウォームアップぶんを落とし、直近 years 年ぶんだけにする。
     """
     config.ensure_dirs()
-    tickers = list(JAPAN_STOCKS.keys()) if tickers is None else list(tickers)
+    # ★恒常的に取得できない銘柄は明示して外す★（2026-09-22）
+    #   「取れなかったから黙って除外」をやめたので、外すものは理由つきで
+    #   universe.EXCLUDED_TICKERS に書く。ここが毎回同じであることが再現性の条件。
+    tickers = list(ACTIVE_TICKERS) if tickers is None else list(tickers)
     start, end = default_window(years)
 
     log("ユニバース %d 銘柄 / 取得期間 %s 〜 %s / auto_adjust=%s"
@@ -78,6 +81,41 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
                                 kind="prices", refresh=refresh, log=log)
     log("  取得できた銘柄: %d / %d" % (len(prices), len(tickers)))
 
+    # ★1銘柄でも欠けたら止める★（2026-09-22）
+    #   グローバル指数が既にこの作法なので、個別株もそれに揃える。
+    #
+    #   ここを「失敗したものは飛ばして先へ」にしていたせいで、公開している
+    #   10年の検証結果が**計算し直すたびに違う答え**になっていた。
+    #     実測: 336銘柄から1つ外すだけで 最大DD −27.3 → −31.4（4.1ポイント）
+    #     同時保有10の枠の取り合いなので、1銘柄の出入りで建玉が総入れ替わりになる。
+    #   さらに悪いことに **件数は同じに見えていた**（上限337に対していつも336）。
+    #   毎回ちがう1銘柄が落ちていたのに、数が変わらないので誰も気づけなかった。
+    #
+    #   2026-09-06 の全期間再構築では 5021.T がこれで落ち、正本から
+    #   10年ぶんの履歴が丸ごと消えた（直近15日ぶんだけが残っていた）。
+    if failed:
+        log("  ★個別株の取得に失敗: %s → 単独で取り直します" % ", ".join(failed))
+        still = []
+        for t in failed:
+            df = fetching.refetch_one(t, start, end, auto_adjust, log=log)
+            if df is None:
+                still.append(t)
+            else:
+                fetching.save_cache(t, df, auto_adjust, "prices")
+                prices[t] = df
+        if still:
+            raise SystemExit(
+                "銘柄 %s を取得できませんでした。\n"
+                "  欠けたまま計算すると、同じ10年なのに別物の数字になります"
+                "（1銘柄で最大DDが4ポイント動いた実測あり）。\n"
+                "  公開しないでここで止めます。時間をおいて再実行してください。\n"
+                "  恒常的に取得できないと確かめられたら、理由を書いて"
+                "universe.EXCLUDED_TICKERS に足してください"
+                "（一過性の失敗を足さないこと）。"
+                % ", ".join(still)
+            )
+        log("  ★取り直しに成功しました: %s" % ", ".join(failed))
+
     log("[3/4] 前計算列を算出")
     frames, skipped = [], []
     for i, t in enumerate(tickers, 1):
@@ -88,8 +126,18 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
         frames.append(metrics.compute_stock_metrics(df, t))
         if i % 50 == 0 or i == len(tickers):
             log("  %d/%d 銘柄" % (i, len(tickers)))
+    # ★行数が足りない銘柄も、黙って落とさない★（2026-09-22）
+    #   取得は成功したのに中身が短い、という形でも母集団は変わる。
+    #   入口（取得失敗）だけ塞いでも、ここが開いていれば同じことが起きる。
     if skipped:
-        log("  ★データ不足でスキップ %d 銘柄: %s" % (len(skipped), ", ".join(skipped[:20])))
+        raise SystemExit(
+            "データが %d 行未満の銘柄があります: %s\n"
+            "  そのまま外すと母集団が変わり、同じ10年でも別物の数字になります。\n"
+            "  公開しないでここで止めます。新規上場などで履歴が短い銘柄なら、"
+            "理由を書いて universe.EXCLUDED_TICKERS に足してください。"
+            % (200, ", ".join("%s(%d)" % (t, len(prices[t]) if prices.get(t) is not None else 0)
+                              for t in skipped[:20]))
+        )
     if not frames:
         raise RuntimeError("処理できる銘柄がありませんでした")
 
