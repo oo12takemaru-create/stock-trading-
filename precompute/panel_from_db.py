@@ -83,8 +83,7 @@ def _read_all(table, columns, query, log, workers=8):
     def one(off):
         endpoint = "%s/rest/v1/%s?select=%s%s&limit=%d&offset=%d" % (
             url_base, table, columns, ("&" + query) if query else "", page, off)
-        _, body = supabase_io._request("GET", endpoint, key)
-        return json.loads(body.decode("utf-8"))
+        return _get_with_retry(endpoint, key, "%s(offset=%d)" % (table, off))
 
     rows = []
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -98,7 +97,36 @@ def _read_all(table, columns, query, log, workers=8):
     return rows
 
 
-def _read_by_ticker(query, log, workers=8):
+#: 読み出しの再試行。ネットワークの一過性の失敗で丸ごと落ちないため。
+READ_ATTEMPTS = 4
+
+
+def _get_with_retry(endpoint, key, what):
+    """1回ぶんの GET。一過性の失敗は待って粘る。
+
+    ★ここに再試行が要る理由（2026-09-22 に踏んだ）★
+      337銘柄を並列で読むので、1本でもタイムアウトすると全部やり直しになる。
+      実際 WinError 10060 で読み出しが丸ごと落ちた。
+      **日次に載せるものが一度の瞬断で止まるのは、作りが弱い。**
+      ただし粘るのは通信の失敗だけ。欠けたデータを黙って受け入れるための
+      再試行ではない（行数の突き合わせは呼び出し側でそのまま行う）。
+    """
+    import time
+    import urllib.error
+
+    last = None
+    for i in range(READ_ATTEMPTS):
+        try:
+            _, body = supabase_io._request("GET", endpoint, key)
+            return json.loads(body.decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last = e
+            if i < READ_ATTEMPTS - 1:
+                time.sleep(2.0 * (i + 1))
+    _die("%s を読めませんでした（%d回試行）: %s" % (what, READ_ATTEMPTS, last))
+
+
+def _read_by_ticker(query, log, workers=6):
     """daily_metrics を銘柄ごとに読む。総行数は件数と突き合わせる。"""
     from concurrent.futures import ThreadPoolExecutor
 
@@ -117,8 +145,7 @@ def _read_by_ticker(query, log, workers=8):
             endpoint = ("%s/rest/v1/daily_metrics?select=%s&ticker=eq.%s%s"
                         "&order=date.asc&limit=%d&offset=%d"
                         % (url_base, cols, ticker, ("&" + query) if query else "", page, off))
-            _, body = supabase_io._request("GET", endpoint, key)
-            part = json.loads(body.decode("utf-8"))
+            part = _get_with_retry(endpoint, key, ticker)
             out.extend(part)
             if len(part) < page:
                 return out
