@@ -1,10 +1,10 @@
 {
- "updated": "2026-09-22T17:20:34+09:00",
- "scanner_timestamp": "2026-09-22T08:19:04.199661",
+ "updated": "2026-09-22T19:34:19+09:00",
+ "scanner_timestamp": "2026-09-22T10:31:47.570543",
  "regime": "BULLISH",
  "is_halt": false,
  "halt_reason": "",
- "vix": 14.81,
+ "vix": 14.82,
  "n225": 65018.95,
  "signal_count": 1
 }
