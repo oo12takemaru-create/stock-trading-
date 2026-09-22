@@ -61,6 +61,32 @@ def fingerprint(trades):
     return h.hexdigest()[:16]
 
 
+def check_no_raw_universe():
+    """★銘柄一覧を JAPAN_STOCKS から直接組んでいないか★（2026-09-22）
+
+    run_pipeline の既定を ACTIVE_TICKERS にしたが、build_metrics.py と
+    precompute_metrics.py が `tickers=list(JAPAN_STOCKS.keys())` で
+    上書きしていたため効いていなかった。**既定だけ直しても、渡す側が
+    古いままなら意味がない。** 全期間の再構築が、除外したはずの3銘柄で
+    止まって初めて気づいた。
+
+    セクター表のように「340銘柄すべて」を意図して使う場所はあるので、
+    一覧そのものの参照は禁止しない。禁じるのは**取得する銘柄を組む形**だけ。
+    """
+    import glob
+    import re
+
+    bad = []
+    pat = re.compile(r"tickers\s*=\s*list\(\s*JAPAN_STOCKS")
+    root = os.path.dirname(HERE)
+    for f in sorted(glob.glob(os.path.join(root, "*.py"))):
+        src = open(f, encoding="utf-8").read()
+        for i, line in enumerate(src.split("\n"), 1):
+            if pat.search(line):
+                bad.append("%s:%d" % (os.path.basename(f), i))
+    return bad
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--env-file", default="")
@@ -68,7 +94,12 @@ def main():
     if args.env_file:
         supabase_io.load_env_file(args.env_file)
 
-    print("― 1. 正本の母集団 ―")
+    print("― 0. 取得する銘柄を一覧から直接組んでいないか ―")
+    bad = check_no_raw_universe()
+    check(not bad, "★tickers = list(JAPAN_STOCKS...) が無い★",
+          "、".join(bad) if bad else "ACTIVE_TICKERS に揃っている")
+
+    print("\n― 1. 正本の母集団 ―")
     print("   一覧 %d 銘柄（除外 %d: %s）"
           % (len(ACTIVE_TICKERS), len(EXCLUDED_TICKERS), ", ".join(sorted(EXCLUDED_TICKERS))))
 

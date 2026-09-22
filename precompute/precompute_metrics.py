@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config  # noqa: E402
 from pipeline import run_pipeline  # noqa: E402
-from universe import JAPAN_STOCKS  # noqa: E402
+from universe import ACTIVE_TICKERS  # noqa: E402
 
 LOG_LINES = []
 
@@ -58,7 +58,11 @@ def main():
     args = parse_args()
     t0 = time.time()
 
-    tickers = list(JAPAN_STOCKS.keys())
+    # ★恒常的に取得できない銘柄を外した一覧を使う★（2026-09-22）
+    #   run_pipeline の既定を ACTIVE_TICKERS にしたが、ここが tickers= で
+    #   上書きしていたので効いていなかった。既定だけ直しても、
+    #   渡す側が古いままなら意味がない（2026-09-22 の再構築で実際に踏んだ）。
+    tickers = list(ACTIVE_TICKERS)
     if args.limit:
         tickers = tickers[:args.limit]
 
