@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -67,6 +68,15 @@ TARGETS = {
         "keys": ["asof"],
         "label": "公開数字",
     },
+    # 10年カーブ。portfolio_stats.json と**必ず同じコミットで出る**ので、
+    # 判定の基準もそちらと同じでよい（2026-09-23）。
+    # data-healthcheck の日次レポート側には置かない。あちらは土日しか見ず、
+    # 祝日を知らないため休場明けに必ず「古い」と誤報する。
+    "equity_curve": {
+        "path": "docs/equity_curve.json",
+        "keys": ["asof"],
+        "label": "10年カーブ",
+    },
     "signals_log": {
         # 日次シグナルは CSV。最終行の scan_date を見る
         "path": "signals_log.csv",
@@ -76,19 +86,91 @@ TARGETS = {
 }
 
 
+# ★祝日表は cron-worker/src/holidays.js が唯一の正本★（2026-09-23）
+#   Python 側に同じ日付を写すと、片方だけ直る日が必ず来る。
+#   JS の表をそのまま読む（"YYYY-MM-DD" の羅列なので素直に拾える）。
+_HOLIDAYS_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "cron-worker", "src", "holidays.js")
+
+#: 対応年ごとに最低これだけ休場日があるはず（日本の祝日は年16日以上＋年末年始）
+MIN_HOLIDAYS_PER_YEAR = 10
+
+
+def _load_holidays():
+    """(休場日の集合, 表が対応している年の集合) を返す。"""
+    try:
+        with open(_HOLIDAYS_JS, encoding="utf-8") as f:
+            src = f.read()
+    except OSError as e:
+        raise SystemExit("休場日表を読めません: %s (%s)" % (_HOLIDAYS_JS, e))
+
+    days = set(re.findall(r'"(\d{4}-\d{2}-\d{2})"', src))
+    m = re.search(r"KNOWN_YEARS\s*=\s*\[([^\]]*)\]", src)
+    years = {int(y) for y in re.findall(r"\d{4}", m.group(1))} if m else set()
+
+    # ★0件を成功と見なさない★
+    #   読み方が壊れると、祝日を知らないまま「古い」と言い続けることになる。
+    if not days or not years:
+        raise SystemExit(
+            "休場日表から日付(%d件)・対応年(%d件)を取れませんでした。\n"
+            "  cron-worker/src/holidays.js の書き方が変わった可能性があります。"
+            % (len(days), len(years))
+        )
+
+    # ★「0件でない」だけでは足りない★（2026-09-23）
+    #   表の書き方が少し変わって**大半が拾えなくなっても**、1件でも残れば
+    #   上の検査は通ってしまう。実際に手元で踏んだ（翌年の元日だけ残り通過）。
+    #   日本の祝日は年16日以上あり、年末年始の休場も足される。
+    #   対応年それぞれに最低10件は無いとおかしい。
+    for y in sorted(years):
+        n = sum(1 for d in days if d.startswith("%d-" % y))
+        if n < MIN_HOLIDAYS_PER_YEAR:
+            raise SystemExit(
+                "休場日表の %d 年が %d 件しかありません（最低 %d 件のはず）。\n"
+                "  読み方が壊れているか、表が書きかけです。\n"
+                "  祝日を知らないまま判定すると、休場日に誤って『古い』と出ます。"
+                % (y, n, MIN_HOLIDAYS_PER_YEAR)
+            )
+    return days, years
+
+
+_HOLIDAYS, _KNOWN_YEARS = _load_holidays()
+
+
+def is_trading_day(d):
+    """東証が開いている日か。表の範囲外の年は土日だけで判定する。"""
+    if d.weekday() >= 5:
+        return False
+    if d.year not in _KNOWN_YEARS:
+        # 表に無い年は祝日を知らない。止めずに「開いている」側へ倒すが、
+        # 気づけるよう警告を出す（cron-worker の Worker と同じ振る舞い）。
+        print("::warning::休場日表に %d 年がありません。祝日でも営業日として判定します。"
+              % d.year, file=sys.stderr)
+        return True
+    return d.isoformat() not in _HOLIDAYS
+
+
 def prev_business_day(d):
-    """土日を飛ばして1営業日戻る（祝日は考慮しない）。"""
-    d -= timedelta(days=1)
-    while d.weekday() >= 5:          # 土(5)・日(6)
+    """1営業日戻る（土日と休場日を飛ばす）。"""
+    for _ in range(30):
         d -= timedelta(days=1)
-    return d
+        if is_trading_day(d):
+            return d
+    raise SystemExit("30日さかのぼっても営業日が見つかりません。休場日表を疑ってください。")
 
 
 def latest_settled_business_day(now=None):
-    """いま時点で終値が確定しているはずの直近営業日。"""
+    """いま時点で終値が確定しているはずの直近営業日。
+
+    ★祝日を見ること★（2026-09-23）
+      以前は土日と15時だけで判定していたため、祝日が平日に来ると
+      「その日の終値があるはず」と誤判定した。2026-09-22（国民の休日）と
+      09-23（秋分の日）に、この検査が実際に failure を出している。
+      **赤が常態化すると、本当に止まった日に気づけなくなる。**
+    """
     now = now or datetime.now(JST)
     d = now.date()
-    if now.hour < 15 or d.weekday() >= 5:
+    if now.hour < 15 or not is_trading_day(d):
         d = prev_business_day(d)
     return d
 
