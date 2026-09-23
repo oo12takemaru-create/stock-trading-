@@ -104,6 +104,19 @@ jobs:
               ("docs/cot_scale.json",    "投機筋の10年の物差し", 9),
               ("docs/event_score.json",  "相場の暦",           40),
               ("docs/ai_weekly.json",     "週末版AI",           8),
+              # ★2026-09-23 追加★ どちらの監視からも漏れていた2本。
+              #   builder_example.json は 9/15 の初版のまま8日間動かず、
+              #   誰も気づかなかった（更新ステップが一度も成功していない。
+              #   GH_PAT が ruletrade-app を読めず404・引継ぎ.md §33）。
+              #   「失敗したら止まる」は作ってあったが、
+              #   **成功し続けているのに中身が動かない**を見ていなかった。
+              #   ※ equity_curve.json はここに置かない。この検査は土日しか
+              #     見ず祝日を知らないので、休場明けに必ず誤報が出る。
+              #     市場を知っている check_freshness.py 側に置いた
+              #     （portfolio_stats.json と必ず同じコミットで出るため）。
+              # 月次。event_score は 40 だが、40 だと1回飛んでも約2か月
+              # 気づけない（今回の8日間より悪い）。毎月1日起動なので 25。
+              ("docs/builder_example.json", "閾値を変えたら", 25),
           ]
           problems = []
           rows = []
@@ -114,7 +127,13 @@ jobs:
                   problems.append(f"{label}: 読込失敗 ({e})")
                   rows.append(f"| {label} | ❌ 読込失敗 | - |")
                   continue
-              upd = d.get("updated") or (d.get("latest") or {}).get("updated") or ""
+              # ★asof しか持たないファイルがある★（2026-09-23）
+              #   equity_curve.json / builder_example.json は updated ではなく asof。
+              #   updated を優先し、無いときだけ asof を見る（既存23本の挙動は不変）。
+              #   これを足さずに一覧へ入れると「日付不明」で毎日赤くなる。
+              #   赤が常態化すると本当の異常に気づけない（手元で実際に踏んだ）。
+              upd = (d.get("updated") or (d.get("latest") or {}).get("updated")
+                     or d.get("asof") or "")
               try:
                   dt = datetime.fromisoformat(upd).date()
                   age = bizdays_between(dt, today)   # 営業日ベース
@@ -213,7 +232,7 @@ jobs:
       - name: 前営業日ぶんが揃っているか
         run: |
           fail=0
-          for t in free_scanner market_jiai radar portfolio_stats signals_log; do
+          for t in free_scanner market_jiai radar portfolio_stats equity_curve signals_log; do
             if python check_freshness.py --target "$t"; then
               echo "  OK"
             else
