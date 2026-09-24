@@ -1,35 +1,44 @@
 {
- "target_date": "2026-09-17",
- "generated_at": "2026-09-23T00:37:57+09:00",
+ "target_date": "2026-09-18",
+ "generated_at": "2026-09-24T18:03:02+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
-   "judge": "signal",
+   "judge": "watch",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -15.33
+   "kairi": -13.79
+  },
+  {
+   "judge": "watch",
+   "code": "7532",
+   "name": "パンパシHD",
+   "sector": "小売",
+   "kairi": -9.17
   },
   {
    "judge": "watch",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -13.38
-  },
-  {
-   "judge": "watch",
-   "code": "6323",
-   "name": "ローツェ",
-   "sector": "半導体製造装置",
-   "kairi": -12.53
+   "kairi": -7.53
   }
  ],
- "asof": "2026-09-18",
- "stale": true,
- "signals_today_date": "2026-09-23",
+ "asof": "2026-09-24",
+ "stale": false,
+ "signals_today_date": "2026-09-24",
  "is_halt": false,
- "signals_today_count": 0,
- "signal_of_day": null,
+ "signals_today_count": 1,
+ "signal_of_day": {
+  "scan_date": "2026-09-24",
+  "strategy": "MOMENTUM",
+  "strategy_label": "順張り（ブレイク）",
+  "code": "6594",
+  "name": "ニデック",
+  "sector": "モーター",
+  "reason": "20日高値ブレイク",
+  "carried_over": true
+ },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
