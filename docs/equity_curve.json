@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asof": "2026-09-22",
+  "asof": "2026-09-24",
   "version": "v2.8.0",
   "period_start": "2016-09-06",
   "period_end": "2026-09-04",
@@ -848,7 +848,7 @@
     },
     {
       "month": "2026-09",
-      "cum_return_pct": 340.29,
+      "cum_return_pct": 340.07,
       "dd_pct": -1.1,
       "dd_min_pct": -1.9,
       "trades": 12
@@ -859,7 +859,7 @@
     "win_rate": 52.2,
     "pf": 1.52,
     "max_dd_pct": -25.5,
-    "cum_return_pct": 340.3,
-    "cagr_pct": 16.1
+    "cum_return_pct": 340.1,
+    "cagr_pct": 16.0
   }
 }
