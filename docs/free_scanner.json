@@ -1,37 +1,37 @@
 {
- "target_date": "2026-09-18",
- "generated_at": "2026-09-24T21:03:24+09:00",
+ "target_date": "2026-09-24",
+ "generated_at": "2026-09-25T18:02:52+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
-   "judge": "watch",
+   "judge": "signal",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -13.79
+   "kairi": -16.34
   },
   {
    "judge": "watch",
    "code": "7532",
    "name": "パンパシHD",
    "sector": "小売",
-   "kairi": -9.17
+   "kairi": -7.88
   },
   {
    "judge": "watch",
-   "code": "3436",
-   "name": "SUMCO",
-   "sector": "半導体",
-   "kairi": -7.53
+   "code": "5713",
+   "name": "住友金属鉱山",
+   "sector": "非鉄",
+   "kairi": -7.49
   }
  ],
- "asof": "2026-09-24",
+ "asof": "2026-09-25",
  "stale": false,
- "signals_today_date": "2026-09-24",
+ "signals_today_date": "2026-09-25",
  "is_halt": false,
- "signals_today_count": 1,
+ "signals_today_count": 2,
  "signal_of_day": {
-  "scan_date": "2026-09-24",
+  "scan_date": "2026-09-25",
   "strategy": "MOMENTUM",
   "strategy_label": "順張り（ブレイク）",
   "code": "6594",
