@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asof": "2026-09-25",
+  "asof": "2026-09-28",
   "version": "v2.8.0",
   "period_start": "2016-09-06",
   "period_end": "2026-09-04",
@@ -18,19 +18,19 @@
   "avg_loss_pct": -4.21,
   "rr": 1.55,
   "max_dd_pct": -25.5,
-  "cum_return_pct": 340.6,
+  "cum_return_pct": 340.2,
   "cagr_pct": 16.0,
-  "avg_hold_days": 15.3,
+  "avg_hold_days": 15.4,
   "max_losing_streak": 17,
   "exits": {
     "time_limit": 987,
     "stop": 562,
     "ma25_return": 102,
-    "time_stop": 99,
+    "time_stop": 100,
     "tp10": 50,
     "half_tp": 21,
-    "forced": 5,
-    "ema50_break": 4
+    "ema50_break": 4,
+    "forced": 4
   },
   "basis": {
     "regime": "scanner",
