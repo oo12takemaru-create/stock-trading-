@@ -25,6 +25,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from data_targets import stale_list
+
 JST = timezone(timedelta(hours=9))
 HERE = Path(__file__).parent
 DOCS = HERE / "docs"
@@ -133,7 +135,17 @@ def main():
         print(f"材料が足りない（{len(files)}本）。board.json は更新しない", file=sys.stderr)
         return 1
 
-    out = {"v": 1, "updated": datetime.now(JST).isoformat(timespec="seconds"), "files": files}
+    # ★止まっているデータをトップに出すための材料★
+    #   監視のIssueとメールは届いていなかった（空売りが10日間止まったのに気づけなかった）。
+    #   本人と読者が毎日見る場所に出すのがいちばん確実。
+    #   閾値は data_targets.py の TARGETS をそのまま使う（夜の監視と同じ表）。
+    #   トップは朝も昼も描画されるので、当日の夕方ジョブ待ちで鳴らないよう1営業日の猶予を足す。
+    stale = stale_list(HERE, slack=1)
+    if stale:
+        print("⚠️ 止まっているデータ: " + "／".join(f"{x['label']}({x['age']}営業日前)" for x in stale))
+
+    out = {"v": 1, "updated": datetime.now(JST).isoformat(timespec="seconds"),
+           "stale": stale, "files": files}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     kb = OUT.stat().st_size / 1024
     print(f"board.json: {len(files)}本ぶん / {kb:.1f}KB")
