@@ -1,8 +1,8 @@
 {
- "target_date": "2026-09-29",
- "generated_at": "2026-09-29T21:02:33+09:00",
+ "target_date": "2026-09-28",
+ "generated_at": "2026-09-30T00:15:03+09:00",
  "jiai": "弱気(75日線の下)",
- "nikkei_close": 65481.27,
- "asof": "2026-09-29",
- "stale": false
+ "nikkei_close": 65877.62,
+ "asof": "2026-09-28",
+ "stale": true
 }

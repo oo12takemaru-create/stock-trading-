@@ -1,6 +1,6 @@
 {
- "target_date": "2026-09-28",
- "generated_at": "2026-09-29T21:02:33+09:00",
+ "target_date": "2026-09-25",
+ "generated_at": "2026-09-30T00:15:03+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,37 +8,28 @@
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -12.23
+   "kairi": -13.76
   },
   {
    "judge": "watch",
-   "code": "6594",
-   "name": "ニデック",
-   "sector": "モーター",
-   "kairi": -11.42
+   "code": "4755",
+   "name": "楽天グループ",
+   "sector": "IT",
+   "kairi": -8.39
   },
   {
    "judge": "watch",
-   "code": "5713",
-   "name": "住友金属鉱山",
-   "sector": "非鉄",
-   "kairi": -7.9
+   "code": "7532",
+   "name": "パンパシHD",
+   "sector": "小売",
+   "kairi": -7.43
   }
  ],
- "asof": "2026-09-29",
- "stale": false,
- "signals_today_date": "2026-09-29",
+ "asof": "2026-09-28",
+ "stale": true,
+ "signals_today_date": "2026-09-30",
  "is_halt": false,
- "signals_today_count": 1,
- "signal_of_day": {
-  "scan_date": "2026-09-29",
-  "strategy": "MOMENTUM",
-  "strategy_label": "順張り（ブレイク）",
-  "code": "8750",
-  "name": "第一生命HD",
-  "sector": "保険",
-  "reason": "20日高値ブレイク",
-  "carried_over": true
- },
+ "signals_today_count": 0,
+ "signal_of_day": null,
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
