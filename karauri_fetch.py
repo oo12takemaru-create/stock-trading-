@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from stale_guard import keep_newest
+
 JST = timezone(timedelta(hours=9))
 DOCS = Path(__file__).parent / "docs"
 OUT = DOCS / "karauri.json"
