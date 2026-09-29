@@ -60,64 +60,14 @@ jobs:
         run: |
           python - <<'PY' > report.md
           import json, sys
+          # ★鮮度の基準表は data_targets.py に1本化した★
+          #   トップのバッジ（make_board.py）と同じ表を使う。2か所に書くと必ずずれる。
+          from data_targets import TARGETS, ref_date, bizdays_between
           from datetime import datetime, timezone, timedelta
           JST = timezone(timedelta(hours=9))
           now = datetime.now(JST)
-          # 23:43のcronがGitHub側の遅延で日付をまたぐと、金曜更新の日次データが
-          # 月曜0時に「1営業日前」と誤検知される（2026-08-24 Issue #321で実際に発生）。
-          # 「その晩のチェック」として評価するため、7時間引いた時点の日付を基準にする。
-          today = (now - timedelta(hours=7)).date()
+          today = ref_date(now)
 
-          def bizdays_between(d1, d2):
-              """d1→d2 の営業日数（土日を除く。祝日は考慮しない=安全側に厳しめ）"""
-              n, cur = 0, d1
-              while cur < d2:
-                  cur += timedelta(days=1)
-                  if cur.weekday() < 5:
-                      n += 1
-              return n
-
-          # (ファイル, 表示名, 許容遅れ営業日数)
-          # 0 = 当日更新されていること。21:13 JSTチェックなので日次データは当日分が出ている前提。
-          #     祝日は誤検知しうるが「気づけない」より軽い害として受け入れる。
-          TARGETS = [
-              ("docs/heatmap.json",       "ヒートマップ/出来高", 0),
-              ("docs/radar.json",         "地合い判定",         0),
-              ("docs/ai_analysis.json",   "AI朝刊",             0),
-              ("docs/score3.json",       "3軸スコア",          0),
-              ("docs/cot.json",           "投機筋(COT)",        6),
-              ("docs/investor_flow.json", "投資部門別",         6),
-              ("docs/investor_hist.json", "投資部門別の履歴",   9),
-              ("docs/tenbagger.json",     "十倍株スキャナー",   6),
-              ("docs/karauri.json",       "空売り残高",         2),
-              ("docs/kessan.json",        "決算カレンダー",     2),
-              ("docs/gauge.json",         "暴落の傾斜計",       0),
-              ("docs/crash.json",         "着火判定",           0),
-              ("docs/shinyo.json",        "信用取引の需給",     6),
-              ("docs/shinyo_meigara.json","銘柄別信用残",       6),
-              ("docs/ai_record.json",     "AI・地合いの成績表", 2),
-              ("docs/sector_record.json", "セクター答え合わせ", 2),
-              ("docs/buyback.json",       "自社株買い開示",     2),
-              ("docs/board.json",        "トップの要約",       0),
-              ("docs/karauri_score.json","空売りの答え合わせ",  9),
-              ("docs/cot_score.json",    "投機筋の答え合わせ",  9),
-              ("docs/cot_scale.json",    "投機筋の10年の物差し", 9),
-              ("docs/event_score.json",  "相場の暦",           40),
-              ("docs/ai_weekly.json",     "週末版AI",           8),
-              # ★2026-09-23 追加★ どちらの監視からも漏れていた2本。
-              #   builder_example.json は 9/15 の初版のまま8日間動かず、
-              #   誰も気づかなかった（更新ステップが一度も成功していない。
-              #   GH_PAT が ruletrade-app を読めず404・引継ぎ.md §33）。
-              #   「失敗したら止まる」は作ってあったが、
-              #   **成功し続けているのに中身が動かない**を見ていなかった。
-              #   ※ equity_curve.json はここに置かない。この検査は土日しか
-              #     見ず祝日を知らないので、休場明けに必ず誤報が出る。
-              #     市場を知っている check_freshness.py 側に置いた
-              #     （portfolio_stats.json と必ず同じコミットで出るため）。
-              # 月次。event_score は 40 だが、40 だと1回飛んでも約2か月
-              # 気づけない（今回の8日間より悪い）。毎月1日起動なので 25。
-              ("docs/builder_example.json", "閾値を変えたら", 25),
-          ]
           problems = []
           rows = []
           for path, label, tol in TARGETS:
