@@ -281,7 +281,7 @@ def notify_all(subject, body):
     return any(results)
 
 
-def format_body(new_signals, result):
+def format_body(new_signals, result, continuing=None):
     now = datetime.now()
     lines = []
     lines.append(f"🎯 新規買いシグナル {len(new_signals)}件  ({now.strftime('%m/%d %H:%M')})")
@@ -305,6 +305,15 @@ def format_body(new_signals, result):
             lines.append(f"  目標   : ¥{s['target_price']:,.1f}")
         lines.append(f"  株数   : {s['shares']:,}株 (¥{s['cost']:,.0f})")
         lines.append(f"  根拠   : {s['info']}")
+    # ★2026-09-30: 前営業日から続いているものは、発注指示と混ぜずに最後にまとめる
+    if continuing:
+        lines.append("")
+        lines.append("=" * 36)
+        lines.append(f"🔁 継続中 {len(continuing)}件(新しい買い指示ではありません)")
+        lines.append("  持っているなら何もしない / 未約定なら同じ指示がまだ有効")
+        for s in sorted(continuing, key=lambda x: -x.get("run_day", 1)):
+            lines.append(f"  ・{s['name']} ({s['ticker']}) [{s['strategy']}] "
+                         f"{s.get('run_day', 2)}日目 ¥{s['entry_price']:,.1f}")
     lines.append("")
     lines.append("=" * 36)
     lines.append("①逆指値買い=指定値以上で自動約定 / 指値買い=指定値以下で約定")
@@ -931,34 +940,60 @@ def run_once(capital, risk_pct, dry_run=False, force=False, log_csv=None, prices
             return f"{scan_date}_{s['ticker']}_{s['strategy']}" not in seen
         return f"{s['ticker']}_{s['strategy']}" not in seen
 
+    # new_signals = 今日まだ記録していないもの(同じ日の重複はここで消える)
     new_signals = [s for s in signals if is_new(s)]
+
+    # ★2026-09-30: その中で、前営業日から続いているものを「継続」に分ける。
+    #   継続は記録はするが、それ単独では通知しない(新規の顔で毎日届くのを止める)。
+    #   判定は daily_scanner と共通の関数(ログ自体から計算・ログに列は足さない)。
+    if use_csv:
+        ds.annotate_continuation(new_signals, log_csv, scan_date)
+    fresh = [s for s in new_signals if not s.get("continuing")]
+    continuing = [s for s in new_signals if s.get("continuing")]
     log(f"スキャン完了: 地合い={result.get('regime')} "
-        f"全{len(signals)}件 / 新規{len(new_signals)}件")
+        f"全{len(signals)}件 / 未記録{len(new_signals)}件"
+        f"(新規{len(fresh)}・継続{len(continuing)})")
 
     if not new_signals:
         return
 
-    for s in new_signals:
+    for s in fresh:
         log(f"  ★新規: {s['name']} ({s['ticker']}) [{s['strategy']}] @¥{s['entry_price']:,.1f}")
+    for s in continuing:
+        log(f"  🔁継続: {s['name']} ({s['ticker']}) [{s['strategy']}] {s.get('run_day')}日目")
 
-    subject = f"🎯 新規買いシグナル {len(new_signals)}件 ({result.get('regime')})"
-    body = format_body(new_signals, result)
+    subject = f"🎯 新規買いシグナル {len(fresh)}件 ({result.get('regime')})"
+    body = format_body(fresh, result, continuing=continuing)
 
     if dry_run:
-        log("--dry-run: 通知せず本文表示")
-        print("\n" + "-" * 50)
-        print(f"Subject: {subject}")
-        print(body)
-        print("-" * 50 + "\n")
+        log("--dry-run: 通知も記録もせず本文表示")
+        if fresh:
+            print("\n" + "-" * 50)
+            print(f"Subject: {subject}")
+            print(body)
+            print("-" * 50 + "\n")
+        else:
+            log("  (新規が0件なので、本番ならこの回は通知しません)")
         return
 
-    if notify_all(subject, body):
-        if use_csv:
-            append_signals_csv(log_csv, new_signals, result)
-        else:
-            for s in new_signals:
-                seen.add(f"{s['ticker']}_{s['strategy']}")
-            save_seen_json(seen)
+    # ★2026-09-30: 記録と通知を切り離す。記録は**通知の成否に関係なく必ず全件**。
+    #   以前は通知に成功したときだけ記録していたため、
+    #   ・通知が全チャネル失敗した回のシグナルがログから消えていた(欠落に気づけない型の穴)
+    #   ・継続を通知しないようにすると、継続ぶんの行までログから消えてしまう
+    #   という2つの問題があった。ログは遵守率レポート・サイト履歴・相場フィルタ検証が読む。
+    if use_csv:
+        append_signals_csv(log_csv, new_signals, result)
+
+    if fresh:
+        if not notify_all(subject, body):
+            log("⚠ 通知が全チャネルで失敗しました(シグナルは signals_log.csv に記録済み)")
+    else:
+        log("新規なし(継続のみ)のため通知しません")
+
+    if not use_csv:
+        for s in new_signals:
+            seen.add(f"{s['ticker']}_{s['strategy']}")
+        save_seen_json(seen)
 
 
 # ============================================================================
