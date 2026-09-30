@@ -1,32 +1,32 @@
 {
- "target_date": "2026-09-25",
- "generated_at": "2026-09-30T01:58:57+09:00",
+ "target_date": "2026-09-29",
+ "generated_at": "2026-09-30T18:02:16+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
+  {
+   "judge": "watch",
+   "code": "6594",
+   "name": "ニデック",
+   "sector": "モーター",
+   "kairi": -14.35
+  },
   {
    "judge": "watch",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -13.76
+   "kairi": -13.05
   },
   {
    "judge": "watch",
-   "code": "4755",
-   "name": "楽天グループ",
-   "sector": "IT",
-   "kairi": -8.39
-  },
-  {
-   "judge": "watch",
-   "code": "7532",
-   "name": "パンパシHD",
-   "sector": "小売",
-   "kairi": -7.43
+   "code": "4519",
+   "name": "中外製薬",
+   "sector": "医薬品",
+   "kairi": -8.88
   }
  ],
- "asof": "2026-09-28",
- "stale": true,
+ "asof": "2026-09-30",
+ "stale": false,
  "signals_today_date": "2026-09-30",
  "is_halt": false,
  "signals_today_count": 0,
