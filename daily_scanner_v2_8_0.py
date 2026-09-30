@@ -1312,6 +1312,84 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None, balance_linked
 # Markdown レポート生成
 # ============================================================================
 
+# ============================================================
+# ★継続シグナルの判定 (2026-09-30 追加)
+# ------------------------------------------------------------
+# 同じ銘柄×同じ戦略のシグナルが、前営業日にも出ていたら「継続」とみなす。
+# 例: ニデック(6594) MOMENTUM が 9/18〜9/25 に6日連続、価格まで同じ指示で出ていた。
+#
+# バックテストは建玉中の同じ銘柄に再エントリーしないので、継続日には何もしない。
+# 一方これまでの通知は、継続日も「新規」の顔で届けていた＝買い増し・入り直しを誘う。
+# → 通知は新規だけにし、継続は「継続中」枠にまとめて見せる。
+#
+# ただし継続を**消しはしない**。MOMENTUM は翌朝の寄りがピボット以上でないと約定しないので、
+# 初日に買えなかった人にとって2日目はまだ有効な機会だから。
+#
+# ⚠ 判定は signals_log.csv を読むときに行い、**ログには列を足さない**。
+#   このCSVは遵守率レポート・サイトの履歴ページ・マージ処理・相場フィルタ検証が読んでいて、
+#   列を増やすと全部に波及するため。ログ自体から毎回計算でき、過去分にも遡って効く。
+#   ダッシュボード(docs/index.html の computeContinuation)も同じ定義。片方を直したら両方直す。
+#
+# 定義:
+#   前営業日 = ログに現れる scan_date のうち、今日より前で最も新しい日
+#              (シグナル無しのスキャンも "(no signal)" 行として記録されるので、平日は必ず現れる)
+#   継続     = (銘柄, 戦略) が前営業日のログにもある。1日でも途切れたら次は新規。
+#   run_day  = 今日を含めて何営業日連続か(新規は1)
+# ============================================================
+
+def load_signal_runs(csv_path, today):
+    """signals_log.csv から、前営業日に出ていた (銘柄, 戦略) → 連続日数 を返す。
+
+    today: 'YYYY-MM-DD'。これより前の日付だけを見る(当日分は無視)。
+    戻り値: {(ticker, strategy): 前営業日までの連続日数}。読めなければ空。
+    """
+    import csv as _csv
+    if not csv_path or not os.path.exists(csv_path):
+        return {}
+    by_date = {}
+    try:
+        with open(csv_path, encoding="utf-8-sig", newline="") as f:
+            for row in _csv.DictReader(f):
+                d = (row.get("scan_date") or "").strip()
+                if not d or d >= today:
+                    continue
+                keys = by_date.setdefault(d, set())
+                tk = (row.get("ticker") or "").strip()
+                st = (row.get("strategy") or "").strip()
+                if tk and st and not st.startswith("("):
+                    keys.add((tk, st))
+    except Exception as e:
+        print(f"  ⚠ signals_log.csv の読込に失敗(継続判定をスキップ): {e}", flush=True)
+        return {}
+
+    dates = sorted(by_date)          # 過去の営業日(古い順)
+    if not dates:
+        return {}
+    runs = {}
+    for key in by_date[dates[-1]]:   # 前営業日に出ていたものだけが継続候補
+        n = 0
+        for d in reversed(dates):
+            if key in by_date[d]:
+                n += 1
+            else:
+                break
+        runs[key] = n
+    return runs
+
+
+def annotate_continuation(signals, csv_path, today):
+    """各シグナルに continuing(bool) と run_day(今日で何営業日目か) を付ける。
+
+    ログが無い・読めないときは全部を新規扱いにする(通知を止める側には倒さない)。
+    """
+    runs = load_signal_runs(csv_path, today)
+    for s in signals:
+        prev = runs.get((s.get("ticker", ""), s.get("strategy", "")), 0)
+        s["continuing"] = prev > 0
+        s["run_day"] = prev + 1
+    return signals
+
+
 def generate_markdown_report(result, concise=False):
     now = datetime.fromisoformat(result["timestamp"])
     weekday_jp = ["月", "火", "水", "木", "金", "土", "日"][now.weekday()]
@@ -1363,12 +1441,22 @@ def generate_markdown_report(result, concise=False):
         lines.append("> 相場環境が改善するまで待機してください。")
         return "\n".join(lines)
 
-    lines.append(f"## 🎯 本日のシグナル ({len(signals)} 件)")
+    # ★2026-09-30: 前営業日から続いているシグナルは「継続中」に分ける。
+    #   annotate_continuation() を通していない場合(continuing キー無し)は全部新規扱い。
+    fresh = [s for s in signals if not s.get("continuing")]
+    cont = [s for s in signals if s.get("continuing")]
+
+    if fresh:
+        lines.append(f"## 🎯 新規シグナル ({len(fresh)} 件)")
+    else:
+        lines.append("## 🎯 新規シグナル: **なし**")
+        lines.append("")
+        lines.append("> 今日新しく点灯した銘柄はありません（下の「継続中」だけです）。")
     lines.append("")
 
-    # 戦略別にグルーピング
+    # 戦略別にグルーピング(新規だけ。継続中は下で別枠)
     by_strategy = {}
-    for s in signals:
+    for s in fresh:
         by_strategy.setdefault(s["strategy"], []).append(s)
 
     strategy_emoji = {"BNF-LITE": "📉", "MOMENTUM": "🚀", "MINERVINI": "📈"}
@@ -1396,13 +1484,34 @@ def generate_markdown_report(result, concise=False):
             )
         lines.append("")
 
-    # 発注用コピペブロック(SBI証券アプリ向け)
-    if not concise and signals:
+    # 継続中(前営業日から条件が続いているもの)
+    if cont:
+        lines.append(f"## 🔁 継続中 ({len(cont)} 件) ― 前営業日から条件が続いているもの")
+        lines.append("")
+        lines.append("> **新しい買い指示ではありません。**")
+        lines.append("> ・すでに持っているなら何もしない（買い増し・入り直しはバックテストに無い行動です）")
+        lines.append("> ・まだ約定していないなら、同じ指示がそのまま有効です"
+                     "（MOMENTUM は寄りがピボット以上で約定）")
+        lines.append("")
+        lines.append("| 銘柄 | 戦略 | 連続 | 買値 | 損切り |")
+        lines.append("|---|---|---|---|---|")
+        for s in sorted(cont, key=lambda x: -x.get("run_day", 1)):
+            lines.append(
+                f"| {s['name']} ({s['ticker'].replace('.T','')}) "
+                f"| {s['strategy']} "
+                f"| {s.get('run_day', 2)}日目 "
+                f"| ¥{s['entry_price']:,.0f} "
+                f"| ¥{s['stop_price']:,.0f} |"
+            )
+        lines.append("")
+
+    # 発注用コピペブロック(SBI証券アプリ向け)― 新規だけ
+    if not concise and fresh:
         lines.append("---")
-        lines.append("## 📱 SBI証券 発注用メモ")
+        lines.append("## 📱 SBI証券 発注用メモ（新規のみ）")
         lines.append("")
         lines.append("```")
-        for i, s in enumerate(signals, 1):
+        for i, s in enumerate(fresh, 1):
             lines.append(f"【{i}】{s['name']} ({s['ticker'].replace('.T','')})")
             lines.append(f"   買い指値: ¥{s['entry_price']:,.0f}")
             lines.append(f"   逆指値:   ¥{s['stop_price']:,.0f}")
@@ -1447,6 +1556,9 @@ def parse_args():
                    help="簡潔モード(説明・メモを省略)")
     p.add_argument("--json-output", default=None,
                    help="JSON形式での出力ファイル")
+    p.add_argument("--log-csv", default="signals_log.csv",
+                   help="継続シグナルの判定に使う履歴(前営業日との比較)。"
+                        "無ければ全部を新規扱い")
     return p.parse_args()
 
 
@@ -1463,6 +1575,14 @@ def main():
             print(f"  スキャン中... {n}/{total} ({name})", flush=True)
 
     result = scan(capital=args.capital, risk_pct=args.risk, progress_callback=progress)
+
+    # ★前営業日から続いているシグナルに印を付ける(Issue本文で「継続中」に分けるため)
+    if result.get("signals") and "error" not in result:
+        today = str(result.get("timestamp", datetime.now().isoformat()))[:10]
+        annotate_continuation(result["signals"], args.log_csv, today)
+        n_cont = sum(1 for s in result["signals"] if s.get("continuing"))
+        if n_cont:
+            print(f"  🔁 継続中 {n_cont}件 / 新規 {len(result['signals']) - n_cont}件", flush=True)
 
     # Markdownレポート
     report = generate_markdown_report(result, concise=args.concise)
