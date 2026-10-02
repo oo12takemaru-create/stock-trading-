@@ -1,33 +1,33 @@
 {
- "target_date": "2026-09-30",
- "generated_at": "2026-10-01T21:03:12+09:00",
+ "target_date": "2026-10-01",
+ "generated_at": "2026-10-02T18:02:38+09:00",
  "jiai": "強気(25日線・75日線の上)",
  "rows": [
+  {
+   "judge": "signal",
+   "code": "6594",
+   "name": "ニデック",
+   "sector": "モーター",
+   "kairi": -19.13
+  },
   {
    "judge": "watch",
    "code": "4385",
    "name": "メルカリ",
    "sector": "フリマEC",
-   "kairi": -11.61
-  },
-  {
-   "judge": "watch",
-   "code": "6594",
-   "name": "ニデック",
-   "sector": "モーター",
-   "kairi": -9.98
+   "kairi": -10.46
   },
   {
    "judge": "watch",
    "code": "4478",
    "name": "フリー",
    "sector": "SaaS",
-   "kairi": -8.67
+   "kairi": -8.46
   }
  ],
- "asof": "2026-10-01",
+ "asof": "2026-10-02",
  "stale": false,
- "signals_today_date": "2026-10-01",
+ "signals_today_date": "2026-10-02",
  "is_halt": false,
  "signals_today_count": 0,
  "signal_of_day": null,
