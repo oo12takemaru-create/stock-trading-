@@ -81,6 +81,7 @@ MAX_REUSE_DAYS = 30
 
 
 LAST_GOOD = OUT.parent / "gauge_last_good.json"
+HIST_KEEP = 60          # 点灯数の履歴（日次）。「前日より増えた」を出すのに要る
 
 
 def load_prev():
@@ -492,9 +493,24 @@ def main():
     if unknown:
         msg += f"（{unknown}個は今回データを取得できず未判定。灯っている可能性を排除できない）"
 
+    # ★点灯数の日次履歴★
+    #   「前日より1つ増えた」をトップに出すために要る。gauge.json は今日の値しか
+    #   持っていなかったので、ここに貯める。1日1行（同じ日は上書き）・60日保持。
+    #   未判定がある日は lit を信用できないので judged も一緒に残す。
+    today = datetime.now(JST).strftime("%Y-%m-%d")
+    hist = []
+    try:
+        hist = [h for h in (json.loads(OUT.read_text(encoding="utf-8")).get("history") or [])
+                if h.get("d") != today]
+    except Exception:
+        pass
+    hist.append({"d": today, "lit": lit, "judged": judged})
+    hist = sorted(hist, key=lambda h: h["d"])[-HIST_KEEP:]
+
     data = {
         "updated": datetime.now(JST).isoformat(timespec="seconds"),
         "lit": lit, "total": len(gauges), "judged": judged, "unknown": unknown,
+        "history": hist,
         "stage_key": key, "stage": label, "message": msg,
         "gauges": gauges,
         # 第9章のステージは "phase"。トップレベルの "stage" は傾斜計の判定ラベル
