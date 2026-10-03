@@ -58,9 +58,19 @@ def main():
     if d:
         files["radar.json"] = pick(d, ["regime", "signal_count", "is_halt", "n225", "vix", "updated"])
 
+    # 地合いの日次履歴。トップのヒーローが「7日連続」と前日比の矢印に使う。
+    # 元ファイルは400日まで伸びるので、必要な25日ぶんだけ積む（トップは1fetchを守る）。
+    d = load("radar_history.json")
+    if d and d.get("items"):
+        files["radar_history.json"] = {"items": d["items"][-25:]}
+
     d = load("gauge.json")
     if d:
         files["gauge.json"] = pick(d, ["lit", "total", "stage", "stage_key", "updated"])
+        # 前日の点灯数。「3つ目に点灯」をトップで出すのに使う（履歴ごと配ると重い）
+        h = d.get("history") or []
+        if len(h) > 1:
+            files["gauge.json"]["lit_prev"] = h[-2].get("lit")
 
     d = load("crash.json")
     if d:

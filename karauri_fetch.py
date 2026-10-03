@@ -202,14 +202,26 @@ def main():
         g["tops"] = sorted(g["tops"], key=lambda x: -x["r"])[:5]
 
     kinds = {k: sum(1 for m in moves if m["kind"] == k) for k in ("up", "down", "new", "out")}
+
+    # ★日次の件数を60日ぶん残す★
+    #   karauri.json は「今日のスナップショット」で、昨日の値を持っていなかった。
+    #   そのため画面に「昨日からどう動いたか」を出せず、今日の278件が多いのか
+    #   少ないのかが読者に分からなかった。状態ファイルに貯めてJSONに出す。
+    rep_date = latest_date and f"{latest_date[:4]}-{latest_date[4:6]}-{latest_date[6:]}"
+    hist = [h for h in (state.get("history") or []) if h.get("d") != rep_date]
+    hist.append({"d": rep_date, "stocks": len(stocks), "inst": len(by_inst), **kinds})
+    hist.sort(key=lambda h: h["d"] or "")
+    state["history"] = hist[-60:]
     data = {
         "updated": datetime.now(JST).isoformat(timespec="seconds"),
-        "report_date": latest_date and f"{latest_date[:4]}-{latest_date[4:6]}-{latest_date[6:]}",
+        "report_date": rep_date,
         "summary": {"stocks": len(stocks), "positions": len(state["positions"]),
                     "institutions": len(by_inst), **kinds},
         "moves": moves[:100],
         "stocks": stocks,
         "inst": inst,
+        # 直近60営業日ぶんの件数。画面の「前日比」と「2か月で最多」はこれだけを見る
+        "history": state["history"],
         "note": "空売り残高割合は発行済株式総数に対する割合。0.5%以上の大口のみ報告義務があるため、実際の空売り総量はこれより多い。公表は計算日の2営業日後。",
     }
     DOCS.mkdir(exist_ok=True)
