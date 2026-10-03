@@ -195,11 +195,47 @@ def drop_secondary_indexes(log=print):
     log("  副索引を外した（%s）" % ", ".join(SECONDARY_INDEXES))
 
 
+#: 索引の張り直しの再試行回数
+INDEX_ATTEMPTS = 4
+
+
 def rebuild_secondary_indexes(log=print):
-    """投入後に副索引を張り直す。1本ずつ呼ぶ（1回のHTTPを長くしないため）。"""
+    """投入後に副索引を張り直す。1本ずつ呼ぶ（1回のHTTPを長くしないため）。
+
+    ★再試行する★（2026-10-03）
+      2026-10-02 の月次で、5本目（high_52w_ratio）が Supabase の
+      一過性の HTTP 500 で落ちた。この関数は drop_secondary_indexes の
+      **あと**に呼ばれるので、ここで落ちると**索引を外したまま**終わる。
+      データは全部入っているのに索引が無い、という気づきにくい壊れ方になり、
+      実際に約4日間 high_52w_ratio が欠けていた（会員画面の検索が遅くなるだけで
+      エラーは出ないので、誰も気づかない）。
+      後続の「公開数字の再計算」なども全部飛ばされた。
+
+      SQL 側は `create index if not exists` なので、**何度呼んでも安全**。
+      だから粘ってよい。それでも駄目なら、どの索引が残ったかを言って止まる。
+    """
     for name in SECONDARY_INDEXES:
         t0 = time.time()
-        _rpc("rebuild_metrics_index", {"p_name": name})
+        last = None
+        for i in range(INDEX_ATTEMPTS):
+            try:
+                _rpc("rebuild_metrics_index", {"p_name": name})
+                last = None
+                break
+            except (urllib.error.URLError, OSError) as e:   # HTTPError も URLError の仲間
+                last = e
+                log("  索引 %s: 試行 %d/%d 失敗（%s）" % (name, i + 1, INDEX_ATTEMPTS, e))
+                if i < INDEX_ATTEMPTS - 1:
+                    time.sleep(10 * (i + 1))
+        if last is not None:
+            rest = SECONDARY_INDEXES[SECONDARY_INDEXES.index(name):]
+            raise SupabaseError(
+                "索引 %s を %d 回試しても作れませんでした（%s）。\n"
+                "  ★索引を外したままです★ データは入っていますが、次が欠けています: %s\n"
+                "  直し方: supabase_io.rebuild_secondary_indexes() をもう一度呼ぶ"
+                "（if not exists なので何度呼んでも安全）。"
+                % (name, INDEX_ATTEMPTS, last, ", ".join(rest))
+            )
         log("  索引 %s を作成 (%.0f秒)" % (name, time.time() - t0))
 
 
