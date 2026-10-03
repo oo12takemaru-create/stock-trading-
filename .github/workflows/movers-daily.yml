@@ -1,0 +1,66 @@
+name: Movers Daily (kaburadar.jp)
+
+# 東証全銘柄の日足 → docs/prices.json（全銘柄の値動き）
+#                 → docs/movers.json / docs/movers_hist/（±5%動いた銘柄と「その日あったこと」）
+# 企画書: kaburadar\企画書_100万PV_銘柄エンジン3本_2026-10-03.md §2エンジン③・§4
+#
+# 平日 18:07 JST (= 09:07 UTC)。キリの良い分は Actions が混むので避ける（heatmap.yml と同じ考え方）。
+# 所要は約15分（3,700銘柄を200ずつ・間に2秒）。所要時間はログの最後に出る。
+# エンジン①のサイト再生成（20:30 JST）より前に終わっていればよい。
+on:
+  schedule:
+    - cron: '7 9 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: movers-daily
+  cancel-in-progress: false
+
+jobs:
+  movers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas openpyxl   # openpyxl は JPX 銘柄一覧(xlsx)用
+
+      # 実行直前に最新を取り込む（tdnet_list.json / karauri.json などを照合に使うため）
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Build prices / movers
+        run: python -X utf8 movers_daily.py
+
+      - name: Commit prices / movers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/prices.json docs/movers.json docs/movers_hist
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📈 全銘柄の値動きと急騰・急落を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
