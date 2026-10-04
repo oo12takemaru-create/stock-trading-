@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from kessan_flash import (forecast_from_text, fc_rev, fy_from_title,  # noqa: E402
-                          kind_of, progress, verdict)
+from kessan_flash import (extract, forecast_from_text, fc_rev,  # noqa: E402
+                          fy_from_title, kind_of, progress, verdict)
 
 NG = 0
 
@@ -97,6 +97,37 @@ eq(fc_rev({"q": "本決算", "fc_op": 485.0, "fc_sales": 3195.0}, None), "新規
 eq(fc_rev({"q": "1Q", "fc_op": None, "fc_sales": None}, None), "なし", "予想を出していない")
 eq(progress(base), 79.9, "進捗率（巴工業 6309）")
 eq(progress({"q": "3Q", "fc_op": -552.0, "op": -300.0}), None, "赤字予想の進捗は出さない")
+
+
+# ---- 売上高のタグ違い（2026-10-04 に直した）
+#   小売の「営業収益」は OperatingRevenues、IFRS には NetSalesIFRS の会社がある。
+#   NetSales / SalesIFRS に決め打ちしていた頃は売上高が空になり、判定も出せなかった。
+def summary_zip(kind, tags):
+    """最小のサマリーixbrlを1枚だけ入れたZIPを作る（実物の短信と同じ書式）"""
+    import io
+    import zipfile
+    body = "".join(
+        f'<ix:nonFraction name="tse-ed-t:{n}" contextRef="{c}" scale="6" decimals="-6">{v}</ix:nonFraction>'
+        for n, c, v in tags)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(f"XBRLData/Summary/tse-{kind}-00000-20260925-ixbrl.htm", f"<html>{body}</html>")
+    return buf.getvalue()
+
+
+CUR = "CurrentAccumulatedQ2Duration_ConsolidatedMember_ResultMember"
+PRI = "PriorAccumulatedQ2Duration_ConsolidatedMember_ResultMember"
+q2 = ("QuarterlyPeriod", "CurrentAccumulatedQ2Instant", "2")
+r = extract(summary_zip("qcedjpsm", [
+    q2, ("OperatingRevenues", CUR, "119,023"), ("ChangeInOperatingRevenues", CUR, "6.7"),
+    ("OperatingIncome", CUR, "5,708"), ("ChangeInOperatingIncome", CUR, "-2.6")]))
+eq((r["sales"], r["sales_yoy"], verdict(r["sales_yoy"], r["op_yoy"])), (119023.0, 6.7, "増収減益"),
+   "営業収益で売上を出す会社（ハローズ 2742）")
+
+r = extract(summary_zip("qcedifsm", [
+    q2, ("NetSalesIFRS", CUR, "1,986,357"), ("ChangeInNetSalesIFRS", CUR, "2.4"),
+    ("OperatingIncomeIFRS", CUR, "100,000"), ("OperatingIncomeIFRS", PRI, "120,000")]))
+eq((r["sales"], r["sales_yoy"]), (1986357.0, 2.4), "IFRSで NetSalesIFRS を使う会社（ニデック 6594）")
 
 print(f"{'NG ' + str(NG) + '件' if NG else '全て一致 ✓'}")
 sys.exit(1 if NG else 0)

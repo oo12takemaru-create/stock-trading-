@@ -128,6 +128,15 @@ def yoy(change_f, cur_f=None, prior_f=None):
 STD_NAME = {"": "日本基準", "IFRS": "IFRS", "US": "米国基準"}
 SUFFIX = {"jp": "", "if": "IFRS", "us": "US"}
 SALES = {"": "NetSales", "IFRS": "SalesIFRS", "US": "NetSalesUS"}
+# 売上高のタグは会社によって違う。上から順に探し、最初に見つかったものを使う。
+#   小売・電鉄などは「営業収益」で OperatingRevenues（2026-09-25 ハローズ 2742）。
+#   IFRS は SalesIFRS と NetSalesIFRS の2通りがある（2026-09-30 ニデック 6594 は後者）。
+#   決め打ちしていた頃は、292件中10件で売上高が丸ごと空になり、判定も出せなかった。
+SALES_ALT = {
+    "": ["NetSales", "OperatingRevenues"],
+    "IFRS": ["SalesIFRS", "NetSalesIFRS", "RevenueIFRS", "OperatingRevenuesIFRS"],
+    "US": ["NetSalesUS", "OperatingRevenuesUS", "RevenuesUS"],
+}
 OP = {"": "OperatingIncome", "IFRS": "OperatingIncomeIFRS", "US": "OperatingIncomeUS"}
 ORD = {"": "OrdinaryIncome", "IFRS": "ProfitBeforeTaxIFRS", "US": "IncomeBeforeIncomeTaxesUS"}
 NP_CONS = {"": "ProfitAttributableToOwnersOfParent",
@@ -246,18 +255,24 @@ def extract(zip_bytes):
     def f(name, ctx):
         return fs.get((name, ctx))
 
+    # 売上高のタグを決める。実績→予想の順に、数字が入っている最初の候補を使う
+    sales_key = next((k for k in SALES_ALT.get(std, [SALES[std]])
+                      for ctx in (cur, fcc)
+                      if (fs.get((k, ctx)) or {}).get("shown") is not None),
+                     SALES[std])
+
     rec = {
         "q": QMAP.get(qn, "本決算"),
         "cons": cons,
         "std": STD_NAME[std],
-        "sales": mil(f(SALES[std], cur)),
+        "sales": mil(f(sales_key, cur)),
         "op": mil(f(OP[std], cur)),
         "ord": mil(f(ORD[std], cur)),
         "np": mil(f(np_key, cur)),
-        "sales_yoy": yoy(f("ChangeIn" + SALES[std], cur), f(SALES[std], cur), f(SALES[std], pri)),
+        "sales_yoy": yoy(f("ChangeIn" + sales_key, cur), f(sales_key, cur), f(sales_key, pri)),
         "op_yoy": yoy(f("ChangeIn" + OP[std], cur), f(OP[std], cur), f(OP[std], pri)),
         "np_yoy": yoy(f("ChangeIn" + np_key, cur), f(np_key, cur), f(np_key, pri)),
-        "fc_sales": mil(f(SALES[std], fcc)),
+        "fc_sales": mil(f(sales_key, fcc)),
         "fc_op": mil(f(OP[std], fcc)),
         "fc_np": mil(f(np_key, fcc)),
     }
