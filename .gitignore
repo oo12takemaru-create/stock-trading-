@@ -115,3 +115,9 @@ investor_cache/
 !docs/investor_hist.json
 !docs/investor_score.json
 !docs/karauri_hist.json
+
+# 決算速報（エンジン②）。TDnetの一覧は約1か月で消えるので、月別履歴が資産
+!docs/tdnet_list.json
+!docs/kessan_flash.json
+!docs/kessan_flash_hist/
+!docs/kessan_flash_hist/*.json
