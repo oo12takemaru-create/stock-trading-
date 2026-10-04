@@ -1,0 +1,80 @@
+name: Kessan Flash (kaburadar.jp)
+
+# 決算短信の数字を当日中に出す（株レーダー エンジン②）。
+#   tdnet_list.py  : TDnetの当日一覧を貯める → docs/tdnet_list.json（直近10営業日・値動き③と共用）
+#   kessan_flash.py: 決算短信のXBRLから数字を抜く → docs/kessan_flash.json（直近60日）
+#                                                 → docs/kessan_flash_hist/YYYY-MM.json（月別・追記のみ）
+# TDnetの一覧は約1か月で消えるので、月別履歴が資産になる。
+#
+# 15:00の決算集中に合わせて 15:30 / 16:30 / 18:30 JST の3回。
+# daily-signal.yml には一切触らない。
+on:
+  schedule:
+    - cron: '30 6,7,9 * * 1-5'   # 06:30/07:30/09:30 UTC = 15:30/16:30/18:30 JST（平日）
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: '取り込む日（YYYY-MM-DD を空白区切りで複数可。空なら当日）。検証やバックフィル用'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kessan-flash
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する★
+          #   bypass に入れられるのは Deploy key だけなので、GITHUB_TOKEN の
+          #   push（github-actions[bot]）は「PR 必須」に弾かれる。
+          #   ★DEPLOY_KEY が未設定なら空文字＝無視され、今までどおり token で動く。★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 標準ライブラリだけで動く（pip install 不要）
+      - name: Test parser
+        run: python -X utf8 tests/test_kessan_flash.py
+
+      - name: Fetch TDnet list
+        env:
+          DATES: ${{ github.event.inputs.dates }}
+        run: |
+          # 取れなくても前回のファイルは残る（tdnet_list.py が空で上書きしない）。
+          # その場合も kessan_flash.py は手元の一覧で動けるので、ここでは止めない
+          python -X utf8 tdnet_list.py $DATES || echo "::warning::TDnetの一覧を取得できなかった（前回分で続行）"
+
+      - name: Build kessan_flash
+        env:
+          DATES: ${{ github.event.inputs.dates }}
+        run: python -X utf8 kessan_flash.py $DATES
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/tdnet_list.json docs/kessan_flash.json docs/kessan_flash_hist/
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📈 決算速報を更新 ($(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M'))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1

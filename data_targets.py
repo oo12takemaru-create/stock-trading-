@@ -40,6 +40,8 @@ TARGETS = [
     ("docs/ai_record.json",     "AI・地合いの成績表", 2),
     ("docs/sector_record.json", "セクター答え合わせ", 2),
     ("docs/buyback.json",       "自社株買い開示",     2),
+    # 決算速報は平日に3回走る。決算が0件の日も updated は進むので当日更新を求める
+    ("docs/kessan_flash.json",  "決算速報",           0),
     ("docs/board.json",         "トップの要約",       0),
     ("docs/karauri_score.json", "空売りの答え合わせ", 9),
     ("docs/cot_score.json",     "投機筋の答え合わせ", 9),
