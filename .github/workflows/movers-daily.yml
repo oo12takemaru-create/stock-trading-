@@ -7,9 +7,14 @@ name: Movers Daily (kaburadar.jp)
 # 平日 18:07 JST (= 09:07 UTC)。キリの良い分は Actions が混むので避ける（heatmap.yml と同じ考え方）。
 # 所要は約15分（3,700銘柄を200ずつ・間に2秒）。所要時間はログの最後に出る。
 # エンジン①のサイト再生成（20:30 JST）より前に終わっていればよい。
+#
+# ★19:37 JST は予備の回★ 2026-10-05、18:07 の定期実行が起動されず（GitHub 側の取りこぼし）、
+# サイトの銘柄ページに10/2の株価が出たまま 10/5 の再生成が走った。予備の回は、その日の分が
+# もうできていれば（prices.json の trade_date が今日）何もしないで終わる。
 on:
   schedule:
     - cron: '7 9 * * 1-5'
+    - cron: '37 10 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -31,23 +36,38 @@ jobs:
           # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
+      # 予備の回（19:37）は、今日の分ができていれば以降を飛ばす。手動実行は常に最後まで走る
+      - name: Already done today?
+        id: done
+        if: github.event_name == 'schedule'
+        run: |
+          today=$(TZ=Asia/Tokyo date +%F)
+          got=$(python3 -c "import json;print(json.load(open('docs/prices.json',encoding='utf-8')).get('trade_date',''))" 2>/dev/null || true)
+          echo "今日 ${today} / prices.json ${got:-なし}"
+          if [ "$got" = "$today" ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "今日の分はできているので終わります"; fi
+
       - name: Set up Python 3.11
+        if: steps.done.outputs.skip != '1'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
+        if: steps.done.outputs.skip != '1'
         run: pip install yfinance pandas openpyxl   # openpyxl は JPX 銘柄一覧(xlsx)用
 
       # 実行直前に最新を取り込む（tdnet_list.json / karauri.json などを照合に使うため）
       - name: Pull latest
+        if: steps.done.outputs.skip != '1'
         run: git pull --rebase origin main
 
       - name: Build prices / movers
+        if: steps.done.outputs.skip != '1'
         run: python -X utf8 movers_daily.py
 
       - name: Commit prices / movers
+        if: steps.done.outputs.skip != '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
