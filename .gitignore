@@ -126,3 +126,5 @@ investor_cache/
 !docs/shinyo_daily.json
 !docs/shinyo_daily/
 !docs/shinyo_daily/*.json
+!docs/shinyo_weekly.json
+!docs/shinyo_weekly_seed.json
