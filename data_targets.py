@@ -36,7 +36,9 @@ TARGETS = [
     ("docs/gauge.json",         "暴落の傾斜計",       0),
     ("docs/crash.json",         "着火判定",           0),
     ("docs/shinyo.json",        "信用取引の需給",     6),
-    ("docs/shinyo_meigara.json", "銘柄別信用残",      6),
+    # 2026-09-25 から日次公表。週次の頃の 6 のままだと、止まっても1週間以上気づけない
+    ("docs/shinyo_meigara.json", "銘柄別信用残",      2),
+    ("docs/shinyo_daily.json",   "銘柄別信用残（日次）", 2),
     ("docs/ai_record.json",     "AI・地合いの成績表", 2),
     ("docs/sector_record.json", "セクター答え合わせ", 2),
     ("docs/buyback.json",       "自社株買い開示",     2),

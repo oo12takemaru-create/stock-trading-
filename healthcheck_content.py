@@ -131,6 +131,8 @@ CHECKS = [
     ("docs/karauri.json",      "空売り残高",             count_check("stocks", 700, "銘柄")),
     ("docs/tenbagger.json",    "十倍株スキャナー",       count_check("items", 10, "銘柄")),
     ("docs/investor_flow.json", "投資部門別",            count_check("items", 4, "主体")),
+    # 平常は約4,250銘柄。PDFの様式が変わって行を読み落とすと、まずここが減る
+    ("docs/shinyo_daily.json", "銘柄別信用残（日次）",   count_check("items", 2000, "銘柄")),
 ]
 
 

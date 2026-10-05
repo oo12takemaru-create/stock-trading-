@@ -6,7 +6,10 @@ name: Shinyo Weekly (kaburadar.jp)
 # JST 19:07 = UTC 10:07
 on:
   schedule:
-    - cron: '7 10 * * 2,3,4'
+    # 2026-09-25 から銘柄別の信用残は日次公表（JPX margin/01.html・16:00目安）。
+    # 平日 17:00 JST と、遅れた日のための 18:00 JST。2回目は取得済みなら何もしない
+    - cron: '0 8 * * 1-5'
+    - cron: '0 9 * * 1-5'
   # pipeline-*.yml から順序付きで呼べるようにする（2026-09-09・実行基盤）
   # 既存の schedule / workflow_dispatch はそのまま残す
   workflow_call:
@@ -49,15 +52,21 @@ jobs:
 
       # 銘柄別の週末残高（PDF公表）。市場全体とは別ファイル・別スクリプト。
       # こちらが失敗しても shinyo.json の公開は止めない
-      - name: Build shinyo_meigara.json
-        run: python shinmei_fetch.py || echo "::warning::銘柄別信用残の取得に失敗（次回に持ち越し）"
+      # ★失敗を warning で握りつぶさない★
+      #   以前は `|| echo warning` で、JPXのページ構成が変わったあと2週間 success のまま
+      #   止まっていた（2026-09-25〜10-05）。市場全体の shinyo.json は公開したいので
+      #   この段は先へ進め、コミットのあとでジョブを失敗にする。
+      - name: Build shinyo_meigara.json (日次)
+        id: meigara
+        continue-on-error: true
+        run: python shinmei_fetch.py
 
 
       - name: Commit shinyo.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/shinyo.json docs/shinyo_state.json docs/shinyo_meigara.json
+          git add -f docs/shinyo.json docs/shinyo_state.json docs/shinyo_meigara.json                      docs/shinyo_daily.json docs/shinyo_daily/
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
@@ -65,3 +74,9 @@ jobs:
           git commit -m "💳 信用取引の需給を更新"
           git pull --rebase origin main
           git push
+
+      - name: Fail if shinyo_meigara failed
+        if: steps.meigara.outcome == 'failure'
+        run: |
+          echo "::error::銘柄別の信用残を取り込めませんでした。上の Build shinyo_meigara.json のログに理由があります"
+          exit 1
