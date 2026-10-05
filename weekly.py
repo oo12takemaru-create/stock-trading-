@@ -17,6 +17,13 @@
 ■ 土日は市場が動かないので、金曜引け時点の数値で作る（ページにも明記する）
 
 使い方: python weekly.py sat|sun [出力パス]
+
+API を使わない2段階モード（2026-10-05〜 本番。Claude Code 定期実行が文章を書く）:
+  python weekly.py --prompt-out PROMPT.txt sat|sun docs/ai_weekly.json
+      → 完成プロンプトを書き出して終了（APIは呼ばない）
+  python weekly.py --answer ai_answer.json [--model-label "..."] sat|sun docs/ai_weekly.json
+      → 回答JSONを検証（禁止語）して書き出す。回答が不正なら exit 2
+  （sat の別名 review / sun の別名 outlook も受け付ける）
 """
 import json
 import os
@@ -30,8 +37,13 @@ JST = timezone(timedelta(hours=9))
 PAGES = "https://oo12takemaru-create.github.io/stock-trading-"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0)"}
 
-MODE = (sys.argv[1] if len(sys.argv) > 1 else "sat").lower()
-OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "docs/ai_weekly.json")
+# 引数は main() で解釈する（--prompt-out / --answer の追加に伴い 2026-10-05 に移動）
+MODE = "sat"
+OUT = Path("docs/ai_weekly.json")
+MODE_ALIASES = {"review": "sat", "outlook": "sun"}
+ROUTINE_LABEL = "Claude (Claude Code 定期実行)"
+# --answer で読む回答JSONに最低限必要なキー（APIモードは従来どおり検証しない）
+REQUIRED_KEYS = {"sat": ("summary", "misses", "lesson"), "sun": ("summary", "scenarios", "watch")}
 
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-1"
 MODEL_NAMES = {
@@ -253,14 +265,8 @@ def check_banned(data):
     return None
 
 
-def main():
-    now = datetime.now(JST)
-    today = now.date()
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        print("ANTHROPIC_API_KEY 未設定", file=sys.stderr)
-        sys.exit(1)
-
+def build_prompt(today):
+    """入力データを集めて完成プロンプトを作る。sat で採点対象が無ければ exit 1"""
     rec = site_json("ai_record.json")
     ana = site_json("ai_analysis.json")
     mon, fri = week_range(today)
@@ -288,29 +294,17 @@ def main():
         prompt = PROMPT_SUN.format(
             events="\n".join(ev) or f"{nm:%m/%d}〜{nf:%m/%d} に大型イベントはありません",
             flow="\n".join(flow) or "(取得できず)", score=sc)
+    return prompt, rows, stats, mon, fri
 
-    print(f"モデル: {MODEL_NAMES.get(ANTHROPIC_MODEL, ANTHROPIC_MODEL)} / モード: {MODE}")
-    data, err = None, None
-    for i in range(3):
-        try:
-            cand = call_anthropic(prompt, key)
-            err = check_banned(cand)
-            if err is None:
-                data = cand
-                break
-            print(f"検証NG(試行{i+1}): {err}", file=sys.stderr)
-        except Exception as e:
-            err = str(e)
-            print(f"生成失敗(試行{i+1}): {e}", file=sys.stderr)
-    if data is None:
-        print(f"週末版の生成に失敗: {err}", file=sys.stderr)
-        sys.exit(1)
 
+def write_entry(data, label, now, rows, stats, mon, fri):
+    """回答 → entry 組み立て → 書き出し（API / --answer 共通）"""
+    today = now.date()
     entry = {
         "kind": "review" if MODE == "sat" else "outlook",
         "date": today.isoformat(),
         "updated": now.isoformat(timespec="seconds"),
-        "model": MODEL_NAMES.get(ANTHROPIC_MODEL, ANTHROPIC_MODEL) + " (Anthropic)",
+        "model": label,
         "week": {"from": mon.isoformat(), "to": fri.isoformat()},
         "note": "土日は市場が動かないため、金曜引け時点の数値で作成しています。",
         **data,
@@ -335,6 +329,99 @@ def main():
     OUT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"OK {OUT.name}: {entry['kind']} {today}"
           + (f" 勝率{stats['win']}%（{stats['hits']}/{stats['judged']}）" if MODE == "sat" else ""))
+
+
+def run_prompt_out(prompt_out):
+    """APIを呼ばず、完成したプロンプトだけを書き出す（routine 用）"""
+    now = datetime.now(JST)
+    prompt, *_ = build_prompt(now.date())
+    Path(prompt_out).write_text(prompt, encoding="utf-8")
+    print(f"モード: {MODE} / プロンプトを出力: {prompt_out} ({len(prompt)}文字)")
+
+
+def run_answer(answer_path, label):
+    """APIを呼ばず、routine が書いた回答JSONを検証して書き出す。不正なら exit 2"""
+    now = datetime.now(JST)
+    print(f"モデル: {label} / モード: {MODE}")
+    _prompt, rows, stats, mon, fri = build_prompt(now.date())
+    try:
+        text = Path(answer_path).read_text(encoding="utf-8-sig")
+        m = re.search(r"\{.*\}", text, re.S)
+        if not m:
+            raise ValueError("JSONが見つかりません")
+        data = json.loads(m.group(0))
+    except Exception as e:
+        print(f"回答不正: JSONとして読めない ({answer_path}): {e}", file=sys.stderr)
+        sys.exit(2)
+    if not isinstance(data, dict):
+        print("回答不正: dictでない", file=sys.stderr)
+        sys.exit(2)
+    for k in REQUIRED_KEYS[MODE]:
+        if k not in data:
+            print(f"回答不正: キー欠落: {k}", file=sys.stderr)
+            sys.exit(2)
+    err = check_banned(data)
+    if err is not None:
+        print(f"回答不正: 検証NG: {err}", file=sys.stderr)
+        sys.exit(2)
+    write_entry(data, label, now, rows, stats, mon, fri)
+
+
+def run_api():
+    """従来モード: Anthropic API を呼んで生成する"""
+    now = datetime.now(JST)
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        print("ANTHROPIC_API_KEY 未設定", file=sys.stderr)
+        sys.exit(1)
+
+    prompt, rows, stats, mon, fri = build_prompt(now.date())
+
+    print(f"モデル: {MODEL_NAMES.get(ANTHROPIC_MODEL, ANTHROPIC_MODEL)} / モード: {MODE}")
+    data, err = None, None
+    for i in range(3):
+        try:
+            cand = call_anthropic(prompt, key)
+            err = check_banned(cand)
+            if err is None:
+                data = cand
+                break
+            print(f"検証NG(試行{i+1}): {err}", file=sys.stderr)
+        except Exception as e:
+            err = str(e)
+            print(f"生成失敗(試行{i+1}): {e}", file=sys.stderr)
+    if data is None:
+        print(f"週末版の生成に失敗: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    write_entry(data, MODEL_NAMES.get(ANTHROPIC_MODEL, ANTHROPIC_MODEL) + " (Anthropic)",
+                now, rows, stats, mon, fri)
+
+
+def main():
+    global MODE, OUT
+    import argparse
+    ap = argparse.ArgumentParser(description="週末版AI朝刊")
+    ap.add_argument("mode", nargs="?", default="sat", help="sat(=review) / sun(=outlook)")
+    ap.add_argument("out", nargs="?", default="docs/ai_weekly.json")
+    ap.add_argument("--prompt-out", help="APIを呼ばず、完成したプロンプトをこのファイルに書いて終了")
+    ap.add_argument("--answer", help="APIを呼ばず、このAI回答JSONを検証して書き出す")
+    ap.add_argument("--model-label", default="", help=f"--answer 時の model 表記(既定: {ROUTINE_LABEL})")
+    a = ap.parse_args()
+    MODE = MODE_ALIASES.get(a.mode.lower(), a.mode.lower())
+    OUT = Path(a.out)
+    if a.prompt_out and a.answer:
+        ap.error("--prompt-out と --answer は同時に指定できません")
+    if MODE not in ("sat", "sun"):
+        print(f"モード不正: {a.mode}（sat / sun / review / outlook）", file=sys.stderr)
+        sys.exit(1)
+
+    if a.prompt_out:
+        run_prompt_out(a.prompt_out)
+    elif a.answer:
+        run_answer(a.answer, a.model_label.strip() or ROUTINE_LABEL)
+    else:
+        run_api()
 
 
 if __name__ == "__main__":
