@@ -214,8 +214,13 @@ def main():
     now = datetime.now(JST).isoformat(timespec="seconds")
 
     # ── 直近5営業日 × 全銘柄（銘柄ページの日次表）
+    # 公表日＝申込日の翌営業日（JPXの公表ルール。10/2 申込 → 10/5 公表で確認）。
+    # 銘柄ページに「申込日と公表日」を並べて出すために持たせる
+    from jp_bizday import next_bizday
+    published = {d: next_bizday(datetime.strptime(d, "%Y-%m-%d").date()).isoformat()
+                 for d in last5}
     keep_newest(DAILY, {
-        "updated": now, "asof": latest, "dates": last5, "unit": "株",
+        "updated": now, "asof": latest, "dates": last5, "published": published, "unit": "株",
         "fields": ["売残", "売残の前日比", "買残", "買残の前日比"],
         "source": "JPX 銘柄別信用取引残高（日次・申込日ベース）",
         "items": {c: [days[d].get(c) for d in last5] for c in days[latest]},
