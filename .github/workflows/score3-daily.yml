@@ -1,0 +1,69 @@
+name: 3-axis Score Daily (kaburadar.jp)
+
+# 2026-10-05 追加。AI朝刊が routine（Claude Code 定期実行）＋ ai-morning-ingest.yml に
+# 移ったため、score3.json は本来 routine がブランチに載せて ingest が取り込む。
+# routine が失敗した日に 3軸スコアまで止まらないよう、ここで毎朝 score3.py だけを回す。
+# すでに当日（JST）の score3.json が main にあれば（＝朝刊と対の分が入っている）上書きしない。
+on:
+  schedule:
+    - cron: '10 21 * * 0-4'   # 21:10 UTC(日〜木) = 6:10 JST(月〜金)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: score3-daily
+  cancel-in-progress: false
+
+jobs:
+  score3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}   # main のルールセットを通す（ai-analysis.yml と同じ）
+
+      - name: Skip if today's score3 already exists
+        id: chk
+        run: |
+          TODAY=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          UPD=$(python3 -c "import json;print(json.load(open('docs/score3.json',encoding='utf-8')).get('updated','')[:10])" 2>/dev/null || true)
+          echo "今日=$TODAY / score3.json updated=$UPD"
+          if [ "$UPD" = "$TODAY" ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "当日分あり。上書きしない"; fi
+
+      - name: Set up Python 3.11
+        if: steps.chk.outputs.skip != '1'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.chk.outputs.skip != '1'
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas
+
+      - name: Build 3-axis score
+        if: steps.chk.outputs.skip != '1'
+        run: python -X utf8 score3.py docs/score3.json
+
+      - name: Commit score3.json
+        if: steps.chk.outputs.skip != '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/score3.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🧮 3軸スコアを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          # 朝刊（ingest）が先に当日分を入れていたら、そちら（朝刊と対の分）を残す
+          # （rebase 中の ours = 取り込み先の main 側）
+          git pull --rebase -X ours origin main
+          git push

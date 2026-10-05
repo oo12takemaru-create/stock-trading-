@@ -23,6 +23,12 @@ docs/ai_analysis.json に出力する。GitHub Actionsから実行される(PC�
   ANTHROPIC_API_KEY=xxx python ai_analysis.py docs/ai_analysis.json
   GEMINI_API_KEY=xxx    python ai_analysis.py docs/ai_analysis.json
   (両方あればANTHROPIC_API_KEYを優先)
+
+  API を使わない2段階モード（2026-10-05〜 本番。Claude Code 定期実行が文章を書く）:
+  python ai_analysis.py --prompt-out PROMPT.txt --inputs-out inputs.txt docs/ai_analysis.json
+      → 完成プロンプトと入力データを書き出して終了（APIは呼ばない）
+  python ai_analysis.py --answer ai_answer.json [--model-label "..."] docs/ai_analysis.json
+      → 回答JSONを検証・上方修正禁止・書き出し。回答が不正なら exit 2
 """
 import json
 import os
@@ -568,52 +574,24 @@ def pick_provider():
 
 # ---------------------------------------------------------------- メイン
 
-def main():
-    dst = sys.argv[1] if len(sys.argv) > 1 else "docs/ai_analysis.json"
+# Claude Code の定期実行（routine）が回答を書く場合の既定ラベル
+ROUTINE_LABEL = "Claude (Claude Code 定期実行)"
 
-    label, call = pick_provider()
-    if call is None:
-        print("ANTHROPIC_API_KEY も GEMINI_API_KEY も未設定", file=sys.stderr)
-        sys.exit(1)
-    print(f"使用モデル: {label}")
 
-    now = datetime.now(JST)
-    date_str = now.strftime("%Y-%m-%d")
-
-    # 機械判定を先に確定させておく（AIの結果と別々に採点するため）
+def load_machine():
+    """機械判定を先に確定させておく（AIの結果と別々に採点するため）"""
     s3 = load_site_json("score3.json") or {}
     machine = s3.get("stance")
     if machine:
         print(f"機械判定: {s3.get('stance_jp')}({machine}) 合計{s3.get('total'):+d}")
     else:
         print("score3.json を取得できず。AIの判定をそのまま使う", file=sys.stderr)
+    return s3, machine
 
-    inputs, prev = build_inputs(dst)
-    print(f"入力データ: {len(inputs)}文字")
-    if len(inputs) < 300:
-        print("入力データが少なすぎるため中止", file=sys.stderr)
-        sys.exit(1)
-    # make_x_post.py が数字を拾えるよう入力データを残す(デバッグにも使う)
-    Path("inputs.txt").write_text(inputs, encoding="utf-8")
 
-    prompt = PROMPT_TEMPLATE.format(inputs=inputs)
-
-    data = None
-    err = None
-    for attempt in range(3):
-        try:
-            cand = call(prompt)
-            err = validate(cand)
-            if err is None:
-                data = cand
-                break
-            print(f"検証NG(試行{attempt + 1}): {err}", file=sys.stderr)
-        except Exception as e:
-            err = str(e)
-            print(f"生成失敗(試行{attempt + 1}): {e}", file=sys.stderr)
-    if data is None:
-        print(f"AI分析の生成に失敗: {err}", file=sys.stderr)
-        sys.exit(1)
+def finalize(data, label, s3, machine, prev, dst, now):
+    """検証済みの回答 → 上方修正の禁止 → entry 組み立て → history 引き継ぎ → 書き出し"""
+    date_str = now.strftime("%Y-%m-%d")
 
     # 上方修正は許さない（AIに許すのは1段階の下方修正だけ）
     fixed = enforce_no_upgrade(data, machine)
@@ -649,6 +627,102 @@ def main():
     Path(dst).write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"AI分析を出力: {date_str} 機械={machine} → AI={data['stance']} "
           f"sectors={len(data['sectors'])}")
+
+
+def run_prompt_out(dst, prompt_out, inputs_out):
+    """APIを呼ばず、完成したプロンプトと入力データだけを書き出す（routine 用）"""
+    load_machine()
+    inputs, _prev = build_inputs(dst)
+    print(f"入力データ: {len(inputs)}文字")
+    if len(inputs) < 300:
+        print("入力データが少なすぎるため中止", file=sys.stderr)
+        sys.exit(1)
+    Path(inputs_out).write_text(inputs, encoding="utf-8")
+    prompt = PROMPT_TEMPLATE.format(inputs=inputs)
+    Path(prompt_out).write_text(prompt, encoding="utf-8")
+    print(f"プロンプトを出力: {prompt_out} ({len(prompt)}文字) / 入力データ: {inputs_out}")
+
+
+def run_answer(dst, answer_path, label):
+    """APIを呼ばず、routine が書いた回答JSONを検証して ai_analysis.json に書き出す。
+    回答が不正なら理由を stderr に出して exit 2"""
+    print(f"使用モデル: {label}")
+    now = datetime.now(JST)
+    s3, machine = load_machine()
+    prev, _ = prev_analysis(dst)
+
+    try:
+        data = _extract_json(Path(answer_path).read_text(encoding="utf-8-sig"))
+    except Exception as e:
+        print(f"回答不正: JSONとして読めない ({answer_path}): {e}", file=sys.stderr)
+        sys.exit(2)
+    err = validate(data)
+    if err is not None:
+        print(f"回答不正: 検証NG: {err}", file=sys.stderr)
+        sys.exit(2)
+
+    finalize(data, label, s3, machine, prev, dst, now)
+
+
+def run_api(dst):
+    """従来モード: API(Anthropic / Gemini)を呼んで生成する"""
+    label, call = pick_provider()
+    if call is None:
+        print("ANTHROPIC_API_KEY も GEMINI_API_KEY も未設定", file=sys.stderr)
+        sys.exit(1)
+    print(f"使用モデル: {label}")
+
+    now = datetime.now(JST)
+    s3, machine = load_machine()
+
+    inputs, prev = build_inputs(dst)
+    print(f"入力データ: {len(inputs)}文字")
+    if len(inputs) < 300:
+        print("入力データが少なすぎるため中止", file=sys.stderr)
+        sys.exit(1)
+    # make_x_post.py が数字を拾えるよう入力データを残す(デバッグにも使う)
+    Path("inputs.txt").write_text(inputs, encoding="utf-8")
+
+    prompt = PROMPT_TEMPLATE.format(inputs=inputs)
+
+    data = None
+    err = None
+    for attempt in range(3):
+        try:
+            cand = call(prompt)
+            err = validate(cand)
+            if err is None:
+                data = cand
+                break
+            print(f"検証NG(試行{attempt + 1}): {err}", file=sys.stderr)
+        except Exception as e:
+            err = str(e)
+            print(f"生成失敗(試行{attempt + 1}): {e}", file=sys.stderr)
+    if data is None:
+        print(f"AI分析の生成に失敗: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    finalize(data, label, s3, machine, prev, dst, now)
+
+
+def main():
+    import argparse
+    ap = argparse.ArgumentParser(description="AI朝刊ジェネレーター")
+    ap.add_argument("dst", nargs="?", default="docs/ai_analysis.json")
+    ap.add_argument("--prompt-out", help="APIを呼ばず、完成したプロンプトをこのファイルに書いて終了")
+    ap.add_argument("--inputs-out", default="inputs.txt", help="--prompt-out 時の入力データの出力先")
+    ap.add_argument("--answer", help="APIを呼ばず、このAI回答JSONを検証して書き出す")
+    ap.add_argument("--model-label", default="", help=f"--answer 時の model 表記(既定: {ROUTINE_LABEL})")
+    a = ap.parse_args()
+
+    if a.prompt_out and a.answer:
+        ap.error("--prompt-out と --answer は同時に指定できません")
+    if a.prompt_out:
+        run_prompt_out(a.dst, a.prompt_out, a.inputs_out)
+    elif a.answer:
+        run_answer(a.dst, a.answer, a.model_label.strip() or ROUTINE_LABEL)
+    else:
+        run_api(a.dst)
 
 
 if __name__ == "__main__":
