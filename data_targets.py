@@ -39,6 +39,7 @@ TARGETS = [
     # 2026-09-25 から日次公表。週次の頃の 6 のままだと、止まっても1週間以上気づけない
     ("docs/shinyo_meigara.json", "銘柄別信用残",      2),
     ("docs/shinyo_daily.json",   "銘柄別信用残（日次）", 2),
+    ("docs/shinyo_weekly.json",  "信用残の週次推移",  2),
     ("docs/ai_record.json",     "AI・地合いの成績表", 2),
     ("docs/sector_record.json", "セクター答え合わせ", 2),
     ("docs/buyback.json",       "自社株買い開示",     2),

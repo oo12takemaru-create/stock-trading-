@@ -37,6 +37,9 @@ DOCS = Path(__file__).parent / "docs"
 OUT = DOCS / "shinyo_meigara.json"
 DAILY = DOCS / "shinyo_daily.json"
 ARCH = DOCS / "shinyo_daily"            # 月別の蓄積 YYYY-MM.json
+SEED = DOCS / "shinyo_weekly_seed.json"  # 旧週次（8/7〜9/18）。git履歴から復元した7週
+WEEKLY = DOCS / "shinyo_weekly.json"     # 週次の推移（銘柄ページのグラフ用）
+WEEKS_KEEP = 104                         # 2年ぶん
 
 BASE = "https://www.jpx.co.jp"
 PAGE = "/markets/statistics-equities/margin/01.html"
@@ -140,6 +143,36 @@ def save_archive(days):
             ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
+def build_weekly(days):
+    """週次の推移。旧週次の7週＋日次の各週の最後の申込日。
+
+    グラフは週次・表は日次で、同じ線に混ぜない（起動文PV④）。
+    日次からは「その週の最後の申込日」だけを1点にする。無い週は点を作らない（埋めない）。"""
+    weeks = {}
+    try:
+        weeks.update(json.loads(SEED.read_text(encoding="utf-8")).get("weeks", {}))
+    except Exception as e:
+        print(f"  旧週次を読めない（日次だけで作る）: {e}", file=sys.stderr)
+    last_of_week = {}
+    for d in sorted(days):
+        y, w, _ = datetime.strptime(d, "%Y-%m-%d").isocalendar()
+        last_of_week[(y, w)] = d
+    for d in last_of_week.values():
+        weeks[d] = {c: [v[0], v[2]] for c, v in days[d].items()}
+    order = sorted(weeks)[-WEEKS_KEEP:]
+    codes = set().union(*(weeks[w].keys() for w in order)) if order else set()
+    return {
+        "updated": datetime.now(JST).isoformat(timespec="seconds"),
+        "asof": order[-1] if order else None,
+        "weeks": order,
+        "fields": ["売残", "買残"], "unit": "株",
+        "note": "8/7〜9/18 は旧週次（週末残高）、10/2 以降は日次の各週の最後の申込日。"
+                "9/25 は旧週次が公表前に廃止・日次の取得前のため欠けている",
+        "source": "JPX 銘柄別信用取引残高",
+        "items": {c: [weeks[w].get(c) for w in order] for c in sorted(codes)},
+    }
+
+
 def main():
     html = http(BASE + PAGE).decode("utf-8", "ignore")
     links = sorted(set(re.findall(r'href="(/markets/[^"]+/(\d{8})_mtall\.pdf)"', html)),
@@ -188,6 +221,10 @@ def main():
         "items": {c: [days[d].get(c) for d in last5] for c in days[latest]},
     }, "asof", "日次信用残")
 
+    # ── 週次の推移（銘柄ページのグラフ）
+    wk = build_weekly(days)
+    keep_newest(WEEKLY, wk, "asof", "信用残の週次推移")
+
     # ── 最新日（互換）。sd/bd は直近5日の前日比の和＝5営業日前比
     #    5日のうち1日でも欠けた銘柄（新規上場など）は和にせず null にする
     items = []
@@ -208,6 +245,7 @@ def main():
         "items": items,
     }, "asof", "銘柄別信用残")
     r1 = sum(1 for x in items if x["s"] > 0 and x["b"] / x["s"] <= 1)
+    print(f"週次の推移: {len(wk['weeks'])}週（{wk['weeks'][0]}〜{wk['weeks'][-1]}）")
     print(f"新規取得 {fetched}日 / 蓄積 {len(order)}日（{order[0]}〜{latest}）"
           f" / shinyo_meigara.json {'更新' if wrote else '見送り'}: {len(items)}銘柄 倍率1以下={r1}")
 

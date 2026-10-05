@@ -1,0 +1,94 @@
+name: AI Morning Prep (data → prompt branch)
+
+# 2026-10-05〜 AI朝刊の前段。データ取りとプロンプト作成は GitHub Actions が行う。
+#   routine（Claude Code 定期実行）のクラウド環境は外向きHTTPSがプロキシで遮断され、
+#   Yahoo Finance / GitHub Pages / ニュースRSS を取れないため。
+#   ここで score3.py → ai_analysis.py --prompt-out を回し、ブランチ ai-prompt/YYYY-MM-DD に
+#   PROMPT.txt / inputs.txt / docs/score3.json を載せる（main には書かない）。
+#   routine はそのブランチを checkout して回答（ai_answer.json）を書き、
+#   ai-morning/YYYY-MM-DD に push する → ai-morning-ingest.yml が main へ取り込む。
+#
+# 入力データが欠けている日（入力300字未満・score3 の inputs_ok=false）はブランチを作らず失敗する。
+# 欠損データで朝刊を書かせないため。
+on:
+  schedule:
+    - cron: '5 21 * * 0-4'    # 21:05 UTC(日〜木) = 6:05 JST(月〜金)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-morning-prep
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: Build 3-axis score
+        run: python -X utf8 score3.py docs/score3.json
+
+      # 入力300字未満なら ai_analysis.py 自体が exit 1 で落ちる（＝ブランチを作らない）
+      - name: Build prompt
+        run: python -X utf8 ai_analysis.py --prompt-out PROMPT.txt --inputs-out inputs.txt docs/ai_analysis.json
+
+      - name: Check inputs
+        run: |
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("docs/score3.json", encoding="utf-8"))
+          if not d.get("inputs_ok", True):
+              print("::error::score3 の inputs_ok=false（入力データが欠けている）。ブランチを作らない")
+              sys.exit(1)
+          n = len(open("inputs.txt", encoding="utf-8").read())
+          if n < 300:
+              print(f"::error::入力データが少なすぎる({n}字)。ブランチを作らない")
+              sys.exit(1)
+          print(f"inputs_ok=True / 入力 {n}字 / 機械判定 {d.get('stance')} {d.get('total'):+d}")
+          PY
+
+      - name: Push prompt branch
+        run: |
+          D=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f PROMPT.txt inputs.txt docs/score3.json
+          git commit -m "📝 AI朝刊プロンプト ($D)"
+          # 同日の再実行は上書きする
+          git push -f origin "HEAD:refs/heads/ai-prompt/$D"
+          echo "push: ai-prompt/$D"
+          echo "----- PROMPT.txt 冒頭 -----"
+          head -40 PROMPT.txt
+
+      # 7日より古い ai-prompt/* を掃除する（週末版の ai-prompt/YYYY-MM-DD-sat 等も含む）
+      - name: Clean old prompt branches
+        continue-on-error: true
+        run: |
+          CUT=$(TZ='Asia/Tokyo' date -d '7 days ago' +%Y-%m-%d)
+          git ls-remote --heads origin 'ai-prompt/*' | awk '{print $2}' | sed 's#refs/heads/##' | while read -r br; do
+            d=$(printf '%s' "$br" | sed -n 's#^ai-prompt/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*#\1#p')
+            if [ -n "$d" ] && [ "$d" \< "$CUT" ]; then
+              echo "削除: $br"; git push origin --delete "$br" || true
+            fi
+          done

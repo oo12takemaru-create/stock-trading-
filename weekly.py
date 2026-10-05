@@ -67,7 +67,21 @@ BANNED_PATTERNS = [
 ]
 
 
+# --answer モードでは docs/ 配下のローカルファイルを先に読む（2026-10-05）。
+#   routine（Claude Code 定期実行）のクラウド環境は外向きHTTPSが遮断されていて
+#   GitHub Pages を取りに行けないため。ローカルに無ければ従来どおり Pages から取る。
+#   APIモード / --prompt-out は従来どおり Pages から取る。
+LOCAL_FIRST = False
+
+
 def site_json(name):
+    if LOCAL_FIRST:
+        p = Path("docs") / name
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception as e:
+                print(f"  {name}: ローカル読込失敗 {e}", file=sys.stderr)
     try:
         req = urllib.request.Request(f"{PAGES}/{name}", headers=UA)
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -341,6 +355,8 @@ def run_prompt_out(prompt_out):
 
 def run_answer(answer_path, label):
     """APIを呼ばず、routine が書いた回答JSONを検証して書き出す。不正なら exit 2"""
+    global LOCAL_FIRST
+    LOCAL_FIRST = True
     now = datetime.now(JST)
     print(f"モデル: {label} / モード: {MODE}")
     _prompt, rows, stats, mon, fri = build_prompt(now.date())
