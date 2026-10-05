@@ -1,0 +1,111 @@
+name: AI Weekly Ingest (routine → main)
+
+# 2026-10-05〜 週末版AIの本番経路（平日朝刊の ai-morning-ingest.yml と同じ型）。
+#   文章は Claude Code の定期実行（routine）が書き、ブランチ ai-weekly/YYYY-MM-DD-<mode> に
+#   ai_answer.json（AIの回答JSONだけ）を push する。mode は sat|sun（別名 review|outlook）。
+#   この push をトリガに、main を deploy key で checkout し、回答を取り込んで
+#   検証（禁止語・必須キー）→ 採点表などの組み立て → main へコミット → ブランチ削除 を行う。
+#   採点（rows / stats）は weekly.py がここで機械的に計算する。routine には書かせない。
+#
+# 回答が不正なら weekly.py が exit 2 で落ち、ブランチは調査用に残る。
+# モデル表記: ブランチ先頭コミットのメッセージに「model=...」があればそれを使う。
+on:
+  push:
+    branches: ['ai-weekly/**']
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '取り込むブランチ名（例: ai-weekly/2026-10-10-sat）'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-weekly            # ai-weekly.yml と同じ
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    # ブランチ削除の push では動かさない
+    if: github.event_name == 'workflow_dispatch' || github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Resolve branch and mode
+        id: br
+        env:
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then BR="$INPUT_BRANCH"; else BR="$REF_NAME"; fi
+          if ! printf '%s' "$BR" | grep -Eq '^ai-weekly/[A-Za-z0-9._-]+-(sat|sun|review|outlook)$'; then
+            echo "::error::ブランチ名が規則(ai-weekly/YYYY-MM-DD-<sat|sun|review|outlook>)に合いません: $BR"; exit 1
+          fi
+          M="${BR##*-}"
+          case "$M" in review) M=sat ;; outlook) M=sun ;; esac
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+          echo "mode=$M" >> "$GITHUB_OUTPUT"
+          echo "取り込むブランチ: $BR / モード: $M"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # ★main のルールセットを通すため deploy key で checkout する（ai-weekly.yml と同じ）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Take ai_answer.json from the branch
+        id: take
+        env:
+          BR: ${{ steps.br.outputs.branch }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/$BR:refs/remotes/origin/$BR"
+          if ! git cat-file -e "origin/$BR:ai_answer.json" 2>/dev/null; then
+            echo "::error::ブランチ $BR に ai_answer.json がありません"; exit 1
+          fi
+          git show "origin/$BR:ai_answer.json" > ai_answer.json
+          echo "取り込み: ai_answer.json ($(wc -c < ai_answer.json) bytes)"
+          LABEL=$(git log -1 --format=%B "origin/$BR" | sed -n 's/.*model=\(.*\)$/\1/p' | head -1 | tr -d '\r')
+          echo "model_label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "model_label: ${LABEL:-（既定）}"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ingest weekend edition
+        env:
+          MODEL_LABEL: ${{ steps.take.outputs.model_label }}
+          MODE: ${{ steps.br.outputs.mode }}
+        run: |
+          set +e
+          python -X utf8 weekly.py --answer ai_answer.json --model-label "$MODEL_LABEL" "$MODE" docs/ai_weekly.json
+          rc=$?
+          if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
+          exit $rc
+
+      - name: Commit ai_weekly.json
+        env:
+          MODE: ${{ steps.br.outputs.mode }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/ai_weekly.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🗓️ 週末版AI(${MODE})を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      # 成功したときだけ作業ブランチを消す（失敗時は調査用に残す）
+      - name: Delete work branch
+        if: success()
+        env:
+          BR: ${{ steps.br.outputs.branch }}
+        run: git push origin --delete "$BR"
