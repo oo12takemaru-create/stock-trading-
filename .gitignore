@@ -121,3 +121,8 @@ investor_cache/
 !docs/kessan_flash.json
 !docs/kessan_flash_hist/
 !docs/kessan_flash_hist/*.json
+
+# 銘柄別の信用残（日次・2026-09-25〜）。JPXは直近5日しか置かないので蓄積が資産
+!docs/shinyo_daily.json
+!docs/shinyo_daily/
+!docs/shinyo_daily/*.json
