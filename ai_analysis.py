@@ -28,6 +28,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timezone, timedelta
@@ -465,8 +466,19 @@ def validate(data):
 
 def _post_json(url, body, headers, timeout=180):
     req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        # ★本文（APIが返した理由）をログに残す★
+        #   以前は「HTTP Error 400: Bad Request」としか出ず、2026-10-02 から
+        #   AI朝刊が止まった理由がログから分からなかった。
+        #   APIの本文にキーは含まれない（エラーの種類と説明だけ）。
+        try:
+            detail = e.read().decode("utf-8", "replace")[:500]
+        except Exception:
+            detail = ""
+        raise RuntimeError(f"HTTP {e.code}: {detail or e.reason}") from None
 
 
 def _extract_json(text):
