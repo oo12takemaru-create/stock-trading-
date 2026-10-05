@@ -52,7 +52,14 @@ jobs:
       - name: Build 3-axis score
         run: python -X utf8 score3.py docs/score3.json
 
+      # ★AIが失敗しても3軸スコア（機械判定）は公開する★
+      #   2026-10-02〜05 に API のクレジット切れで AI が止まったとき、同じジョブにいた
+      #   score3.json まで道連れで4日間止まった（トップの「3軸スコア」も古いまま）。
+      #   AIの段は失敗しても先へ進め、コミットのあとで改めてジョブを失敗にする
+      #   （失敗の通知とトップの停止バーはこれまでどおり働く）。
       - name: Generate AI analysis
+        id: ai
+        continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -63,6 +70,7 @@ jobs:
           python ai_analysis.py docs/ai_analysis.json
 
       - name: Build X post text and image
+        if: steps.ai.outcome == 'success'   # 古い朝刊で投稿素材を作らない
         continue-on-error: true    # 投稿素材の失敗で朝刊の公開を止めない
         run: |
           python -X utf8 make_x_post.py docs/ai_analysis.json inputs.txt docs/x
@@ -78,12 +86,16 @@ jobs:
             echo "変更なし"
             exit 0
           fi
-          git commit -m "🤖 AI相場分析を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          if [ "${{ steps.ai.outcome }}" = "success" ]; then
+            git commit -m "🤖 AI相場分析を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          else
+            git commit -m "🧮 3軸スコアだけ更新（AI朝刊は生成失敗） ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          fi
           git pull --rebase origin main
           git push
 
       - name: Notify (ntfy)
-        if: success()
+        if: steps.ai.outcome == 'success'   # 朝刊が出なかった日に古い朝刊を通知しない
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -104,3 +116,10 @@ jobs:
               headers={"Content-Type": "application/json"}), timeout=30)
           print("ntfy送信OK")
           PY
+
+      # AIが失敗した日は、3軸スコアを公開したうえでジョブを失敗として記録する
+      - name: Fail if AI analysis failed
+        if: steps.ai.outcome == 'failure'
+        run: |
+          echo "::error::AI朝刊の生成に失敗しました（3軸スコアは公開済み）。上の Generate AI analysis のログに理由があります"
+          exit 1
