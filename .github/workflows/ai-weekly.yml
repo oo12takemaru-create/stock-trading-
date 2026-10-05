@@ -3,7 +3,7 @@ name: AI Weekly (kaburadar.jp)
 # ★2026-10-05 本番の週末版は routine（Claude Code 定期実行）＋ ai-weekly-ingest.yml。これは手動予備★
 #   API課金をやめたため schedule を外した（routine と二重生成しないため）。
 #   API で生成したいときだけ Actions 画面から手動実行する。
-#   ※ pipeline-weekly.yml からの workflow_call は残っている（呼ばれると API モードで走る）。
+#   pipeline-weekly.yml からの呼び出しも 2026-10-05 に外した（workflow_call の定義だけ残っている）。
 #
 # 週末版のAI朝刊。土曜=今週の答え合わせ / 日曜=来週の想定。
 # 平日版(ai-analysis.yml)とは別ジョブにしてある。週末版がコケても平日の朝刊は止めない。

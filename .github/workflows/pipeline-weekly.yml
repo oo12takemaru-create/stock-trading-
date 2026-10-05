@@ -45,15 +45,12 @@ jobs:
     uses: ./.github/workflows/tenbagger-weekly.yml
     secrets: inherit
 
-  # 週次のAI分析。上が揃ってから
-  ai-weekly:
-    needs: [cot-score, karauri-score, tenbagger]
-    uses: ./.github/workflows/ai-weekly.yml
-    secrets: inherit
+  # 週次のAI分析（ai-weekly.yml）は 2026-10-05 に外した。
+  # 週末版は routine（Claude Code 定期実行）＋ ai-weekly-ingest.yml に一本化（二重生成を防ぐ）
 
   summary:
     if: always()
-    needs: [cot, cot-score, shinyo, karauri-score, tenbagger, ai-weekly]
+    needs: [cot, cot-score, shinyo, karauri-score, tenbagger]
     runs-on: ubuntu-latest
     steps:
       - name: Write summary
@@ -68,7 +65,6 @@ jobs:
             echo "| 信用残 | ${{ needs.shinyo.result }} |"
             echo "| 空売りスコア | ${{ needs.karauri-score.result }} |"
             echo "| 十倍株 | ${{ needs.tenbagger.result }} |"
-            echo "| 週次AI分析 | ${{ needs.ai-weekly.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any step failed
