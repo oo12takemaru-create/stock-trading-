@@ -6,10 +6,16 @@ name: AI Weekly Prep (data → prompt branch)
 #   routine はそれを checkout して回答（ai_answer.json）を書き、ai-weekly/YYYY-MM-DD-<mode> に push
 #   → ai-weekly-ingest.yml が main へ取り込む。
 #   古い ai-prompt/* の掃除は ai-morning-prep.yml が行う。
+#
+# GitHub cron の遅延対策で2回走らせる（2026-10-06: 6:05 の cron が 10:44 まで遅れ朝刊が欠番になった）。
+#   2回目は push -f で上書きする。routine は ai-prompt/** への push で起動するので、
+#   2回走っても routine 側で重複を弾く。
+# コミットメッセージ1行目は「prompt: weekly YYYY-MM-DD sat|sun」に固定（routine が push イベントから種別を判別する）。
+#
 on:
   schedule:
-    - cron: '0 23 * * 5'      # 23:00 UTC(金) = 8:00 JST(土) → sat
-    - cron: '0 23 * * 6'      # 23:00 UTC(土) = 8:00 JST(日) → sun
+    - cron: '40 22 * * 5,6'   # 22:40 UTC(金・土) = 7:40 JST(土・日)。mode は JST の曜日で決める
+    - cron: '0 23 * * 5,6'    # 23:00 UTC(金・土) = 8:00 JST(土・日)
   workflow_dispatch:
     inputs:
       mode:
@@ -68,7 +74,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f PROMPT.txt
-          git commit -m "📝 週末版AIプロンプト ($D-$M)"
+          git commit -m "prompt: weekly $D $M"
           git push -f origin "HEAD:refs/heads/ai-prompt/$D-$M"
           echo "push: ai-prompt/$D-$M"
           echo "----- PROMPT.txt -----"
