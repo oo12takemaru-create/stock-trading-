@@ -8,10 +8,16 @@ name: AI Morning Prep (data → prompt branch)
 #   routine はそのブランチを checkout して回答（ai_answer.json）を書き、
 #   ai-morning/YYYY-MM-DD に push する → ai-morning-ingest.yml が main へ取り込む。
 #
+# GitHub cron の遅延対策で2回走らせる（2026-10-06: 6:05 の cron が 10:44 まで遅れ朝刊が欠番になった）。
+#   2回目は push -f で上書きする。routine は ai-prompt/** への push で起動するので、
+#   2回走っても routine 側で重複を弾く。
+# コミットメッセージ1行目は「prompt: morning YYYY-MM-DD」に固定（routine が push イベントから種別を判別する）。
+#
 # 入力データが欠けている日（入力300字未満・score3 の inputs_ok=false）はブランチを作らず失敗する。
 # 欠損データで朝刊を書かせないため。
 on:
   schedule:
+    - cron: '35 20 * * 0-4'   # 20:35 UTC(日〜木) = 5:35 JST(月〜金)
     - cron: '5 21 * * 0-4'    # 21:05 UTC(日〜木) = 6:05 JST(月〜金)
   workflow_dispatch:
 
@@ -74,7 +80,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f PROMPT.txt inputs.txt docs/score3.json
-          git commit -m "📝 AI朝刊プロンプト ($D)"
+          git commit -m "prompt: morning $D"
           # 同日の再実行は上書きする
           git push -f origin "HEAD:refs/heads/ai-prompt/$D"
           echo "push: ai-prompt/$D"
