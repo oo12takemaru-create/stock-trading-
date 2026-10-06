@@ -11,6 +11,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 from stale_guard import keep_newest
+from heatmap_abbr import abbr
 
 JST = timezone(timedelta(hours=9))
 
@@ -67,6 +68,7 @@ def main():
             item = {
                 "t": t.replace(".T", ""),
                 "n": name,
+                "a": abbr(t.replace(".T", ""), name),   # タイルが狭いときの略称（heatmap_abbr.py）
                 "s": sector,
                 "c": round(change, 2),
                 "p": round(last, 1),
