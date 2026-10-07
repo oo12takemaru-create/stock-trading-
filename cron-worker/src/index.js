@@ -57,7 +57,12 @@ const PLAN = {
   // ── 引け後（平日）。この順序が公開JSONの鮮度を決める ──
   "16:00": ["heatmap.yml"],
   "18:00": ["pipeline-daily.yml"], // 夕シグナル→free-scanner→radar→派生→前計算→点検
+  // 全銘柄の値動き（prices.json・銘柄ページの株価の元）。GitHub の schedule だけだと
+  // 10/6 は7時間遅れて深夜に走り、Yahoo の日足が揃う前で前々日のままになった（2026-10-07）
+  "18:30": ["movers-daily.yml"],
   "19:00": ["buyback-daily.yml", "ai-record.yml"],
+  // シグナル台帳（記録→採点）。18:00 のパイプラインと 18:30 の値動きの後（起動文 積上① 2026-10-07）
+  "19:30": ["ledger-daily.yml"],
 
   // ── 予備（冪等ガードが効くので二重でも害はない）──
   "21:00": ["pipeline-daily.yml"],
