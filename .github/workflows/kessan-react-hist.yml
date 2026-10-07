@@ -1,0 +1,63 @@
+name: Kessan React Hist (決算反応カルテ)
+
+# 決算発表ごとの反応（ギャップ・騰落・出来高倍率・5日後・20日後）を
+# docs/kessan_react_hist/{code}.json に積む（kessan_react_hist.py）。銘柄ページ・日付ページ・
+# kessan-stats.html の元。起動文: kaburadar\起動文_実務_積上⑤_決算反応カルテ_2026-10-08.md
+#
+# 平日 19:00 JST に cron-worker から dispatch（18:30 の決算速報の後）。schedule は保険。
+# 他の系統と同じワークフローに入れない（積上①-b の「道連れ」を作らない）。
+on:
+  schedule:
+    - cron: '10 10 * * 1-5'    # 19:10 JST（保険・実際は遅れて走る）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kessan-react-hist
+  cancel-in-progress: false
+
+jobs:
+  hist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Build reaction history (追記のみ)
+        run: python -X utf8 kessan_react_hist.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/kessan_react_hist   # docs/*.json は .gitignore 対象なので -f
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📊 決算反応カルテを更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1

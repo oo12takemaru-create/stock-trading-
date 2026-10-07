@@ -77,6 +77,8 @@ TARGETS = [
     ("docs/kessan_react.json",  "決算の答え合わせ",   1),
     # ★2026-10-07 追加★ 積上③ EDINET 大量保有（edinet-daily.yml・毎朝07:30 JST）。記録だけで未公開
     ("docs/edinet_latest.json", "大量保有報告書",     2),
+    # ★2026-10-08 追加（積上⑤）★ 決算反応カルテ（kessan-react-hist.yml・平日19:00 JST）
+    ("docs/kessan_react_hist/index.json", "決算反応カルテ", 1),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。
