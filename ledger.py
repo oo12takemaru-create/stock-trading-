@@ -209,7 +209,7 @@ def from_movers():
                                {"chg": it.get("chg"), "vr": it.get("vr"), "close": it.get("p"),
                                 "value_oku": round((it.get("v") or 0) / 100, 1) if it.get("v") else None},
                                f"movers|{d}|{it['c']}", time="15:30",
-                               what=f"前日比{(it.get("chg") or 0):+.1f}%の値動き（{it.get('n') or it['c']}）"))
+                               what=f"前日比{(it.get('chg') or 0):+.1f}%の値動き（{it.get('n') or it['c']}）"))
     return out
 
 
