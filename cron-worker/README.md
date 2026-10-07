@@ -178,6 +178,8 @@ npx wrangler dev --test-scheduled
 
 | 時刻 | 起動するもの | |
 |---|---|---|
+| 05:35 | **ai-morning-prep** | AI朝刊の前段（2026-10-07〜）。休場日も動かす |
+| 06:05 | **ai-morning-prep**（予備） | 05:35 が成功していても**叩く**（push -f で上書き・routine が重複を弾く） |
 | 06:30 | ai-analysis | 朝のAI分析 |
 | 07:00 | **pipeline-morning** | 前営業日ぶんが無ければ**失敗させる**関門 |
 | 07:30 | **会員向けの朝の通知**（HTTP） | `ruletrade-app` の `/api/cron/morning-notify` を叩く。**07:00 の関門が成功したときだけ** |
@@ -197,10 +199,23 @@ npx wrangler dev --test-scheduled
 
 | 時刻 | 起動するもの |
 |---|---|
+| 07:40 | **ai-weekly-prep**（`mode=sat`）週末版AIの前段（2026-10-07〜） |
+| 08:00 | **ai-weekly-prep**（`mode=sat`・予備。成功していても叩く） |
 | 09:30 | **pipeline-weekly**（cot→信用残・建玉スコア→十倍株→週次AI） |
 
+### 日曜
+
+| 時刻 | 起動するもの |
+|---|---|
+| 07:40 | **ai-weekly-prep**（`mode=sun`）週末版AIの前段（2026-10-07〜） |
+| 08:00 | **ai-weekly-prep**（`mode=sun`・予備。成功していても叩く） |
+
+> AI の prep（朝刊・週末版）は 3本目の cron `"5,35,40 * * * *"` で起こす（:05 :35 :40）。
+> GitHub の schedule は 10/7 に 20:35 UTC → 23:59 UTC 起動と数時間遅れたため（schedule は保険として残してある）。
+> mode は `DISPATCH_INPUTS`（JST の曜日 → inputs）で渡す。休場日でも止めないものは `RUN_ON_HOLIDAYS`。
+
 休場日（土日＋JPX の休場日）は市場データを作るものを起こさない。
-週末バッチだけは土曜に動かす。休場日表は `src/holidays.js`（年1回の手入れ）。
+週末バッチ（土曜）と AI の prep（朝刊＝平日、週末版＝土日）だけは動かす。休場日表は `src/holidays.js`（年1回の手入れ）。
 
 #### 営業日かどうかを調べる
 
@@ -244,7 +259,7 @@ JST 7:30 に `https://ruletrade-app.vercel.app/api/cron/morning-notify` を
 ### 変えたいとき
 
 `src/index.js` の `PLAN` を直して `npx wrangler deploy` するだけ。
-ただし**書ける時刻は :00 と :30 だけ**（それ以外を書いても発火しない）。`npm test` が止める。
+ただし**書ける時刻は :00 と :30**（＋3本目の cron の :05 :35 :40）だけ（それ以外を書いても発火しない）。`npm test` が止める。
 
 1日に複数回走るものを足すときは `NO_DEDUP` にも入れる。
 入れ忘れると2回目以降が**黙って消える**（失敗として記録されないので気づけない）。これも `npm test` が止める。

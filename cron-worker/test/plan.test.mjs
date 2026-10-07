@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { isTradingDay, isKnownYear, ymd } from "../src/holidays.js";
-import { targetsFor, inIntraday } from "../src/index.js";
+import { targetsFor, inIntraday, inputsFor } from "../src/index.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -54,13 +54,13 @@ const P = plans();
 const timesIn = (src) => [...src.matchAll(/"(\d{2}:\d{2})":/g)].map((m) => m[1]);
 const filesIn = (src) => [...new Set([...src.matchAll(/"([\w.-]+\.yml)"/g)].map((m) => m[1]))];
 
-test("時刻は :00 :15 :30 :45 のどれか（cron の刻み）", () => {
+test("時刻は :00 :15 :30 :45（＋AI prep 用の :05 :35 :40）のどれか（cron の刻み）", () => {
   for (const [name, src] of Object.entries(P)) {
     for (const t of timesIn(src)) {
       const mm = t.slice(3);
       assert.ok(
-        ["00", "15", "30", "45"].includes(mm),
-        `${name} の ${t} は発火しません（cron の刻みは :00 :15 :30 :45）`,
+        ["00", "05", "15", "30", "35", "40", "45"].includes(mm),
+        `${name} の ${t} は発火しません（cron の刻みは :00 :05 :15 :30 :35 :40 :45）`,
       );
     }
   }
@@ -218,6 +218,43 @@ test("ザラ場の時刻に realtime-signal が入り、時間外には入らな
   assert.ok(!at("16:45").includes("realtime-signal.yml"), "16:45（対象外）に入っている");
   assert.ok(!at("08:00").includes("realtime-signal.yml"), "08:00（寄り前）に入っている");
   assert.deepEqual(at("09:00", 6), [], "土曜は何も起こさない");
+  // 3本目の cron（:05 :35 :40）でザラ場枠を余計に起こさない
+  for (const k of ["09:05", "09:35", "09:40", "15:35", "16:05"]) {
+    assert.ok(!at(k).includes("realtime-signal.yml"), `${k} に realtime-signal が入っている`);
+  }
+});
+
+/* ─────────────────────────────────────────────
+   AI朝刊・週末版の prep（2026-10-07〜 cron-worker から起こす）
+   ───────────────────────────────────────────── */
+
+test("AI朝刊の prep は平日 05:35 と 06:05、週末版は土日 07:40 と 08:00", () => {
+  const at = (ymdStr, key) => {
+    const [h, mi] = key.split(":").map(Number);
+    const d = new Date(`${ymdStr}T00:00:00Z`);
+    d.setUTCHours(h, mi);
+    return targetsFor(d).targets;
+  };
+  for (const day of ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09"]) {
+    assert.deepEqual(at(day, "05:35"), ["ai-morning-prep.yml"], `${day} 05:35`);
+    assert.deepEqual(at(day, "06:05"), ["ai-morning-prep.yml"], `${day} 06:05`);
+    assert.deepEqual(at(day, "07:40"), [], `${day} 07:40（平日は週末版なし）`);
+  }
+  for (const day of ["2026-10-10", "2026-10-11"]) {
+    assert.deepEqual(at(day, "05:35"), [], `${day} 05:35（週末は朝刊なし）`);
+    assert.deepEqual(at(day, "07:40"), ["ai-weekly-prep.yml"], `${day} 07:40`);
+    assert.ok(at(day, "08:00").includes("ai-weekly-prep.yml"), `${day} 08:00`);
+  }
+  assert.equal(inputsFor("ai-weekly-prep.yml", 6).mode, "sat");
+  assert.equal(inputsFor("ai-weekly-prep.yml", 0).mode, "sun");
+  assert.equal(inputsFor("ai-morning-prep.yml", 3), null);
+});
+
+test("ai-weekly-prep は workflow_dispatch の mode 入力を受け取れる", () => {
+  assert.match(
+    wf("ai-weekly-prep.yml"), /workflow_dispatch:\s+inputs:\s+mode:/,
+    "ai-weekly-prep.yml に workflow_dispatch の mode 入力がありません（422 になる）",
+  );
 });
 
 /* ─────────────────────────────────────────────

@@ -1,5 +1,7 @@
 name: AI Weekly Prep (data → prompt branch)
 
+# 本命は cron-worker からの dispatch（2026-10-07）。schedule は遅延する保険。
+
 # 2026-10-05〜 週末版AIの前段（ai-morning-prep.yml と同じ型）。
 #   routine のクラウド環境は外向きHTTPSが遮断されているため、データ取りとプロンプト作成はここで行う。
 #   weekly.py --prompt-out の結果 PROMPT.txt をブランチ ai-prompt/YYYY-MM-DD-<sat|sun> に載せる。

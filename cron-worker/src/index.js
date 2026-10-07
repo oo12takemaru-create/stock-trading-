@@ -19,6 +19,8 @@
  * そこで「毎時 0分・30分」の1本で起こし、**何を起動するかは下の PLAN**
  * で決める。時刻を足したいときは PLAN に1行足すだけで、wrangler.toml は触らない。
  *   ※ PLAN に書ける時刻は :00 と :30 だけ。それ以外を書いても発火しない。
+ *     例外は3本目の cron（:05 :35 :40）で起こす AI朝刊・週末版の prep
+ *     （2026-10-07 追加。下の PLAN の 05:35 / 06:05 と WEEKEND_PLAN の 07:40）。
  * 2本目はザラ場の :15/:45 だけ。realtime-signal を 15分間隔で回すための補いで、
  * INTRADAY で扱う（PLAN には書かない――1日に何度も走るのが正常な唯一の例外）。
  *
@@ -62,6 +64,13 @@ const PLAN = {
 
   // ── 深夜〜早朝 ──
   "23:30": ["data-healthcheck.yml"],
+  // AI朝刊の前段（2026-10-07〜）。GitHub の schedule は数時間遅れる
+  // （10/7: 20:35 UTC の cron が 23:59 UTC、21:05 が 00:37 に起動）ので、ここから起こす。
+  // 06:05 は予備だが、05:35 が成功していても**もう一度叩く**（NO_DEDUP）。
+  // prep は ai-prompt/<日付> を push -f で上書きし、routine 側が重複を弾くので害はない。
+  // ※ :05 / :35 は3本目の cron（"5,35,40 * * * *"）で発火する。
+  "05:35": ["ai-morning-prep.yml"],
+  "06:05": ["ai-morning-prep.yml"],
   "06:30": ["ai-analysis.yml"],
   "07:00": ["pipeline-morning.yml"], // 前営業日ぶんが無ければ失敗させる関門
   // 関門（07:00）の後・会員通知（07:30）の前に置く（§23 相談⑫(3)）。
@@ -74,8 +83,38 @@ const PLAN = {
 
 /** 土日に動かすもの（JSTの曜日 → 時刻 → ワークフロー） */
 const WEEKEND_PLAN = {
-  6: { "09:30": ["pipeline-weekly.yml"] }, // 土
+  // 土: 週末版AI（答え合わせ）の前段 07:40＋予備 08:00、週末バッチ 09:30
+  6: {
+    "07:40": ["ai-weekly-prep.yml"],
+    "08:00": ["ai-weekly-prep.yml"],
+    "09:30": ["pipeline-weekly.yml"],
+  },
+  // 日: 週末版AI（来週の想定）の前段 07:40＋予備 08:00
+  0: {
+    "07:40": ["ai-weekly-prep.yml"],
+    "08:00": ["ai-weekly-prep.yml"],
+  },
 };
+
+/**
+ * 起動時に渡す入力（ワークフロー → JST の曜日 → inputs）。
+ * ai-weekly-prep は mode で「土=答え合わせ / 日=来週の想定」を切り替える。
+ * ※ REST 経由の workflow_dispatch は入力を文字列で受け取る。
+ */
+const DISPATCH_INPUTS = {
+  "ai-weekly-prep.yml": { 6: { mode: "sat" }, 0: { mode: "sun" } },
+};
+
+/**
+ * 休場日（土日・JPX の休場日）でも起こすもの。
+ * pipeline-weekly は土曜の週末バッチ。AI朝刊・週末版の prep は
+ * GitHub の schedule と同じく曜日だけで動かす（祝日でも止めない）。
+ */
+const RUN_ON_HOLIDAYS = new Set([
+  "pipeline-weekly.yml",
+  "ai-morning-prep.yml",
+  "ai-weekly-prep.yml",
+]);
 
 /** 特定の曜日だけ動かすもの（平日）。JST の曜日で判定 */
 // 信用残(shinyo)・建玉(cot)・十倍株・週次AIは pipeline-weekly.yml にまとめたので
@@ -121,6 +160,10 @@ export const NO_DEDUP = new Set([
   INTRADAY.workflow,  // ザラ場15分毎（1日約28回）
   "heatmap.yml",      // ザラ場の値動き（1日5回）
   "daily-signal.yml", // 朝・昼・夕の3回が正常（夕は pipeline-daily の中）
+  // AI の prep は本命＋予備の2回とも叩く（push -f で上書き・routine 側で重複を弾く）。
+  // 1回目が成功していても2回目を止めない（Fable 判断 2026-10-07）。
+  "ai-morning-prep.yml",
+  "ai-weekly-prep.yml",
 ]);
 
 /**
@@ -365,7 +408,15 @@ async function notify(subject, text, env) {
 
 /** ザラ場の時間帯か（"HH:MM" は辞書順がそのまま時刻順） */
 export function inIntraday(key) {
+  // :00 :15 :30 :45 だけ。3本目の cron（:05 :35 :40）で realtime-signal を
+  // 余計に起こさないため、分も見る。
+  if (!["00", "15", "30", "45"].includes(key.slice(3))) return false;
   return key >= INTRADAY.from && key <= INTRADAY.to;
+}
+
+/** その曜日（JST）に渡す入力。無ければ null */
+export function inputsFor(workflow, dow) {
+  return (DISPATCH_INPUTS[workflow] || {})[dow] || null;
 }
 
 /** この時刻に起こすワークフローを決める */
@@ -422,7 +473,7 @@ export default {
     }
 
     // 東証が閉まっている日は、市場データを作るものを起こさない。
-    // 週末バッチ（pipeline-weekly）だけは土曜に動かす。
+    // 週末バッチ（pipeline-weekly）と AI の prep だけは動かす（RUN_ON_HOLIDAYS）。
     const marketOpen = isTradingDay(jst);
 
     // 朝の通知は gate（pipeline-morning）の結果を見てから叩く。
@@ -433,7 +484,7 @@ export default {
     }
     const runnable = marketOpen
       ? targets
-      : targets.filter((w) => w === "pipeline-weekly.yml");
+      : targets.filter((w) => RUN_ON_HOLIDAYS.has(w));
 
     if (runnable.length === 0) {
       console.log(`JST ${key}: 休場日（${today}）なので何もしない`);
@@ -457,8 +508,10 @@ export default {
         continue;
       }
       // 予備の回は「データは作るが人に届く通知は出さない」
-      const inputs = backupHere.has(wf) ? { backup: "true" } : null;
-      if (inputs) console.log(`${wf} は予備の回として起動します（通知なし）`);
+      const backup = backupHere.has(wf) ? { backup: "true" } : null;
+      if (backup) console.log(`${wf} は予備の回として起動します（通知なし）`);
+      const extra = inputsFor(wf, jst.getUTCDay());
+      const inputs = backup || extra ? { ...extra, ...backup } : null;
       results.push(await dispatch(wf, env, inputs));
     }
 
@@ -505,6 +558,8 @@ export default {
       plan: PLAN,
       weekend_plan: WEEKEND_PLAN,
       weekday_only_plan: WEEKDAY_ONLY_PLAN,
+      dispatch_inputs: DISPATCH_INPUTS,
+      run_on_holidays: [...RUN_ON_HOLIDAYS],
     };
     return new Response(JSON.stringify(body, null, 2), {
       headers: { "Content-Type": "application/json; charset=utf-8" },
