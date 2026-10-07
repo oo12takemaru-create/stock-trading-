@@ -128,3 +128,8 @@ investor_cache/
 !docs/shinyo_daily/*.json
 !docs/shinyo_weekly.json
 !docs/shinyo_weekly_seed.json
+
+# 空売り機関トラッカー（積上④）
+!docs/shorts.json
+!docs/sellers.json
+!data/sellers.csv

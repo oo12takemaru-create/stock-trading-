@@ -1,0 +1,70 @@
+name: Shorts Daily (kaburadar.jp)
+
+# 空売り機関トラッカー（積上④）のデータ。
+#   shorts_build.py → docs/shorts.json（機関ごとの今日の数字・成績・推移・保有・直近の動き）
+#                   → docs/sellers.json（報告書上の名前 → 機関ID。銘柄ページのリンクに使う）
+# ページの生成はサイト側（kaburadar の gen_shorts.py・Site Rebuild）が行う。
+#
+# 今日の残高（karauri.json）が更新された直後に走らせたいので、karauri-daily の完了に続ける。
+# 失敗した回は karauri.json が当てにならないので何もしない。
+# events.json には書き戻さない（週1回の karauri-score とファイルを取り合わないため）。
+on:
+  workflow_run:
+    workflows: ["Karauri Daily (kaburadar.jp)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shorts-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する★
+          #   bypass に入れられるのは Deploy key だけなので、GITHUB_TOKEN の
+          #   push（github-actions[bot]）は「PR 必須」に弾かれる。
+          #   ★DEPLOY_KEY が未設定なら空文字＝無視され、今までどおり token で動く。★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas xlrd openpyxl
+
+      - name: Test
+        run: python -X utf8 tests/test_shorts.py
+
+      - name: Build shorts.json
+        run: python -X utf8 shorts_build.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/shorts.json docs/sellers.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🏦 空売り機関トラッカーを更新 ($(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M'))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1
