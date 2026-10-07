@@ -57,6 +57,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # ★ref: main（2026-10-08）★ パイプラインから呼ばれると、既定では**パイプラインが始まった
+          #   時点のコミット**を取り出す。同じ回で着火・決算などが更新した分が見えず、
+          #   「1営業日前が最新」と誤報していた（10/7 21:00 の回で判明。9/30〜10/6 の
+          #   18:00 の回の点検の失敗も同じ原因の可能性が高い）。点検は常に最新の main を見る。
+          ref: main
           # 中身の点検が「前営業日はどうだったか」を git の履歴から読むため、
           # 浅いclone（既定の depth:1）では足りない。
           fetch-depth: 0
@@ -246,6 +251,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main   # 上の check と同じ理由（パイプラインの開始時点ではなく最新を見る）
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
