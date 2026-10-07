@@ -25,6 +25,12 @@ on:
         required: true
         type: string
   workflow_dispatch:
+    inputs:
+      test_stale:
+        description: 'テスト用: 止まったことにする表示名（本番のJSONは触らない。Issueは立てず ntfy だけ送る）'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -57,6 +63,8 @@ jobs:
 
       - name: Check data freshness
         id: chk
+        env:
+          TEST_STALE: ${{ inputs.test_stale }}
         run: |
           python - <<'PY' > report.md
           import json, sys
@@ -96,6 +104,12 @@ jobs:
                   problems.append(f"{label}: {age}営業日前が最新 (許容{tol}営業日)")
               rows.append(f"| {label} | {'✅' if ok else '⚠️ 古い'} | {upd[:16]} ({age}営業日前) |")
 
+          # テスト用（workflow_dispatch の test_stale）。本番のJSONは触らず、問題を1件足すだけ
+          import os
+          t = os.environ.get("TEST_STALE", "").strip()
+          if t:
+              problems.append(f"{t}: 【テスト】止まったことにしています（実際のデータは正常）")
+
           print(f"## 株レーダー データ鮮度チェック ({now:%Y-%m-%d %H:%M} JST)\n")
           print("| データ | 状態 | 最終更新 |")
           print("|---|---|---|")
@@ -128,7 +142,7 @@ jobs:
       - name: Open issue when stale (単独実行の回だけ)
         if: >-
           (steps.chk.outputs.stale == 'true' || steps.content.outputs.broken == 'true')
-          && inputs.mode != 'check'
+          && inputs.mode != 'check' && inputs.test_stale == ''
         uses: peter-evans/create-issue-from-file@v5
         with:
           # 鮮度と中身で別々にIssueを立てると同じ晩に2本並ぶので、1本にまとめる
@@ -136,6 +150,65 @@ jobs:
           title: "⚠️ 株レーダー: データに異常があります（更新停止または中身の失敗）"
           content-filepath: report.md
           labels: data-alert
+
+      # ★スマホに届く通知（ntfy）・2026-10-07 起動文 積上①★
+      #   Issue は本人が GitHub を開かないと見えない。空売り・信用残・朝刊の停止は
+      #   10日・10日・4日気づけなかった。朝刊と同じ NTFY_TOPIC に送り、翌朝には分かるようにする。
+      #   送るのは単独実行（23:30 の Worker／23:43 の schedule）の回だけ。パイプライン内（mode: check）は
+      #   ジョブを失敗させるだけで送らない＝同じ内容を1日に2回送らない（二重通知は欠落より悪い・§19-7）。
+      #   23:30 と 23:43 が両方走った日に2通にならないよう、送った印を Actions の cache に置く。
+      - name: Already notified today?
+        id: sent
+        if: >-
+          (steps.chk.outputs.stale == 'true' || steps.content.outputs.broken == 'true')
+          && inputs.mode != 'check'
+        run: echo "key=ntfy-healthcheck-$(TZ=Asia/Tokyo date +%F)${{ inputs.test_stale != '' && '-test' || '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore notified mark
+        id: mark
+        if: steps.sent.outputs.key != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: .ntfy-sent
+          key: ${{ steps.sent.outputs.key }}
+
+      - name: Notify (ntfy)
+        if: steps.sent.outputs.key != '' && steps.mark.outputs.cache-hit != 'true'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "::warning::NTFY_TOPIC 未設定のため通知できません"; exit 0; fi
+          python - <<'PY'
+          import json, os, re, urllib.request
+          rep = open("report.md", encoding="utf-8").read()
+          # 「要対応」の見出しの下の箇条書きだけ（鮮度・中身の両方）
+          lines = []
+          for block in re.split(r"\n### ", rep)[1:]:
+              if block.startswith("⚠️ 要対応"):
+                  lines += [l[2:].replace("**", "") for l in block.splitlines() if l.startswith("- ")]
+          names = []
+          for l in lines:
+              n = re.split(r"[:：]", l, 1)[0].strip()
+              if n and n not in names:
+                  names.append(n)
+          title = "⚠️ 株レーダー: " + "・".join(names[:4]) + (f" ほか{len(names) - 4}件" if len(names) > 4 else "")
+          body = "\n".join(lines)[:1500] or "（要対応の行を取り出せませんでした）"
+          run = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          urllib.request.urlopen(urllib.request.Request(
+              "https://ntfy.sh",
+              data=json.dumps({"topic": os.environ["NTFY_TOPIC"], "title": title, "message": body,
+                               "priority": 4, "tags": ["warning"], "click": run}).encode("utf-8"),
+              headers={"Content-Type": "application/json"}), timeout=30)
+          print("ntfy送信OK:", title)
+          PY
+          mkdir -p .ntfy-sent && date > .ntfy-sent/at
+
+      - name: Save notified mark
+        if: steps.sent.outputs.key != '' && steps.mark.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ntfy-sent
+          key: ${{ steps.sent.outputs.key }}
 
       # パイプライン内では Issue の代わりに**ジョブを失敗させる**。
       # morning-gate と同じ考え方（Issue を立てるだけだと Actions の一覧が

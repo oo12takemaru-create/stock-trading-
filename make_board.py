@@ -25,7 +25,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from data_targets import stale_list
+from data_targets import stale_list, freshness_table
 
 JST = timezone(timedelta(hours=9))
 HERE = Path(__file__).parent
@@ -154,8 +154,9 @@ def main():
     if stale:
         print("⚠️ 止まっているデータ: " + "／".join(f"{x['label']}({x['age']}営業日前)" for x in stale))
 
+    # 状況ページの鮮度表（全 TARGETS）。status.html が自前の許容日数を持たないよう、ここから描く
     out = {"v": 1, "updated": datetime.now(JST).isoformat(timespec="seconds"),
-           "stale": stale, "files": files}
+           "stale": stale, "freshness": freshness_table(HERE), "files": files}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     kb = OUT.stat().st_size / 1024
     print(f"board.json: {len(files)}本ぶん / {kb:.1f}KB")

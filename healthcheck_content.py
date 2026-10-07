@@ -122,6 +122,10 @@ CHECKS = [
     ("docs/gauge.json",        "傾斜計（取得失敗）",     ck_gauge_unknown),
     ("docs/gauge.json",        "傾斜計（前回値で代用）", ck_gauge_stale),
     ("docs/crash.json",        "着火判定",               ck_crash_tradedate),
+    # ★2026-10-07 追加★ movers_daily.py は「成功」して updated も進んだのに、取得した日足が
+    #   前々日までしか無く trade_date が古いままだった（10/7 深夜の回）。鮮度（updated）では
+    #   捕まらないので、着火判定と同じくヒートマップの取引日と突き合わせる
+    ("docs/prices.json",       "全銘柄の値動き",         ck_crash_tradedate),
     ("docs/score3.json",       "3軸スコア",              ck_score3),
     ("docs/free_scanner.json", "無料スキャナー",         ck_stale_flag),
     ("docs/market_jiai.json",  "地合い",                 ck_stale_flag),

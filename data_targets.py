@@ -65,6 +65,9 @@ TARGETS = [
     # ★2026-10-03 追加★ エンジン③（movers_daily.py・平日18:07 JST）。
     #   銘柄ページの値動き欄（エンジン①）の供給源なので当日更新必須。
     ("docs/prices.json",        "全銘柄の値動き",     0),
+    # ★2026-10-07 追加★ シグナル台帳（ledger-daily.yml・平日19:30 JST）。公開はしないが、
+    #   止まると3か月後の検証が欠けるので監視する
+    ("docs/ledger/summary.json", "シグナル台帳",     1),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。
@@ -125,3 +128,28 @@ def stale_list(root=".", now=None, slack=0, skip=None):
             continue
         out.append({"f": Path(path).name, "label": label, "age": age, "tol": tol})
     return sorted(out, key=lambda x: -(x["age"] - x["tol"]))
+
+
+def freshness_table(root=".", now=None, slack=1):
+    """状況ページ（status.html）用の全データの鮮度表。TARGETS の順のまま全部返す。
+
+    [{"f": "karauri.json", "label": "空売り残高", "tol": 2, "updated": "...", "age": 1, "state": "ok"}, ...]
+    state: ok＝許容内 / wait＝許容を超えたが猶予（slack）の内＝その日の更新待ち / stale＝止まっている / unknown＝読めない
+    トップのバッジ（stale_list の slack=1）と同じ物差しにする。閾値はここ（TARGETS）にしか書かない。
+    """
+    root = Path(root)
+    today = ref_date(now)
+    out = []
+    for path, label, tol in TARGETS:
+        upd = None
+        try:
+            d = json.loads((root / path).read_text(encoding="utf-8"))
+            upd = (d.get("updated") or (d.get("latest") or {}).get("updated") or d.get("asof") or None)
+        except Exception:
+            pass
+        age = age_of(root / path, today)
+        state = ("unknown" if age is None else "ok" if age <= tol
+                 else "wait" if age <= tol + slack else "stale")
+        out.append({"f": path.replace("docs/", ""), "label": label, "tol": tol,
+                    "updated": upd, "age": age, "state": state})
+    return out
