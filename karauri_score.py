@@ -46,6 +46,18 @@ H = (5, 20)           # 営業日
 MIN_N = 10            # これ未満の機関は「件数不足」として値を出さない
 DOWN_IS_WIN = {"新規", "増加"}
 MAX_TICKERS = int(os.environ.get("KARAURI_MAX_TICKERS", "700"))
+SELLERS_CSV = HERE / "data" / "sellers.csv"
+
+
+def seller_ids():
+    """名寄せ表 data/sellers.csv の 報告書上の名前 → 機関ID。無ければ空（IDなしで動く）"""
+    import csv
+    try:
+        with SELLERS_CSV.open(encoding="utf-8") as f:
+            return {r["name"]: r["id"] for r in csv.DictReader(f) if r["id"]}
+    except Exception as e:
+        print(f"  名寄せ表を読めない（IDは付けない）: {e}", file=sys.stderr)
+        return {}
 
 
 def classify_event(ratio, prev):
@@ -228,6 +240,10 @@ def score(store):
         d["seller"] = s
         d["low_n"] = False
         sellers.append(d)
+    # 機関ページ（kaburadar/shorts/{id}.html）へ繋ぐためのID。名寄せ表に無い・除外（個人）は null
+    ids = seller_ids()
+    for d in sellers:
+        d["id"] = ids.get(d["seller"])
     # 表示は件数順（勝率順にすると「おすすめ順」に見える）
     sellers.sort(key=lambda x: -(x.get("d20", {}).get("n") or x.get("n") or 0))
 

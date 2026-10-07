@@ -32,6 +32,7 @@ TARGETS = [
     ("docs/investor_hist.json", "投資部門別の履歴",   9),
     ("docs/tenbagger.json",     "十倍株スキャナー",   6),
     ("docs/karauri.json",       "空売り残高",         2),
+    ("docs/shorts.json",        "空売り機関トラッカー", 2),   # karauri.json に続けて作るので同じ許容
     ("docs/kessan.json",        "決算カレンダー",     2),
     ("docs/gauge.json",         "暴落の傾斜計",       0),
     ("docs/crash.json",         "着火判定",           0),
