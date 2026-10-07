@@ -1,0 +1,49 @@
+{
+ "updated": "2026-10-07T20:39:59+09:00",
+ "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
+ "total": 1259,
+ "sources": {
+  "ai": {
+   "count": 8,
+   "scored_r20": 0,
+   "r20_mean": null,
+   "r20_up_rate": null
+  },
+  "free_scanner": {
+   "count": 313,
+   "scored_r20": 264,
+   "r20_mean": -0.36,
+   "r20_up_rate": 48.9
+  },
+  "karauri_new": {
+   "count": 713,
+   "scored_r20": 495,
+   "r20_mean": -1.05,
+   "r20_up_rate": 47.3
+  },
+  "movers": {
+   "count": 197,
+   "scored_r20": 0,
+   "r20_mean": null,
+   "r20_up_rate": null
+  },
+  "regime": {
+   "count": 10,
+   "scored_r20": 6,
+   "r20_mean": 0.01,
+   "r20_up_rate": 33.3
+  },
+  "score3": {
+   "count": 1,
+   "scored_r20": 0,
+   "r20_mean": null,
+   "r20_up_rate": null
+  },
+  "tenbagger": {
+   "count": 17,
+   "scored_r20": 0,
+   "r20_mean": null,
+   "r20_up_rate": null
+  }
+ }
+}
