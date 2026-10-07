@@ -74,9 +74,9 @@ const env = {
 const ctx = { waitUntil: (p) => p };
 const quiet = console.log;
 
-// cron は「毎時 :00 :30」と「ザラ場の :15 :45」の2本。両方を再現する
+// cron は「毎時 :00 :30」「:15 :45」「:05 :35 :40」（AI prep 用・2026-10-07〜）の3本。全部を再現する
 for (let h = 0; h < 24; h++) {
-  for (const mi of [0, 15, 30, 45]) {
+  for (const mi of [0, 5, 15, 30, 35, 40, 45]) {
     NOW = `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
     const utc = Date.parse(`${day}T${NOW}:00Z`) - 9 * 3600 * 1000; // JST の壁時計 → UTC
     console.log = () => {};

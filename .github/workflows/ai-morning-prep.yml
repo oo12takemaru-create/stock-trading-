@@ -1,5 +1,7 @@
 name: AI Morning Prep (data → prompt branch)
 
+# 本命は cron-worker からの dispatch（2026-10-07）。schedule は遅延する保険。
+
 # 2026-10-05〜 AI朝刊の前段。データ取りとプロンプト作成は GitHub Actions が行う。
 #   routine（Claude Code 定期実行）のクラウド環境は外向きHTTPSがプロキシで遮断され、
 #   Yahoo Finance / GitHub Pages / ニュースRSS を取れないため。
