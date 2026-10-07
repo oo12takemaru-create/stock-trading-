@@ -20,6 +20,12 @@
     20営業日おきに間引いた「重ならない標本」でも同じ表を作り、判断はそちらで行う
   - 日経平均そのものが上がっている期間なので、帯ごとの平均は「全体平均との差」でも見る
 
+■ 結果と扱い（2026-10-07 実行・2026-10-08 Fable判断）
+  勢いは20日後リターンと無関係だった（重ならない標本45,321件で最上位−最下位 +0.29pt p=0.31、
+  順位相関0.007）。4指標を1つずつ見てもゼロ。よって銘柄エネルギー（戦闘力）は公開しない。
+  定義を変えて測り直すこと、5日後だけ並んだ結果（p=0.038）を追うことは、しない
+  （当たるまで検証を変えない）。報告: kaburadar/_報告_積上②.md
+
 使い方:
   python -X utf8 energy_backtest.py                 # precompute/cache の価格を使う（無ければ yfinance）
 """
@@ -58,7 +64,13 @@ def metrics_frame(df):
     hi52 = close / hi - 1
     g25 = close / close.rolling(25, min_periods=25).mean() - 1
     fwd = close.shift(-HORIZON) / close - 1
-    return pd.DataFrame({"vr": vr, "c20": c20, "hi52": hi52, "g25": g25, "fwd": fwd})
+    # 報告の追加確認用（方向でなく大きさ／期間を変える）
+    fwd5 = close.shift(-5) / close - 1
+    fwd60 = close.shift(-60) / close - 1
+    r = close.pct_change()
+    vol20 = r[::-1].rolling(20, min_periods=15).std()[::-1].shift(-1)   # 翌日からの20日の日次ボラ
+    return pd.DataFrame({"vr": vr, "c20": c20, "hi52": hi52, "g25": g25, "fwd": fwd,
+                         "fwd5": fwd5, "fwd60": fwd60, "vol20": vol20})
 
 
 def table(rows):
@@ -78,6 +90,37 @@ def table(rows):
             "diff_vs_all_pt": round(float(s.mean() - allm) * 100, 2),
         })
     return out, round(float(allm) * 100, 2)
+
+
+def diagnostics(non):
+    """報告に載せた追加確認3つ（重ならない標本）。新しい検定は足さない（Fable 2026-10-08）
+      1. 4指標を1つずつ：5分位ごとの20日後平均と順位相関
+      2. 方向でなく大きさ：帯ごとの20日後|騰落|と、次の20日の日次ボラ
+      3. 期間を変える：5日後・60日後の帯ごとの平均"""
+    out = {}
+    for k in ("vr", "c20", "hi52", "g25"):
+        q = pd.qcut(non[k + "_p"], 5, labels=["低", "2", "3", "4", "高"])
+        g = non.groupby(q, observed=True)["fwd"].mean() * 100
+        rho = stats.spearmanr(non[k + "_p"], non["fwd"])
+        out[k] = {"quintile_mean_pct": [round(float(v), 2) for v in g.values],
+                  "rho": round(float(rho.correlation), 4), "p": round(float(rho.pvalue), 4)}
+    band = pd.cut(non["score"], [b[0] for b in BANDS] + [101], labels=BAND_LABEL, right=False)
+    absf = non["fwd"].abs()
+    base = absf.mean()
+    g2 = non.assign(absfwd=absf).groupby(band, observed=True).agg(
+        n=("fwd", "size"), abs_mean=("absfwd", "mean"), vol=("vol20", "mean"))
+    rho2 = stats.spearmanr(non["score"], absf)
+    out["magnitude"] = {
+        "bands": {str(k): {"n": int(v.n), "abs_mean_pct": round(float(v.abs_mean) * 100, 2),
+                           "ratio": round(float(v.abs_mean / base), 2),
+                           "vol20_pct": round(float(v.vol) * 100, 2)} for k, v in g2.iterrows()},
+        "rho": round(float(rho2.correlation), 4), "p": float(rho2.pvalue)}
+    for h in (5, 60):
+        g3 = non.groupby(band, observed=True)[f"fwd{h}"].mean() * 100
+        rho3 = stats.spearmanr(non["score"], non[f"fwd{h}"], nan_policy="omit")
+        out[f"fwd{h}"] = {"band_mean_pct": [round(float(v), 2) for v in g3.values],
+                          "rho": round(float(rho3.correlation), 4), "p": round(float(rho3.pvalue), 4)}
+    return out
 
 
 def main():
@@ -145,6 +188,7 @@ def main():
             "過去にこうだったという記録であって、次にどうなるかを示すものではない",
         ],
     }
+    res["diagnostics"] = diagnostics(non)
     OUT.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
 
     def show(lab, tb, mean, mo):
@@ -163,6 +207,15 @@ def main():
           f"p={nt['top_vs_bottom']['p_welch']}")
     print(f"  勢い（連続値）と20日後リターンの順位相関: rho={nt['spearman_continuous']['rho']} "
           f"p={nt['spearman_continuous']['p']}")
+    dg = res["diagnostics"]
+    print("\n■ 追加確認（報告に載せたもの）")
+    for k in ("vr", "c20", "hi52", "g25"):
+        print(f"  {k:5s} 5分位 " + " ".join(f"{v:+.2f}" for v in dg[k]["quintile_mean_pct"])
+              + f"  順位相関 {dg[k]['rho']:+.4f} p={dg[k]['p']:.4f}")
+    print("  |騰落|の全体比 " + " ".join(f"{b}:{v['ratio']:.2f}" for b, v in dg["magnitude"]["bands"].items()))
+    for h in (5, 60):
+        print(f"  {h:2d}日後 " + " ".join(f"{v:+.2f}" for v in dg[f"fwd{h}"]["band_mean_pct"])
+              + f"  順位相関 {dg[f'fwd{h}']['rho']:+.4f} p={dg[f'fwd{h}']['p']:.4f}")
     print(f"→ {OUT.name}")
 
 
