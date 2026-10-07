@@ -49,25 +49,37 @@ const PLAN = {
   "09:00": ["heatmap.yml"],
   "10:30": ["heatmap.yml"],
   "12:00": ["daily-signal.yml", "heatmap.yml"], // 昼の回
+  "12:30": ["board.yml"],
   "14:30": ["heatmap.yml"],
   // ※ JST 15:00 に daily-signal を置かない。slot 判定は JST 15時以降を
   //   一律に「夕」とするので、18:00 の回と**同じタイトルの Issue が
   //   2本立つ**。夕は 18:00（pipeline-daily の先頭）が担当する。
 
   // ── 引け後（平日）。この順序が公開JSONの鮮度を決める ──
+  // ★2026-10-08 積上①-b★ 日次で本番に出るデータを作るものは全部ここから起こす。
+  //   GitHub の schedule は 3〜7時間遅れるのが実測で確定（10/6 の値動きは深夜に走って中身が古かった）。
+  //   各ワークフローの schedule は保険として残してある（二重に走っても各自の冪等ガードが効く）。
+  // 決算速報（TDnet）。15:30・16:30・18:30 の3回が正常（NO_DEDUP）
+  "15:30": ["kessan-flash.yml"],
   "16:00": ["heatmap.yml"],
+  "16:30": ["kessan-flash.yml", "board.yml"],
+  // 銘柄別の信用残（JPX の日次公表・16:00目安）。17:30 は予備＝17:00 が成功していたら起こさない
+  "17:00": ["shinyo-weekly.yml"],
+  "17:30": ["shinyo-weekly.yml"],
   "18:00": ["pipeline-daily.yml"], // 夕シグナル→free-scanner→radar→派生→前計算→点検
   // 全銘柄の値動き（prices.json・銘柄ページの株価の元）。GitHub の schedule だけだと
   // 10/6 は7時間遅れて深夜に走り、Yahoo の日足が揃う前で前々日のままになった（2026-10-07）
-  "18:30": ["movers-daily.yml"],
+  "18:30": ["movers-daily.yml", "kessan-flash.yml"],
   "19:00": ["buyback-daily.yml", "ai-record.yml"],
   // シグナル台帳（記録→採点）。18:00 のパイプラインと 18:30 の値動きの後（起動文 積上① 2026-10-07）
   "19:30": ["ledger-daily.yml"],
+  "20:00": ["board.yml"],
 
   // ── 予備（冪等ガードが効くので二重でも害はない）──
   "21:00": ["pipeline-daily.yml"],
 
   // ── 深夜〜早朝 ──
+  "23:00": ["board.yml"],   // 点検（23:30）の前に、鮮度表（freshness）を作り直しておく
   "23:30": ["data-healthcheck.yml"],
   // AI朝刊の前段（2026-10-07〜）。GitHub の schedule は数時間遅れる
   // （10/7: 20:35 UTC の cron が 23:59 UTC、21:05 が 00:37 に起動）ので、ここから起こす。
@@ -83,7 +95,7 @@ const PLAN = {
   "07:15": ["morning-digest.yml"],
   "07:30": ["karauri-daily.yml", "kessan-daily.yml"],
   "08:00": ["daily-signal.yml"],
-  "08:30": ["kessan-react-daily.yml"],
+  "08:30": ["kessan-react-daily.yml", "board.yml"],
 };
 
 /** 土日に動かすもの（JSTの曜日 → 時刻 → ワークフロー） */
@@ -169,6 +181,9 @@ export const NO_DEDUP = new Set([
   // 1回目が成功していても2回目を止めない（Fable 判断 2026-10-07）。
   "ai-morning-prep.yml",
   "ai-weekly-prep.yml",
+  // 積上①-b（2026-10-08）
+  "kessan-flash.yml", // 決算速報は 15:30/16:30/18:30 の3回が正常
+  "board.yml",        // トップの要約は各データの更新に合わせて1日5回作り直すのが正常
 ]);
 
 /**
@@ -177,6 +192,7 @@ export const NO_DEDUP = new Set([
  */
 const DEDUP_ANYWAY = new Set([
   "pipeline-daily.yml", // 21:00 は予備。18:00 が成功していたら SKIP してよい
+  "shinyo-weekly.yml",  // 17:30 は予備。17:00 が成功していたら SKIP してよい
 ]);
 
 /**
@@ -434,7 +450,10 @@ export function targetsFor(jst) {
   }
 
   const weekly = (WEEKDAY_ONLY_PLAN[dow] || {})[key];
-  const base = weekly || PLAN[key] || [];
+  // ★曜日だけの予定は「足す」（上書きしない）★ 2026-10-08
+  //   以前は weekly || PLAN だったので、同じ時刻に平日の予定があると曜日の側で消えていた。
+  //   木曜 16:30 の investor-flow と、毎日 16:30 の kessan-flash・board がぶつかる。
+  const base = [...(PLAN[key] || []), ...(weekly || [])];
   const why = weekly ? `${dow}曜だけの予定` : "平日の予定";
 
   // ザラ場中は realtime-signal を上乗せする（:00 :15 :30 :45 の15分間隔）。

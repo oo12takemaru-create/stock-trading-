@@ -68,6 +68,13 @@ TARGETS = [
     # ★2026-10-07 追加★ シグナル台帳（ledger-daily.yml・平日19:30 JST）。公開はしないが、
     #   止まると3か月後の検証が欠けるので監視する
     ("docs/ledger/summary.json", "シグナル台帳",     1),
+    # ★2026-10-08 追加（積上①-b）★ pipeline-daily の各ジョブの出力で、ここに無かったもの。
+    #   free_scanner / market_jiai は朝の関門（check_freshness.py）でも見ているが、そちらは
+    #   夜の点検・状況ページ・トップのバッジに出ない。equity_curve / portfolio_stats は
+    #   祝日を知らないこの表では休場明けに必ず誤報が出るので、今までどおり check_freshness 側だけ。
+    ("docs/free_scanner.json",  "無料スキャナー",     0),
+    ("docs/market_jiai.json",   "地合い（無料版）",   0),
+    ("docs/kessan_react.json",  "決算の答え合わせ",   1),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。

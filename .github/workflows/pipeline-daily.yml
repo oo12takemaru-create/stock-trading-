@@ -5,10 +5,24 @@ name: Pipeline Daily (日次パイプライン)
 # 起動は Cloudflare の Cron Trigger（cron-worker）から workflow_dispatch で行う。
 # GitHub の schedule は常時2〜5時間遅れるため使わない（引継ぎ.md §19-8）。
 #
-# ■ なぜ順序が要るか
-# 上流が失敗したまま下流が走ると、**壊れた入力で公開してしまう**。
-# 2026-09-06 に ^GSPC が取れないまま計算を続け、別物の数字を公開した事故がある
-# （§19-2 の教訓）。needs: で「上流が成功したときだけ下流へ進む」を骨組みで担保する。
+# ■ 依存しているものだけ繋ぐ（2026-10-08 改・起動文 積上①-b）
+# 以前は全ジョブを1本の needs の鎖にしていた。「上流が失敗したまま下流が走ると、
+# 壊れた入力で公開してしまう」（2026-09-06 ^GSPC の事故・§19-2）を防ぐためだったが、
+# **データの依存が無い系統まで道連れ**になり、9/24〜10/7 の2週間、温度計の公開や
+# 空売りの失敗で 傾斜計・着火・決算・空売り・前計算・点検 が毎日 skipped だった。
+# GitHub の遅れた schedule が深夜に埋めていたので、止まって見えなかった。
+#
+# いまは:
+#   - 夕シグナル（daily-signal）を本当に使うもの＝無料スキャナー・温度計の公開・前計算 は
+#     「夕シグナルが success のときだけ」走る（壊れた入力で公開しない、は守る）
+#   - それ以外（傾斜計・着火・決算・決算反応・空売り）は、前のジョブが落ちても走る
+#   - 点検は最後に必ず走る
+#   - パイプライン全体の結論は「1つでも failure なら failure」のまま（気づけなくなるのを防ぐ）
+#
+# ■ 並び順（直列）はそのまま
+# docs/*.json を main に push するジョブを並列にすると、push の直前に別のジョブが割り込み
+# cannot lock ref で落ちる（2026-09-09 実測）。だから「順番に走る」は残し、
+# 「前が落ちたら止まる」だけをやめた（if: !cancelled()）。
 #
 # ■ 各ワークフローの中身は変えていない
 # それぞれに workflow_call を足しただけ。単体の workflow_dispatch でも今までどおり動く。
@@ -26,6 +40,11 @@ on:
         required: false
         default: 'false'
         type: string
+      test_fail:
+        description: 'テスト用: true なら途中のジョブをわざと失敗させ、後ろが走るかを見る（本番データは触らない）'
+        required: false
+        default: 'false'
+        type: string
 
 # 同時に2本走らせない（予備の起動と本命が重なっても順番待ちにする）
 concurrency:
@@ -38,71 +57,77 @@ permissions:
   issues: write
 
 jobs:
-  # 1. 夕方のシグナル判定（終値ベース）。ここが土台
+  # 1. 夕方のシグナル判定（終値ベース）。無料スキャナー・温度計・前計算の土台
   daily-signal:
     uses: ./.github/workflows/daily-signal.yml
     with:
       backup: ${{ inputs.backup }}
     secrets: inherit
 
-  # 2. 無料版スキャナー（ruletrade.jp /scanner・MCP が読む）
+  # 2. 無料版スキャナー（signals_log.csv を読む＝夕シグナルに依存）
   free-scanner:
     needs: daily-signal
+    if: ${{ !cancelled() && needs.daily-signal.result == 'success' }}
     uses: ./.github/workflows/free-scanner.yml
     secrets: inherit
 
-  # 3. 地合いの公開（MCP get_market_regime・株レーダーが読む）
-  #    従来は daily-signal の workflow_run で連鎖していた。パイプラインでは
-  #    needs で順序が保証されるので、そちらに寄せる。
-  #    ※ free-scanner の後ろに置くのは順序の都合ではなく、**同時 push を避けるため**。
-  #      この2本も docs/*.json を main に push する（下の「並列にしてはいけない」参照）。
+  # 3. 地合いの公開（同じ実行の signal artifact を読む＝夕シグナルに依存・PR #570）
   radar-publish:
-    needs: free-scanner
+    needs: [daily-signal, free-scanner]
+    if: ${{ !cancelled() && needs.daily-signal.result == 'success' }}
     uses: ./.github/workflows/radar-publish.yml
     secrets: inherit
 
-  # 4. 派生データ。**並列にしてはいけない**（2026-09-09 の実測で判明）
-  #
-  #    5本とも docs/*.json を main に push する。並列にすると rebase の直後・
-  #    push の直前に別のジョブが割り込み、
-  #      ! [remote rejected] main -> main (cannot lock ref 'refs/heads/main')
-  #    で落ちる。実際 crash と kessan-react が同時に落ちた。
-  #    どれか1本でも落ちると precompute が skipped になり、**公開数字が更新されない**。
-  #
-  #    従来は schedule で時間がばらけていたので起きなかった。1本にまとめた副作用。
-  #    互いにデータの依存は無いので、順番はどれでもよい。速さより確実さを取る。
-  #    （各ワークフローの commit ステップは触らない＝単体実行の動きを変えない）
-  gauge:
+  # テスト用: 途中のジョブがわざと落ちても後ろが走ることを確かめる（test_fail=true のときだけ）。
+  # 本番のデータには触らない。ふだんは skipped で、後ろは !cancelled() なので影響しない
+  fault-test:
     needs: radar-publish
+    if: ${{ !cancelled() && inputs.test_fail == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::テスト用にわざと失敗させています（test_fail=true）"
+          exit 1
+
+  # 4. 派生データ。夕シグナルとのデータの依存は無い＝前が落ちても走る（並び順は push 衝突よけ）
+  gauge:
+    needs: fault-test
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/gauge-daily.yml
     secrets: inherit
   crash:
     needs: gauge
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/crash-daily.yml
     secrets: inherit
   kessan:
     needs: crash
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/kessan-daily.yml
     secrets: inherit
+  # 予定日は kessan.json ではなく JPX から取り直す（kessan_react.py の注記）＝決算とも独立
   kessan-react:
     needs: kessan
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/kessan-react-daily.yml
     secrets: inherit
   karauri:
     needs: kessan-react
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/karauri-daily.yml
     secrets: inherit
 
-  # 5. 前計算 → 公開数字 → キャッシュ温め
-  #    ここは daily_metrics を触るので、派生データの後ろに置いて負荷を分ける
+  # 5. 前計算 → 公開数字 → キャッシュ温め（シグナルを使う＝夕シグナルに依存）
   precompute:
-    needs: karauri  # 直列なので、最後まで来ていれば手前は全部成功している
+    needs: [daily-signal, karauri]
+    if: ${{ !cancelled() && needs.daily-signal.result == 'success' }}
     uses: ./.github/workflows/precompute-daily.yml
     secrets: inherit
 
-  # 6. 出来上がりの点検。ここまで全部通ってから見る
+  # 6. 出来上がりの点検。前がどうであれ最後に必ず見る
   healthcheck:
     needs: precompute
+    if: ${{ !cancelled() }}
     uses: ./.github/workflows/data-healthcheck.yml
     with:
       mode: check
@@ -111,7 +136,7 @@ jobs:
   # どこかで落ちたら、何が止まったか1か所に残す
   summary:
     if: always()
-    needs: [daily-signal, free-scanner, radar-publish, gauge, crash, kessan, kessan-react, karauri, precompute, healthcheck]
+    needs: [daily-signal, free-scanner, radar-publish, fault-test, gauge, crash, kessan, kessan-react, karauri, precompute, healthcheck]
     runs-on: ubuntu-latest
     steps:
       - name: Write summary
@@ -122,18 +147,20 @@ jobs:
             echo "| ステップ | 結果 |"
             echo "|---|---|"
             echo "| 1. 夕シグナル | ${{ needs.daily-signal.result }} |"
-            echo "| 2. 無料スキャナー | ${{ needs.free-scanner.result }} |"
-            echo "| 3. 地合い公開 | ${{ needs.radar-publish.result }} |"
+            echo "| 2. 無料スキャナー（夕シグナルに依存） | ${{ needs.free-scanner.result }} |"
+            echo "| 3. 地合い公開（夕シグナルに依存） | ${{ needs.radar-publish.result }} |"
+            echo "| (テスト) わざと失敗 | ${{ needs.fault-test.result }} |"
             echo "| 4. 傾斜計 | ${{ needs.gauge.result }} |"
             echo "| 4. 着火メーター | ${{ needs.crash.result }} |"
             echo "| 4. 決算 | ${{ needs.kessan.result }} |"
             echo "| 4. 決算反応 | ${{ needs.kessan-react.result }} |"
             echo "| 4. 空売り | ${{ needs.karauri.result }} |"
-            echo "| 5. 前計算・公開数字 | ${{ needs.precompute.result }} |"
+            echo "| 5. 前計算・公開数字（夕シグナルに依存） | ${{ needs.precompute.result }} |"
             echo "| 6. データ点検 | ${{ needs.healthcheck.result }} |"
             echo ""
-            echo "skipped は「上流が失敗したので走らせなかった」という意味です。"
-            echo "壊れた入力で公開しないための設計です（引継ぎ.md §19-2）。"
+            echo "skipped は「夕シグナルが失敗したので、それを使うものを走らせなかった」"
+            echo "（壊れた入力で公開しない・§19-2）か、テスト用ジョブを使わなかった、のどちらか。"
+            echo "それ以外の系統は前が落ちても走る（2026-10-08 改）。"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any step failed
