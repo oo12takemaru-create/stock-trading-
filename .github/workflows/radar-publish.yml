@@ -80,15 +80,33 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
+      # ★パイプライン（pipeline-daily の workflow_call）の中では、同じ実行の daily-signal ジョブが
+      #   signal-* の artifact をこの実行に上げている。まずそれを使う（2026-10-07）。
+      #   以前は「最後に成功した daily-signal」を gh run list で探していたが、--status=success の
+      #   一覧が新しい順にならず、30日の保存期限が切れた9月の実行（36153780162）をつかんで
+      #   "no valid artifacts found" で失敗していた。radar-publish が落ちると後ろの
+      #   傾斜計・着火・決算・空売り・前計算・点検が全部スキップされる（9/24〜10/7 に頻発）。
+      - name: Download signal artifact from this run (パイプライン内)
+        id: same
+        if: steps.guard.outputs.skip != 'true' && github.event.workflow_run.id == ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: signal-*
+          path: artifacts
+
       - name: Resolve source run id
         id: src
         if: steps.guard.outputs.skip != 'true'
         run: |
-          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+          if [ -n "$(find artifacts -name signal.json 2>/dev/null | head -1)" ]; then
+            echo "この実行の artifact を使います（パイプライン内）"
+            echo "id=" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.workflow_run.id }}" ]; then
             echo "id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
           else
-            # 手動実行時は最後に成功した daily-signal を使う
-            RID=$(gh run list --workflow=daily-signal.yml --status=success --limit 1 --json databaseId --jq '.[0].databaseId')
+            # 手動実行時は最後に成功した daily-signal を使う（作成日時の新しい順を API で明示）
+            RID=$(gh api "repos/${{ github.repository }}/actions/workflows/daily-signal.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].id')
             echo "id=$RID" >> $GITHUB_OUTPUT
           fi
         env:
@@ -97,10 +115,12 @@ jobs:
       - name: Download signal.json artifact
         if: steps.guard.outputs.skip != 'true'
         run: |
-          gh run download "${{ steps.src.outputs.id }}" -D artifacts
-          SIG=$(find artifacts -name signal.json | head -1)
+          if [ -n "${{ steps.src.outputs.id }}" ]; then
+            gh run download "${{ steps.src.outputs.id }}" -D artifacts
+          fi
+          SIG=$(find artifacts -name signal.json | sort | tail -1)
           if [ -z "$SIG" ]; then
-            echo "::error::signal.json が artifact に見つかりません（run ${{ steps.src.outputs.id }}）"
+            echo "::error::signal.json が artifact に見つかりません（run ${{ steps.src.outputs.id || github.run_id }}）"
             exit 1
           fi
           cp "$SIG" signal.json
