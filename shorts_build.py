@@ -195,9 +195,10 @@ def main():
         names.setdefault(e["code"], e["name"])
 
     # 初回報告日（いまの報告が始まった新規の公表日）。解消のあと新規があれば、そちらから数える
-    first = {}
+    first, lastev = {}, {}
     for e in sorted(evs, key=lambda x: x["pub"]):
         key = (e["seller"], e["code"])
+        lastev[key] = (e["pub"], KIND[e["event"]])      # 直近の増減（この組み合わせの最後の報告）
         if e["event"] == "新規":
             first[key] = e["pub"]
         elif e["event"] == "解消":
@@ -250,13 +251,17 @@ def main():
             L += per_pub[p][0]
             C += per_pub[p][1]
             series.append([p, round(L, 2), C])
-        last = per_pub.get(pubs[-1]) if pubs else None
+        # 直近の公表日に報告が無ければ増減は0（報告が無い＝変化なし）
+        last = per_pub[pubs[-1]] if pubs else None
 
         holdings = []
         for h in hs:
             f = first.get((nm, h["c"]))
+            le = lastev.get((nm, h["c"]))
             holdings.append({
                 "c": h["c"], "n": h["n"], "r": h["r"], "last": h["last"],
+                "last_kind": le[1] if le else None,  # None = 6/1以降に変化の報告なし
+                "last_pub": le[0] if le else None,
                 "first": f,                         # None = 2026-06-01公表分より前から
                 "chg": since_first(h["c"], f) if f else None,
                 "stock": h["c"] in stock_codes,     # False = ETF・REITなど（銘柄ページ無し）
