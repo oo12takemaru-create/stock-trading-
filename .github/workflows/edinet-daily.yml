@@ -1,0 +1,81 @@
+name: EDINET Daily (大量保有報告書の取り込み)
+
+# EDINET の大量保有報告書・変更報告書・訂正報告書を XBRL から取り込む（記録だけ・ページは作らない）
+#   → docs/edinet/YYYY-MM.jsonl（追記のみ）/ docs/edinet_latest.json（直近30日の索引）
+# 起動文: kaburadar\起動文_実務_積上③_EDINET大量保有の取り込み_2026-10-07.md
+#
+# ■ 起動
+#   本命: cron-worker が平日 07:30 JST に workflow_dispatch（src/index.js の PLAN）
+#   保険: 下の schedule（毎日 07:47 JST）。土日も回して直近1年の遡及を進める
+#   二重に走っても docID で重複を弾くので害は無い（遡及が少し進むだけ）
+#
+# ■ 遡及（直近1年）
+#   1件 約2秒（待ち1.5秒＋応答）。1年で約2万件＝約11時間ぶん。
+#   1回の実行で40分まで遡及し、毎日少しずつ進める（約3週間で1年が埋まる）。
+#   進みは docs/edinet/_state.json の done（取り込み済みの日付）。
+on:
+  schedule:
+    - cron: '47 22 * * *'
+  workflow_dispatch:
+    inputs:
+      backfill_minutes:
+        description: '遡及に使う分数（0で遡及しない）'
+        required: false
+        default: '40'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edinet-daily
+  cancel-in-progress: false
+
+jobs:
+  edinet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Ingest EDINET (前日ぶん＋遡及)
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
+        run: |
+          M="${{ github.event.inputs.backfill_minutes }}"
+          M="${M:-40}"
+          if [ "$M" = "0" ]; then
+            python -X utf8 edinet_daily.py
+          else
+            python -X utf8 edinet_daily.py --backfill 400 --max-minutes "$M"
+          fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/edinet docs/edinet_latest.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🏦 EDINET 大量保有報告書を取り込み"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
