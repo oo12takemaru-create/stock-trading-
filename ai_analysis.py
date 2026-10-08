@@ -380,6 +380,12 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
   前営業日の資金流入セクター、先物ギャップ(today_watchで寄り付き想定として使う)
 - reviewは、前回分析が入力にある場合は必須。外れた時こそ正直に書く(信頼の源泉)
 
+# 攻め派と守り派(debate)の書き方
+- 攻め派(bull)と守り派(bear)は、**同じ入力データ**から書く。どちらも各2〜3個、各40字以内
+- どの1行にも、入力データの**数字を必ず1つ以上**引用する(例: 「日経は25日線の+7.1%上、勢いは継続」)
+- どちらかを推す言葉(「〜すべき」「おすすめ」など)は書かない。両方の言い分を同じ温度で並べる
+- verdict は「機械の判定」と「それを動かさなかった/1段下げた理由」を1文で。stance と矛盾させない
+
 # 今朝の客観データ
 
 {inputs}
@@ -402,7 +408,12 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
   "sectors": [
     {{"name": "セクター名（読み手向けの呼び名。複数業種をまとめてよい）", "bias": "up | down | watch", "match": ["採点用の業種名。上の『採点に使える業種名』から一字一句そのままコピーする。複数可。該当が無ければ空配列"], "reason": "理由を1文で"}}
   ],
-  "caution": "今日特に気をつけたいことを1〜2文で"
+  "caution": "今日特に気をつけたいことを1〜2文で",
+  "debate": {{
+    "bull": ["攻め派の根拠1(入力データの数字を引用・40字以内)", "根拠2", "根拠3"],
+    "bear": ["守り派の根拠1(同上)", "根拠2", "根拠3"],
+    "verdict": "機械の判定と、それを動かさなかった/1段下げた理由を1文で"
+  }}
 }}
 
 world_flowは2〜4個、sectorsは3〜5個。
@@ -429,6 +440,44 @@ def enforce_no_upgrade(data, machine_stance):
         data["stance_shift"] = ""
         return f"AIが上方修正({ai})したので機械判定({machine_stance})に戻した"
     return None
+
+
+# 攻め派・守り派で使わない「推す言葉」（禁止語に加えて）
+DEBATE_BANNED = [r"すべき", r"おすすめ", r"オススメ", r"推奨", r"買い時", r"売り時"]
+DEBATE_MAX = 40
+NUM_RE = re.compile(r"[0-9０-９]")
+
+
+def validate_debate(data):
+    """debate の検証。無い回答は警告だけで通す（移行初日の routine 対策・1週間後に必須化）。
+    あれば: bull/bear 各2〜3件・各40字以内・数字を1つ以上・推す言葉なし・verdict あり。
+    戻り値: (エラー or None, 警告 or None)"""
+    db = data.get("debate")
+    if db is None:
+        return None, "debate が無い（v2 移行期間のため警告のみ）"
+    if not isinstance(db, dict):
+        return "debate が dict でない", None
+    for side in ("bull", "bear"):
+        xs = db.get(side)
+        if not isinstance(xs, list) or not (2 <= len(xs) <= 3):
+            return f"debate.{side} は2〜3件", None
+        for x in xs:
+            if not isinstance(x, str) or not x.strip():
+                return f"debate.{side} に空の行", None
+            if len(x) > DEBATE_MAX:
+                return f"debate.{side} が{DEBATE_MAX}字超（{len(x)}字）: {x}", None
+            if not NUM_RE.search(x):
+                return f"debate.{side} に数字が無い: {x}", None
+            for pat in DEBATE_BANNED:
+                if re.search(pat, x):
+                    return f"debate.{side} に推す言葉（{pat}）: {x}", None
+    v = db.get("verdict")
+    if not isinstance(v, str) or not v.strip():
+        return "debate.verdict が無い", None
+    for pat in DEBATE_BANNED:
+        if re.search(pat, v):
+            return f"debate.verdict に推す言葉（{pat}）", None
+    return None, None
 
 
 BANNED_PATTERNS = [
@@ -465,6 +514,11 @@ def validate(data):
     for pat in BANNED_PATTERNS:
         if re.search(pat, blob):
             return f"禁止パターン検出: {pat}"
+    err, warn = validate_debate(data)
+    if err:
+        return err
+    if warn:
+        print(f"警告: {warn}", file=sys.stderr)
     return None
 
 
@@ -589,6 +643,91 @@ def load_machine():
     return s3, machine
 
 
+# ---------------------------------------------------------------- スコアボード（AI朝刊 v2）
+UP_ST = {"attack", "lean_attack"}
+DN_ST = {"defense", "lean_defense"}
+
+
+def _hit(stance, ret):
+    """ai_record.py の aggregate と完全に同じ判定。中立は None（数えない）。騰落0は負け"""
+    if stance in UP_ST:
+        return ret > 0
+    if stance in DN_ST:
+        return ret < 0
+    return None
+
+
+def _streak(rows, key):
+    """直近から数えた連勝(+n)・連敗(-n)。中立の日は飛ばす（数えないので連続も切らない）"""
+    n, sign = 0, None
+    for r in reversed(rows):
+        h = _hit(r[key], r["ret"])
+        if h is None:
+            continue
+        if sign is None:
+            sign = h
+        if h != sign:
+            break
+        n += 1
+    return f"{'+' if sign else '-'}{n}" if n else "0"
+
+
+def _n225_month_pct(month):
+    """当月の日経平均の騰落（前月末終値 → 直近終値, %）。取れなければ None"""
+    try:
+        import yfinance as yf
+        df = yf.download("^N225", period="3mo", progress=False, auto_adjust=False, threads=False)
+        c = df["Close"].dropna()
+        if hasattr(c, "columns"):
+            c = c.iloc[:, 0]
+        days = [(i.strftime("%Y-%m-%d"), float(v)) for i, v in c.items()]
+        prev = [v for d, v in days if d[:7] < month]
+        cur = [v for d, v in days if d[:7] == month]
+        if prev and cur:
+            return round((cur[-1] / prev[-1] - 1) * 100, 1)
+    except Exception as e:
+        print(f"日経の月間騰落を取れず: {e}", file=sys.stderr)
+    return None
+
+
+def build_scoreboard(now):
+    """今月の勝敗を ai_record.json（ai_record.py の採点結果）から数える。AIの回答は使わない。
+    勝敗の定義は ai_record.py と同じ（強気寄り→上昇で勝ち、守り寄り→下落で勝ち、中立は数えない）"""
+    rec = load_site_json("ai_record.json") or {}
+    month = now.strftime("%Y-%m")
+    today = now.strftime("%Y-%m-%d")
+    ai_rows = [r for r in (rec.get("ai") or {}).get("rows", []) if r.get("d") and r["d"] < today]
+    du_rows = [r for r in (rec.get("dual") or {}).get("rows", []) if r.get("d") and r["d"] < today]
+
+    def tally(rows, key):
+        m = [r for r in rows if r["d"][:7] == month]
+        hs = [_hit(r[key], r["ret"]) for r in m]
+        return {"win": sum(1 for h in hs if h is True), "lose": sum(1 for h in hs if h is False),
+                "streak": _streak(rows, key)}
+
+    sb = {"month": month, "ai": tally(ai_rows, "s"), "machine": tally(du_rows, "m"),
+          "n225_month_pct": _n225_month_pct(month), "yesterday": None,
+          "source": "ai_record.json（ai_record.py の機械採点）。中立の日は勝敗に数えない"}
+    if ai_rows:
+        y = ai_rows[-1]
+        h = _hit(y["s"], y["ret"])
+        # 連勝・連敗が切れた/続いたことを一言で（前日までの連続を見る）
+        before = _streak(ai_rows[:-1], "s")
+        note = ""
+        if h is not None and before not in ("0",):
+            k = int(before)
+            if h and k > 0:
+                note = f"{k + 1}連勝"
+            elif not h and k < 0:
+                note = f"{-k + 1}連敗"
+            elif not h and k >= 2:
+                note = f"{k}連勝ストップ"
+            elif h and k <= -2:
+                note = f"{-k}連敗ストップ"
+        sb["yesterday"] = {"date": y["d"], "ai": y["s"], "ret": y["ret"], "hit": h, "note": note}
+    return sb
+
+
 def finalize(data, label, s3, machine, prev, dst, now):
     """検証済みの回答 → 上方修正の禁止 → entry 組み立て → history 引き継ぎ → 書き出し"""
     date_str = now.strftime("%Y-%m-%d")
@@ -609,6 +748,8 @@ def finalize(data, label, s3, machine, prev, dst, now):
                          for a in s3.get("axes", [])],
         "stance_corrected": fixed or "",
         **data,
+        # AI朝刊 v2: 成績のスコアボード（機械で作る・AIの回答は使わない）
+        "scoreboard": build_scoreboard(now),
     }
 
     # 既存の履歴を引き継ぐ(直近7件)
