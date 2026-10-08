@@ -33,6 +33,7 @@ TARGETS = [
     ("docs/tenbagger.json",     "十倍株スキャナー",   6),
     ("docs/karauri.json",       "空売り残高",         2),
     ("docs/shorts.json",        "空売り機関トラッカー", 2),   # karauri.json に続けて作るので同じ許容
+    ("docs/karauri_hist.json",  "空売り 機関ごとの積み上げ", 2),   # 2026-09-17〜10-08 監視漏れで止まっていた
     ("docs/kessan.json",        "決算カレンダー",     2),
     ("docs/gauge.json",         "暴落の傾斜計",       0),
     ("docs/crash.json",         "着火判定",           0),
