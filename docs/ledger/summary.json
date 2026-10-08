@@ -1,28 +1,28 @@
 {
- "updated": "2026-10-07T20:39:59+09:00",
+ "updated": "2026-10-08T19:31:29+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 1259,
+ "total": 1364,
  "sources": {
   "ai": {
-   "count": 8,
+   "count": 9,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "free_scanner": {
-   "count": 313,
-   "scored_r20": 264,
-   "r20_mean": -0.36,
-   "r20_up_rate": 48.9
+   "count": 317,
+   "scored_r20": 265,
+   "r20_mean": -0.4,
+   "r20_up_rate": 48.7
   },
   "karauri_new": {
-   "count": 713,
-   "scored_r20": 495,
-   "r20_mean": -1.05,
-   "r20_up_rate": 47.3
+   "count": 731,
+   "scored_r20": 504,
+   "r20_mean": -0.93,
+   "r20_up_rate": 46.8
   },
   "movers": {
-   "count": 197,
+   "count": 278,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
@@ -34,7 +34,7 @@
    "r20_up_rate": 33.3
   },
   "score3": {
-   "count": 1,
+   "count": 2,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
