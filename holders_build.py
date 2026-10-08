@@ -84,6 +84,30 @@ def code_of(r):
     return c[:4] if len(c) == 5 and c.endswith("0") else c
 
 
+_ERA = {"令和": 2018, "平成": 1988, "昭和": 1925}
+
+
+def iso_date(s):
+    """取得・処分の表の日付は「2026-01-09」のほか「令和8年1月9日」「2026年1月9日」「2026/1/9」が混ざる。
+    ISO にそろえる（そろえないと60日の絞り込みと並べ替えが壊れる）。読めなければ None"""
+    if not s:
+        return None
+    s = str(s).strip()
+    m = re.match(r"(令和|平成|昭和)\s*(\d+|元)\s*年\s*(\d+)\s*月\s*(\d+)\s*日", s)
+    if m:
+        y = _ERA[m.group(1)] + (1 if m.group(2) == "元" else int(m.group(2)))
+        mo, d = int(m.group(3)), int(m.group(4))
+    else:
+        m = re.match(r"(\d{4})\s*[-/年.]\s*(\d{1,2})\s*[-/月.]\s*(\d{1,2})", s)
+        if not m:
+            return None
+        y, mo, d = (int(v) for v in m.groups())
+    try:
+        return date(y, mo, d).isoformat()
+    except ValueError:
+        return None
+
+
 def is_individual(h):
     return (h.get("kind") or "").startswith("個人")
 
@@ -185,7 +209,7 @@ def build(docs, feat, rank, ev):
                 if not ph or ph[-1]["purpose"] != h["purpose"]:
                     ph.append({"d": r["d"], "doc": r["id"], "purpose": h["purpose"]})
             for t in h.get("trades") or []:
-                x["history"].append({"code": c, "name": r["issuer"].get("name"), "d": t.get("d"), "side": t.get("side"),
+                x["history"].append({"code": c, "name": r["issuer"].get("name"), "d": iso_date(t.get("d")), "side": t.get("side"),
                                      "qty": t.get("qty"), "ratio": t.get("ratio"), "price": t.get("price"),
                                      "mkt": t.get("mkt"), "doc": r["id"]})
             if r["type"] == "大量保有":
