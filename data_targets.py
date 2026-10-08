@@ -72,6 +72,9 @@ TARGETS = [
     ("docs/ledger/summary.json", "シグナル台帳",     1),
     # ★2026-10-08 追加（積上⑦）★ 宝探し（treasure-daily.yml・平日19:00 JST）。treasure.html の元
     ("docs/treasure.json",      "宝探し",             0),
+    # ★2026-10-08 追加（積上⑧）★ 大量保有の人物・機関（holders-daily.yml・edinet-daily の完了に続けて）。
+    #   ページ公開前から監視する（止まると提出者ページの数字が古くなる）
+    ("docs/holders.json",       "大量保有の人物・機関", 1),
     # ★2026-10-08 追加（積上①-b）★ pipeline-daily の各ジョブの出力で、ここに無かったもの。
     #   free_scanner / market_jiai は朝の関門（check_freshness.py）でも見ているが、そちらは
     #   夜の点検・状況ページ・トップのバッジに出ない。equity_curve / portfolio_stats は

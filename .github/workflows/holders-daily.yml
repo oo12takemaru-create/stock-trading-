@@ -1,0 +1,71 @@
+name: Holders Daily (大量保有の人物・機関)
+
+# 積上⑧ v1 のデータ。EDINET 大量保有報告書（docs/edinet/）を提出者ごとに集計する。
+#   holders_build.py → docs/holders.json（保有者ごとの保有・売買履歴・新規報告後の騰落／銘柄側の索引）
+#                    → docs/holders_events.json（新規報告の騰落の記録。60営業日が出たら確定）
+#                    → data/holders_featured.csv（注目50者。pin 列は本人が編集できる・作り直しても残る）
+# ページの生成はサイト側（kaburadar）が行う。
+# 起動文: kaburadar\起動文_実務_積上⑧_大量保有の人物ページv1_2026-10-08.md
+#
+# 取り込み（edinet-daily）の完了に続けて走る。失敗した回は何もしない。
+on:
+  workflow_run:
+    workflows: ["EDINET Daily (大量保有報告書の取り込み)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: holders-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（shorts-daily.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Test
+        run: python -X utf8 tests/test_holders.py
+
+      - name: Build holders.json
+        run: python -X utf8 holders_build.py
+
+      - name: Commit holders
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/holders.json docs/holders_events.json data/holders_featured.csv
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "👤 大量保有の人物・機関を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
