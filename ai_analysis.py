@@ -72,7 +72,8 @@ MARKET_TICKERS = {
     "CL=F":   "WTI原油",
 }
 
-# 大型イベント(kaburadar/events.jsと同期。年1回程度の更新でよい)
+# 大型イベント。★正は docs/event_score.json の schedule（event_dates.json から作る・積上⑥ 2026-10-08）★
+# 下の EVENTS は event_score.json を読めなかったときの予備。新しい日程はここに足さない
 EVENTS = [
     ("2026-08-07", "米雇用統計(7月分) 21:30"),
     ("2026-08-12", "米CPI(7月分) 21:30"),
@@ -226,10 +227,19 @@ def sector_universe_lines():
             "  " + " / ".join(names)]
 
 
+def schedule_events():
+    """docs/event_score.json の schedule → [(YYYY-MM-DD, ラベル)]。読めなければ EVENTS"""
+    es = load_site_json("event_score.json") or {}
+    sc = es.get("schedule") or []
+    if not sc:
+        return EVENTS
+    return [(e["d"], f"{e['t']} {e['time']}") for e in sc]
+
+
 def upcoming_events():
     today = datetime.now(JST).date()
     lines = []
-    for d, label in EVENTS:
+    for d, label in schedule_events():
         ev = date.fromisoformat(d)
         delta = (ev - today).days
         if 0 <= delta <= 7:

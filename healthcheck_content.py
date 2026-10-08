@@ -118,7 +118,34 @@ def ck_board(d, ctx):
     return None
 
 
+HORIZON_DAYS = 60     # 定例イベントの、分かっている一番先の日程がこれより手前なら知らせる
+
+
+def ck_event_horizon(d, ctx):
+    """日程表の貼り忘れ・取り忘れ（積上⑥ Fable判断 2026-10-08）。
+    米CPI・雇用統計の日程は BLS が bot を弾くので手で貼っていて、2025年分で止まったまま
+    2026年の発表回が10か月統計に入っていなかった。翌年分は BLS が秋〜年末に出す。
+
+    ★知らせるのは週1回（火曜の点検）だけ★ 公表を待つ間は毎晩同じ内容になるので、
+    毎晩鳴らすと通知を見なくなる。月曜は「今日だけ」、火曜に前営業日（月曜）も同じ
+    ＝2営業日連続として要対応に上がる、という既存の仕組みに乗せている。"""
+    if ctx.ref.weekday() not in (0, 1):
+        return None
+    hz = d.get("horizon") or {}
+    names = {"boj": "日銀会合", "fomc": "FOMC", "cpi": "米CPI", "payroll": "米雇用統計"}
+    short = []
+    for k, nm in names.items():
+        last = hz.get(k)
+        if not last or (datetime.fromisoformat(last).date() - ctx.ref).days < HORIZON_DAYS:
+            short.append(f"{nm}（最終 {last or 'なし'}）")
+    if short:
+        return (f"日程の先行きが{HORIZON_DAYS}日未満: " + "・".join(short)
+                + "。公表されたら event_dates.py に足す（BLS は BLS_CPI / BLS_EMP に貼る）")
+    return None
+
+
 CHECKS = [
+    ("docs/event_score.json",  "相場の暦の日程（先行き）", ck_event_horizon),
     ("docs/gauge.json",        "傾斜計（取得失敗）",     ck_gauge_unknown),
     ("docs/gauge.json",        "傾斜計（前回値で代用）", ck_gauge_stale),
     ("docs/crash.json",        "着火判定",               ck_crash_tradedate),

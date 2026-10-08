@@ -157,6 +157,98 @@ def verdict(s):
     return "効いている" if (p is not None and p < 0.05) else "効いていない"
 
 
+
+# ---------------------------------------------------------------- 今後の日程（日本時間）
+# ★日程の正は event_dates.json（event_dates.py が作る）1か所★（積上⑥ Fable判断 2026-10-08）
+#   サイトの events.js（gen_events.py が作る）と AI朝刊（ai_analysis.py）は、ここで出す
+#   docs/event_score.json の schedule を読む。手書きの日程表を増やさない。
+# 今年の1月1日から（サイトの「年内の全日程」は過ぎた回も灰色で並べる）
+SCHEDULE_AHEAD_DAYS = 400       # 1年＋α。サイトの日付ページは12か月先まで
+# 次期TOPIX の段階的ウエイト低減（JPX総研「TOPIX等の見直しについて」2026年5月の移行係数表）。
+# 実施日は月末最終営業日の大引け
+TOPIX_NEXT = [(2026, 10, "移行100%（初回定期入替）"), (2027, 1, "移行係数87.5%"), (2027, 4, "移行係数75.0%"),
+              (2027, 7, "移行係数62.5%"), (2027, 10, "移行係数50.0%・再評価"), (2028, 1, "移行係数37.5%"),
+              (2028, 4, "移行係数25.0%"), (2028, 7, "移行係数12.5%"), (2028, 10, "移行係数0%・移行完了")]
+# 日程の先行きの見張り（healthcheck_content.py）で見る種別。SQ・権利日は規則で計算するので見ない
+HORIZON_KINDS = ("boj", "fomc", "cpi", "payroll")
+
+
+def _us_dst(d):
+    """米国の夏時間（3月第2日曜〜11月第1日曜）"""
+    def nth_sunday(y, m, n):
+        f = date(y, m, 1)
+        return f + timedelta(days=(6 - f.weekday()) % 7 + 7 * (n - 1))
+    return nth_sunday(d.year, 3, 2) <= d < nth_sunday(d.year, 11, 1)
+
+
+def _prev_bd(d):
+    import jp_bizday
+    while not jp_bizday.is_bizday(d):
+        d -= timedelta(days=1)
+    return d
+
+
+def _add_bd(d, n):
+    import jp_bizday
+    step = 1 if n > 0 else -1
+    for _ in range(abs(n)):
+        d += timedelta(days=step)
+        while not jp_bizday.is_bizday(d):
+            d += timedelta(days=step)
+    return d
+
+
+def build_schedule(tbl, today):
+    lo, hi = date(today.year, 1, 1), today + timedelta(days=SCHEDULE_AHEAD_DAYS)
+    out = []
+
+    def add(d, k, t, hhmm, label):
+        if lo <= d <= hi:
+            out.append({"d": d.isoformat(), "k": k, "t": t, "time": label,
+                        "iso": f"{d.isoformat()}T{hhmm}:00+09:00"})
+
+    for x in tbl["boj"]["dates"]:
+        d = date.fromisoformat(x["d"])
+        st = x.get("start")
+        held = (f"{int(st[5:7])}/{int(st[8:10])}-{d.day}" if st and st != x["d"] else f"{d.month}/{d.day}")
+        add(d, "boj", f"日銀会合 結果発表（{held}開催）", "12:00", "昼ごろ")
+    for x in tbl["fomc"]["dates"]:
+        us = date.fromisoformat(x["d"])
+        st = us - timedelta(days=1)
+        dst = _us_dst(us)
+        add(us + timedelta(days=1), "fomc", f"FOMC結果発表（{st.month}/{st.day}-{us.day}開催）",
+            "03:00" if dst else "04:00", "午前3:00" if dst else "午前4:00")
+    for k, nm in (("cpi", "米CPI"), ("payroll", "米雇用統計")):
+        for x in tbl[k]["dates"]:
+            d = date.fromisoformat(x["d"])
+            ref = 12 if d.month == 1 else d.month - 1
+            dst = _us_dst(d)
+            add(d, k, f"{nm}（{ref}月分）", "21:30" if dst else "22:30", "21:30" if dst else "22:30")
+    y, m = lo.year, lo.month
+    while date(y, m, 1) <= hi:
+        first = date(y, m, 1)
+        sq = _prev_bd(first + timedelta(days=(4 - first.weekday()) % 7 + 7))
+        major = m in (3, 6, 9, 12)
+        add(sq, "sq" if major else "sq_minor", f"{'メジャー' if major else 'マイナー'}SQ（{m}月限）", "09:00", "寄付")
+        if m in (3, 9):
+            nxt = date(y + (m == 12), m % 12 + 1, 1)
+            k = _add_bd(_prev_bd(nxt - timedelta(days=1)), -2)
+            add(k, "kenri", f"権利付き最終日（{m}月末）", "15:30", "大引け")
+            add(_add_bd(k, 1), "kenri_ex", f"権利落ち日（{m}月末）", "09:00", "寄付")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    for y, m, note in TOPIX_NEXT:
+        nxt = date(y + (m == 12), m % 12 + 1, 1)
+        add(_prev_bd(nxt - timedelta(days=1)), "topix", f"次期TOPIX 段階的ウエイト低減（{note}）"
+            if "初回" not in note else f"次期TOPIX {note}", "15:30", "大引け")
+    order = ["boj", "fomc", "cpi", "payroll", "sq", "sq_minor", "kenri", "kenri_ex", "topix"]
+    return sorted(out, key=lambda e: (e["iso"], order.index(e["k"])))
+
+
+def build_horizon(tbl):
+    """種別ごとに、日程表で分かっている一番先の日付（見張り用）"""
+    return {k: max(x["d"] for x in tbl[k]["dates"]) for k in HORIZON_KINDS if tbl.get(k, {}).get("dates")}
+
+
 def main():
     px = prices()
     idx = list(px.index)
@@ -270,6 +362,9 @@ def main():
         ev_out["rows"] = ev_out["rows_all"][-10:]
         out["events"][key] = ev_out
 
+    today = datetime.now().date()
+    out["schedule"] = build_schedule(json.loads(DATES.read_text(encoding="utf-8")), today)
+    out["horizon"] = build_horizon(json.loads(DATES.read_text(encoding="utf-8")))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
