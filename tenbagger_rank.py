@@ -10,7 +10,7 @@
 ローカル版: 株式投資開発/十倍株スキャナー/tenbagger_screener.py(ロジックは同一)
 
 実行: python tenbagger_rank.py
-入力: tenbagger_universe.csv(東証全銘柄・JPX公式一覧から生成)
+入力: tenbagger_universe.csv(東証全銘柄・JPX公式一覧から生成。tenbagger_universe_refresh.py が週次で作り直す)
       tenbagger_shares.csv(発行済株式数・時価総額の近似用)
 出力: docs/tenbagger.json
 """
