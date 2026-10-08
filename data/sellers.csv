@@ -4,13 +4,13 @@ Barclays Bank PLC,barclays-bank,バークレイズ・バンク,barclays,バー�
 Barclays Capital Inc,barclays-capital-inc,Barclays Capital Inc,barclays,バークレイズ,米国法人
 モルガン・スタンレーMUFG証券株式会社,morgan-stanley-mufg,モルガン・スタンレーMUFG証券,morgan-stanley,モルガン・スタンレー,
 Morgan Stanley & Co. International plc,morgan-stanley-international,モルガン・スタンレー・アンド・カンパニー・インターナショナル,morgan-stanley,モルガン・スタンレー,
-三菱ＵＦＪモルガン・スタンレー証券株式会社,mufg-morgan-stanley,三菱UFJモルガン・スタンレー証券,,,★要確認: 三菱UFJ側が主の合弁。モルガン・スタンレーのグループには入れず単独にした
+三菱ＵＦＪモルガン・スタンレー証券株式会社,mufg-morgan-stanley,三菱UFJモルガン・スタンレー証券,,,三菱UFJ 60%・モルガン・スタンレー40%の合弁で三菱UFJ側が主体。モルガン・スタンレー主体（51%）のモルガン・スタンレーMUFG証券とは別に単独とした（2026-10-08 確定）
 GOLDMAN SACHS INTERNATIONAL,goldman-sachs-international,ゴールドマン・サックス・インターナショナル,goldman-sachs,ゴールドマン・サックス,
 "GOLDMAN SACHS JAPAN CO., LTD.",goldman-sachs-japan,ゴールドマン・サックス証券,goldman-sachs,ゴールドマン・サックス,"Goldman Sachs Japan Co., Ltd. の日本語社名"
 Nomura International plc,nomura-international,ノムラ・インターナショナル,nomura,野村,
 野村證券株式会社,nomura-securities,野村證券,nomura,野村,
 Nomura Asset Management Singapore Limited,nomura-am-singapore,Nomura Asset Management Singapore,nomura,野村,運用会社（証券会社ではない）
-JPM Securities Japan Co Ltd.,jpm-securities-japan,JPM Securities Japan,jpmorgan,JPモルガン,★要確認: JPモルガン証券（JPMorgan Securities Japan）と同一か確信が無いので英語名のまま
+JPM Securities Japan Co Ltd.,jpm-securities-japan,JPモルガン証券（JPM Securities Japan）,jpmorgan,JPモルガン,英文社名 JPMorgan Securities Japan Co., Ltd.（JPMS-J・日本語社名 JPモルガン証券）をJPXが略記したものと判断。取り違えに備えて報告書上の名前を表示名に併記（2026-10-08 確定）
 J.P. MORGAN SECURITIES PLC,jp-morgan-securities-plc,J.P.モルガン・セキュリティーズ・ピーエルシー,jpmorgan,JPモルガン,
 UBS AG,ubs-ag,UBS AG,ubs,UBS,
 UBS証券株式会社,ubs-securities-japan,UBS証券,ubs,UBS,
