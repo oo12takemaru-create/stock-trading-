@@ -52,11 +52,16 @@ jobs:
       - name: Build shorts.json
         run: python -X utf8 shorts_build.py
 
+      # 空売り残高ページの「機関ごとに、どちら向きに積み上げてきたか」。
+      # どの定時処理からも呼ばれておらず 2026-09-17 から止まっていた（監視漏れ・Fable 2026-10-08）
+      - name: Build karauri_hist.json
+        run: python -X utf8 karauri_hist.py
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/shorts.json docs/sellers.json
+          git add -f docs/shorts.json docs/sellers.json docs/karauri_hist.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
