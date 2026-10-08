@@ -27,7 +27,9 @@ UP = (255, 92, 92)      # 日本式: 上昇=赤
 DOWN = (74, 158, 255)   # 下落=青
 ACCENT = (255, 196, 61)
 
-STANCE_JA = {"attack": "攻め", "neutral": "中立", "defense": "守り"}
+# lean_* が無く「やや強気」の日も「中立」と出ていた（2026-10-08 v2 で修正）
+STANCE_JA = {"attack": "攻め", "lean_attack": "やや攻め", "neutral": "中立",
+             "lean_defense": "やや守り", "defense": "守り"}
 STANCE_COLOR = {"attack": UP, "neutral": ACCENT, "defense": DOWN}
 BIAS_MARK = {"up": ("▲", UP), "down": ("▼", DOWN), "watch": ("―", SUB)}
 
@@ -224,7 +226,20 @@ def build_post(a, d, date_str):
     md = date_str.split("(")[0].strip()
     md = "/".join(md.split("-")[1:]).lstrip("0").replace("/0", "/")
 
-    lines = [f"【AI朝刊 {md}】{a.get('headline','')}", ""]
+    # AI朝刊 v2: 1行目はスコアボード（機械で作った成績）。無い回（v1 の朝刊）は従来どおり
+    sb = a.get("scoreboard") or {}
+    db = a.get("debate") or {}
+    if sb.get("ai"):
+        y = sb.get("yesterday") or {}
+        mark = {True: "⭕", False: "❌"}.get(y.get("hit"), "－")
+        mon = int((sb.get("month") or "0000-00")[5:7] or 0)
+        lines = [f"【AI朝刊 {md}】AI {mon}月{sb['ai']['win']}勝{sb['ai']['lose']}敗｜昨日{mark}",
+                 a.get("headline", ""), ""]
+    else:
+        lines = [f"【AI朝刊 {md}】{a.get('headline','')}", ""]
+    if db.get("bull") and db.get("bear"):
+        lines.append("🟢攻め派:" + db["bull"][0])
+        lines.append("🔴守り派:" + db["bear"][0])
     lines.append("スタンス:" + STANCE_JA.get(a.get("stance"), "中立"))
 
     if "nikkei" in d:
@@ -244,8 +259,15 @@ def build_post(a, d, date_str):
     body = "\n".join(lines)
 
     # 280(全角140)を超えたら後ろから削る
-    while tweet_len(body) > 278 and len(lines) > 4:
+    # 削るのは後ろの数字行から。スコアボード・見出し・討論・スタンスは残す
+    keep = sum(1 for x in lines if x.startswith(("【", "🟢", "🔴", "スタンス"))) + 3
+    while tweet_len(body) > 278 and len(lines) > keep:
         del lines[-3]
+        body = "\n".join(lines)
+    # それでも長い（討論の行が長い）ときは、討論の行を後ろから削る
+    while tweet_len(body) > 278 and any(x.startswith(("🟢", "🔴")) for x in lines):
+        i = max(k for k, x in enumerate(lines) if x.startswith(("🟢", "🔴")))
+        del lines[i]
         body = "\n".join(lines)
 
     reply = f"詳しい分析・答え合わせ・セクター別の根拠はこちら\n{SITE_URL}"
