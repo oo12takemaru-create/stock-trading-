@@ -56,15 +56,20 @@ def prices():
 
 
 # ---------------------------------------------------------------- 機械算出の日付
-def major_sq(days):
-    """メジャーSQ＝3・6・9・12月の第2金曜。休場ならその前の営業日（SQ算出日は当日の寄り）"""
+def major_sq(days, months=(3, 6, 9, 12)):
+    """メジャーSQ＝3・6・9・12月の第2金曜。休場ならその前の営業日（SQ算出日は当日の寄り）
+    months を変えるとマイナーSQ（それ以外の月の第2金曜）にも使う"""
     out = []
     ds = set(days)
     for y in range(YEAR_FROM, days[-1].year + 1):
-        for m in (3, 6, 9, 12):
+        for m in months:
             first = date(y, m, 1)
             fri = first + timedelta(days=(4 - first.weekday()) % 7 + 7)   # 第2金曜
             t = pd.Timestamp(fri)
+            # まだ株価の無い未来の第2金曜は数えない。下の「休場なら前の営業日」に落ちると
+            # 未来のSQが今日の日付で入ってしまう（2026-10-08: 10/9 のSQが 10/8 として入った）
+            if t > days[-1]:
+                continue
             while t not in ds and t > pd.Timestamp(first):
                 t -= pd.Timedelta(days=1)
             if t in ds:
@@ -163,6 +168,12 @@ def main():
     tbl["sq"] = {"label": "メジャーSQ", "react": "same",
                  "note": "3・6・9・12月の第2金曜（休場ならその前の営業日）。SQ値は当日の寄りで決まる",
                  "dates": [{"d": d, "source": "機械算出（第2金曜ルール）"} for d in major_sq(idx)]}
+    # マイナーSQ（積上⑥・2026-10-08）。オプションだけのSQ。計算はメジャーと同じ
+    tbl["sq_minor"] = {"label": "マイナーSQ", "react": "same",
+                       "note": "3・6・9・12月以外の毎月第2金曜（休場ならその前の営業日）。"
+                               "日経225オプションのみのSQで、先物は満期を迎えない",
+                       "dates": [{"d": d, "source": "機械算出（第2金曜ルール）"}
+                                 for d in major_sq(idx, (1, 2, 4, 5, 7, 8, 10, 11))]}
     # 前回のTOPIX段階的ウエイト低減（10回）。実施日はすべて四半期末の最終営業日
     # （topix.html の検証と同じ日付。あちらは個別銘柄 vs TOPIX、ここは日経平均の動き）
     topix = []
@@ -195,7 +206,7 @@ def main():
         "caveats": [
             "反応日は、日銀・SQ・権利付き最終日が当日、FOMC・米CPI・米雇用統計が翌営業日です",
             "日経平均そのものが上昇している期間なので、必ず同じ期間の非イベント日と比べています",
-            "イベント7種×窓4本＝28通りを同時に見ています。p<0.05が1〜2個出るのは偶然でも起こります",
+            f"イベント{len(tbl)}種×窓4本＝{len(tbl) * 4}通りを同時に見ています。p<0.05が1〜2個出るのは偶然でも起こります",
             "2020年3月のFOMC（臨時会合）のように、予定が変わった回は定例の一覧から外れています",
             "過去にこう動いたという記録であって、次にどう動くかを示すものではありません",
         ],
@@ -230,7 +241,7 @@ def main():
                   "n_dates": len(ds), "n_used": len(hits), "n_skipped": miss,
                   "source_sample": ev["dates"][0]["source"] if ev["dates"] else "",
                   "first": ds[0] if ds else None, "last": ds[-1] if ds else None,
-                  "windows": {}, "recent": {}, "rows": []}
+                  "windows": {}, "recent": {}, "rows": [], "rows_all": []}
 
         for w in ("d0", "d1", "m5", "p5", "range"):
             vals = [windows(px, idx, i).get(w) for i in hits]
@@ -246,15 +257,17 @@ def main():
                     [windows(px, idx, i).get(w) for i in rh],
                     [x for x in (windows(px, idx, i).get(w) for i in rb) if x is not None])
 
-        # 直近10回の明細（表示で使う）
-        for i in hits[-10:]:
+        # 明細。rows＝直近10回（koyomi.js の表示用・従来どおり）、
+        # rows_all＝全回（種別ページの年別の表用・積上⑥ 2026-10-08）
+        for i in hits:
             w = windows(px, idx, i)
-            ev_out["rows"].append({
+            ev_out["rows_all"].append({
                 "d": idx[i].strftime("%Y-%m-%d"),
                 "d0": round(w.get("d0", float("nan")) * 100, 2) if "d0" in w else None,
                 "d1": round(w.get("d1", float("nan")) * 100, 2) if "d1" in w else None,
                 "range": round(w.get("range", float("nan")) * 100, 2) if "range" in w else None,
             })
+        ev_out["rows"] = ev_out["rows_all"][-10:]
         out["events"][key] = ev_out
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
