@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from holders_build import is_proposal, build, check_private      # noqa: E402
+from holders_build import is_proposal, build, check_private, iso_date      # noqa: E402
 
 NG = 0
 
@@ -58,6 +58,14 @@ eq(latest["date"], "2026-03-11", "いちばん新しい提出日")
 eq([m["id"] for m in moves], ["S5"], "注目者の直近30日の報告（訂正を除く。2/9以降はS5だけ）")
 H_["E2"]["occupation"] = "東京都港区六本木1-2-3"
 eq(check_private(H_), ["E2"], "個人の欄に住所の形があれば止める")
+
+# ---- 取得・処分の日付は和暦などが混ざる → ISO にそろえる
+eq(iso_date("令和8年1月9日"), "2026-01-09", "令和")
+eq(iso_date("令和元年5月1日"), "2019-05-01", "令和元年")
+eq(iso_date("2026年1月9日"), "2026-01-09", "西暦の年月日")
+eq(iso_date("2026/1/9"), "2026-01-09", "スラッシュ")
+eq(iso_date("2026-01-09"), "2026-01-09", "ISO")
+eq(iso_date("不明"), None, "読めない日付")
 
 print("OK" if NG == 0 else f"NG {NG}件")
 sys.exit(1 if NG else 0)
