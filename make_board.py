@@ -119,6 +119,9 @@ def main():
             # 本文は80字しか出さないので、先頭だけ入れる（全文は48KBある）
             "today_watch": (L.get("today_watch") or "")[:140],
             "stance_reason": (L.get("stance_reason") or "")[:140],
+            # AI朝刊 v2（2026-10-08）: トップのタイルに「AI 10月 5勝3敗」を出す
+            "scoreboard": ({k: (L.get("scoreboard") or {}).get(k) for k in ("month", "ai", "yesterday")}
+                           if L.get("scoreboard") else None),
             "updated": L.get("updated")}}
 
     # heatmap は集計だけ（337銘柄の明細は入れない）
