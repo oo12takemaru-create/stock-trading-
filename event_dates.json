@@ -498,27 +498,83 @@
    },
    {
     "d": "2026-01-23",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-01-22"
    },
    {
     "d": "2026-03-19",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-03-18"
    },
    {
     "d": "2026-04-28",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-04-27"
    },
    {
     "d": "2026-06-16",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-06-15"
    },
    {
     "d": "2026-07-31",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-07-30"
    },
    {
     "d": "2026-09-18",
-    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm"
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-09-17"
+   },
+   {
+    "d": "2026-10-30",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-10-29"
+   },
+   {
+    "d": "2026-12-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2026-12-17"
+   },
+   {
+    "d": "2027-01-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-01-21"
+   },
+   {
+    "d": "2027-03-18",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-03-17"
+   },
+   {
+    "d": "2027-04-28",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-04-27"
+   },
+   {
+    "d": "2027-06-11",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-06-10"
+   },
+   {
+    "d": "2027-07-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-07-21"
+   },
+   {
+    "d": "2027-09-22",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-09-21"
+   },
+   {
+    "d": "2027-10-29",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-10-28"
+   },
+   {
+    "d": "2027-12-17",
+    "source": "https://www.boj.or.jp/mopo/mpmsche_minu/index.htm",
+    "start": "2027-12-16"
    }
   ]
  },
@@ -1632,51 +1688,51 @@
    },
    {
     "d": "2026-01-13",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-02-13",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-03-11",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-04-10",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-05-12",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-06-10",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-07-14",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-08-12",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-09-11",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-10-14",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-11-10",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-12-10",
-    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    }
   ]
  },
@@ -2307,51 +2363,51 @@
    },
    {
     "d": "2026-01-09",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-02-11",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-03-06",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-04-03",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-05-08",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-06-05",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-07-02",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-08-07",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-09-04",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-10-02",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-11-06",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    },
    {
     "d": "2026-12-04",
-    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+    "source": "https://www.bls.gov/schedule/2026/home.htm"
    }
   ]
  }
