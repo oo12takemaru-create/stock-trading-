@@ -267,12 +267,19 @@ function ghHeaders(env) {
  */
 async function alreadyRanToday(workflow, jstToday, env) {
   const url =
-    `https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/runs?per_page=10`;
+    `https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/runs?per_page=20`;
   try {
     const res = await fetch(url, { headers: ghHeaders(env) });
     if (!res.ok) return false;
     const data = await res.json();
     for (const run of data.workflow_runs || []) {
+      // ★GitHub の schedule で起きた run は数えない（2026-10-08）★
+      //   schedule は3〜7時間遅れて走るので、前日の夕方の回が**日付をまたいで深夜に**走る
+      //   （ai-record の 17:53 の回が 0:49、movers の 18:07 の回が 2:31 など）。
+      //   それを「今日もう成功した」と数えると、今日の本命（この Worker の回）を起こさなくなり、
+      //   10/8 は ai-record・movers-daily・shinyo-weekly・buyback-daily が起動されなかった。
+      //   数えるのは Worker（workflow_dispatch）と、他のワークフローからの連鎖・手動だけ。
+      if (run.event === "schedule") continue;
       // created_at は UTC。JST の日付に直して比べる
       const runJst = toJst(new Date(run.created_at));
       if (ymd(runJst) !== jstToday) continue;
