@@ -41,6 +41,8 @@ LABEL = {
     "regime": "温度計", "ai": "AI朝刊", "score3": "3軸スコア", "tenbagger": "十倍株スキャナー",
     "crash": "着火判定", "free_scanner": "無料スキャナー", "karauri_new": "空売り残高の集計",
     "movers": "値動きの記録",
+    "treasure_quiet": "宝探し（静けさ）", "treasure_contra": "宝探し（逆張り）",
+    "treasure_card": "宝探し（今日の一枚）",
 }
 # 着火判定の段階（crash_fetch.py の STAGES と同じ。点数→段階）
 CRASH_STAGES = [(4, "calm", "平常圏"), (5, "warn", "警戒"), (99, "danger", "危険")]
@@ -286,6 +288,27 @@ def from_karauri():
     return out
 
 
+def from_treasure():
+    """宝探しの入口に映った銘柄（treasure_daily.py の docs/treasure_hist/ ・全日・積上⑦）。
+    静けさ・逆張りは映った全銘柄、今日の一枚は1日1銘柄。cond は履歴の条件値をそのまま写す"""
+    out = []
+    for f in sorted((DOCS / "treasure_hist").glob("????-??-??.json")):
+        x = jload(f) or {}
+        d = x.get("trade_date") or f.stem
+        for kind, src, keys in (("quiet", "treasure_quiet", ("vr", "c20", "b", "bd", "bd_pct")),
+                                ("contra", "treasure_contra", ("hi52", "karauri", "ratio", "why"))):
+            for it in x.get(kind) or []:
+                out.append(rec(src, d, it["c"], {k: it.get(k) for k in keys},
+                               f"{src}|{d}|{it['c']}", time="19:00",
+                               what=f"条件に合う銘柄（{it.get('n') or it['c']}）"))
+        cd = x.get("card")
+        if cd:
+            out.append(rec("treasure_card", d, cd["c"], {"from": cd.get("from"), "pool_n": cd.get("pool_n")},
+                           f"treasure_card|{d}", time="19:00",
+                           what=f"今日の一枚（{cd.get('n') or cd['c']}）"))
+    return out
+
+
 # ──────────────────────────────────────── 書き込み
 def load_all():
     rows = []
@@ -305,7 +328,7 @@ def main():
 
     found = []
     for fn in (from_regime, from_ai, from_score3, from_crash, from_free_scanner, from_movers,
-               from_karauri):
+               from_karauri, from_treasure):
         try:
             got = fn()
         except Exception as e:          # 1つの判定元が壊れても他は記録する

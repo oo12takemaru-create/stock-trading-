@@ -70,7 +70,8 @@ const PLAN = {
   // 全銘柄の値動き（prices.json・銘柄ページの株価の元）。GitHub の schedule だけだと
   // 10/6 は7時間遅れて深夜に走り、Yahoo の日足が揃う前で前々日のままになった（2026-10-07）
   "18:30": ["movers-daily.yml", "kessan-flash.yml"],
-  "19:00": ["buyback-daily.yml", "ai-record.yml", "kessan-react-hist.yml"], // 決算反応カルテは 18:30 の決算速報の後
+  // 宝探し（積上⑦）は 18:30 の値動きの後・19:30 の台帳の前（台帳が treasure_hist/ を読む）
+  "19:00": ["buyback-daily.yml", "ai-record.yml", "kessan-react-hist.yml", "treasure-daily.yml"], // 決算反応カルテは 18:30 の決算速報の後
   // シグナル台帳（記録→採点）。18:00 のパイプラインと 18:30 の値動きの後（起動文 積上① 2026-10-07）
   "19:30": ["ledger-daily.yml"],
   "20:00": ["board.yml"],
