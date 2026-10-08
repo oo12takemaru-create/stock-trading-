@@ -1629,6 +1629,54 @@
    {
     "d": "2025-12-18",
     "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2026-01-13",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-02-13",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-03-11",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-04-10",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-05-12",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-06-10",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-07-14",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-08-12",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-09-11",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-10-14",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-11-10",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
+   },
+   {
+    "d": "2026-12-10",
+    "source": "https://www.bls.gov/schedule/news_release/cpi.htm"
    }
   ]
  },
@@ -2256,6 +2304,54 @@
    {
     "d": "2025-12-16",
     "source": "https://www.bls.gov/schedule/2025/home.htm"
+   },
+   {
+    "d": "2026-01-09",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-02-11",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-03-06",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-04-03",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-05-08",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-06-05",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-07-02",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-08-07",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-09-04",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-10-02",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-11-06",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
+   },
+   {
+    "d": "2026-12-04",
+    "source": "https://www.bls.gov/schedule/news_release/empsit.htm"
    }
   ]
  }
