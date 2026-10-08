@@ -42,11 +42,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install openpyxl   # JPX 上場銘柄一覧(xlsx)用
+
+      # ユニバース(東証内国株3市場)を JPX 公式の月次一覧から作り直す（2026-10-08 追加）
+      # 8月以降の新規上場が抜けていたため。取れなければ前回の CSV のまま続行する。
+      - name: Refresh tenbagger_universe.csv from JPX list
+        run: python tenbagger_universe_refresh.py
 
       - name: Run tenbagger ranking (全銘柄2年分の取得を含むため20〜40分)
         run: python tenbagger_rank.py
 
-      - name: Commit docs/tenbagger.json
+      - name: Commit docs/tenbagger.json and universe CSVs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -55,9 +61,9 @@ jobs:
             git stash --include-untracked || true
             git reset --hard origin/${{ github.ref_name }}
             git stash pop || true
-            git add -f docs/tenbagger.json
+            git add -f docs/tenbagger.json tenbagger_universe.csv tenbagger_shares.csv
             if git diff --staged --quiet; then
-              echo "tenbagger.json 変更なし → 完了"
+              echo "tenbagger.json / ユニバース 変更なし → 完了"
               exit 0
             fi
             git commit -m "🚀 Update docs/tenbagger.json (weekly)"
