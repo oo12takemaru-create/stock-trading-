@@ -1,0 +1,74 @@
+name: Treasure Daily (宝探し 3入口＋今日の一枚)
+
+# 静けさ・逆張りの入口に映った銘柄と「今日の一枚」→ docs/treasure.json ・ docs/treasure_hist/
+# X の投稿案（本文＋画像）→ docs/x/treasure_post.txt ・ docs/x/treasure_card.png（投稿は本人）
+# 起動文: kaburadar\起動文_実務_積上⑦_宝探し3入口と今日の一枚_2026-10-08.md
+#
+# 平日 19:00 JST に cron-worker（Cloudflare）から dispatch する。
+# 18:30 の値動き（movers-daily・prices.json）の後、19:30 の台帳（ledger-daily）の前。
+# 台帳は treasure_hist/ を読んで source=treasure_* を記録する。
+# GitHub の schedule は保険。その取引日の分が確定済みなら treasure_daily.py は作り直さない（冪等）。
+on:
+  schedule:
+    - cron: '47 10 * * 1-5'    # 19:47 JST（保険・実際は遅れて走る）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: treasure-daily
+  cancel-in-progress: false
+
+jobs:
+  treasure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Test
+        run: python -X utf8 tests/test_treasure.py
+
+      - name: Build treasure
+        run: python -X utf8 treasure_daily.py
+
+      - name: X post draft
+        run: python -X utf8 treasure_post.py || echo "::warning::投稿案の作成に失敗（treasure.json は出ている）"
+
+      - name: Commit treasure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/treasure.json docs/treasure_hist docs/x/treasure_post.txt docs/x/treasure_card.png
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🗺 宝探し（3入口＋今日の一枚）を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
