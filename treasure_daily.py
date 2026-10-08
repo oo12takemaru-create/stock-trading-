@@ -39,7 +39,7 @@ LEDGER = DOCS / "ledger"
 JST = timezone(timedelta(hours=9))
 
 RULES = {
-    "quiet": {"vr_max": 0.5, "c20_abs_max": 3.0, "margin_buy_5d": "減少"},
+    "quiet": {"vr_max": 0.5, "c20_abs_max": 3.0, "margin_buy_5d": "減少", "value_min_oku": 0.01},
     "contra": {"karauri_top_pct": 10, "margin_ratio_max": 1.0, "hi52_max": -30.0},
     "volume": {"vr_min": 3.0, "value_min_oku": 1.0},
 }
@@ -90,6 +90,9 @@ def quiet(P, M):
         m = M.get(c)
         vr, c20 = p.get("vr"), p.get("c20")
         if vr is None or c20 is None or not m or m.get("bd") is None:
+            continue
+        # 売買代金100万円未満（v<1・単位は百万円）は取引がほぼ成立していない日なので外す（2026-10-08 v1.1）
+        if (p.get("v") or 0) < R["value_min_oku"] * 100:
             continue
         if vr <= R["vr_max"] and abs(c20) <= R["c20_abs_max"] and m["bd"] < 0:
             b0 = (m.get("b") or 0) - m["bd"]             # 5営業日前の買残
@@ -172,13 +175,18 @@ def reason(kind, x, meta=None):
     return []
 
 
-def pick(trade_date, codes):
-    """取引日を種にした乱数で1つ。codes は並べ替えてから選ぶ（入力の順序に左右されない）"""
-    pool = sorted(codes)
-    if not pool:
+def pick(trade_date, where):
+    """取引日を種にした乱数で1つ。二段で選ぶ（2026-10-08 v1.1）:
+    ①銘柄のある入口から1つ（入口ごとに同じ確率）②その入口に映った銘柄から1つ。
+    銘柄を均等に選ぶと、件数の多い「出来高急増」「大きく動いた日」に偏るため。
+    where は {銘柄: [映った入口]}。並べ替えてから選ぶので入力の順序に左右されない"""
+    ents = sorted({e for ks in where.values() for e in ks}, key=ENTRANCES.index)
+    if not ents:
         return None, 0
     h = int(hashlib.sha256(("kaburadar-treasure|" + trade_date).encode()).hexdigest(), 16)
-    return pool[h % len(pool)], len(pool)
+    ent = ents[h % len(ents)]
+    pool = sorted(c for c, ks in where.items() if ent in ks)
+    return pool[(h // len(ents)) % len(pool)], len(where)
 
 
 def build(trade_date):
@@ -207,8 +215,8 @@ def build(trade_date):
             x["n"], x["s"] = nm(x["c"])
             x["also"] = [e for e in where[x["c"]] if e != k]
             x["reasons"] = reason(k, x, meta)
-    # 重なり順（映った入口の数が多い順）→ 条件値順（静けさ＝出来高が細い順・逆張り＝高値からの下げが深い順）
-    q.sort(key=lambda x: (-len(x["also"]), x["vr"], x["c"]))
+    # 重なり順（映った入口の数が多い順）→ 条件値順（静けさ＝信用買残の減り方が大きい順・逆張り＝高値からの下げが深い順）
+    q.sort(key=lambda x: (-len(x["also"]), x["bd_pct"] if x.get("bd_pct") is not None else 0, x["vr"], x["c"]))
     ct.sort(key=lambda x: (-len(x["also"]), x["hi52"], x["c"]))
     overlap = sorted(c for c, ks in where.items() if len(ks) >= 2 and ({"quiet", "contra"} & set(ks)))
 
