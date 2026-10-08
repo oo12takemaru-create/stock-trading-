@@ -109,24 +109,23 @@ BOJ_CHANGES = {
     "2024-03-19": "マイナス金利政策の解除・YCC撤廃・ETF買入れ終了",
     "2024-07-31": "政策金利を0.25%程度に引上げ・国債買入れの減額計画",
     "2025-01-24": "政策金利を0.5%程度に引上げ",
+    # ↓2026-10-08 に一次資料で確かめて追加（本人の指示で実務が判断）。
+    #   出所: 日本銀行「基準割引率および基準貸付利率の推移」
+    #   https://www.boj.or.jp/statistics/boj/other/discount/discount.htm
+    #   基準貸付利率は政策金利＋0.25%で連動して変わる。実施日の直前の会合を政策変更の回とした:
+    #     2025-12-22 1.00% ← 2025-12-19 会合 / 2026-06-17 1.25% ← 2026-06-16 会合 / 2026-09-24 1.50% ← 2026-09-18 会合
+    "2025-12-19": "政策金利を0.75%程度に引上げ",
+    "2026-06-16": "政策金利を1.0%程度に引上げ",
+    "2026-09-18": "政策金利を1.25%程度に引上げ",
 }
-# ここまでは確度が高い。これより後は手元で裏が取れないので、
-# 無担保コールレート（FRED IRSTCI01JPM156N・月次）の水準変化で当たりを付け、
-# 動いていた月の会合は「変更なし」に混ぜず「不明」として集計から外す。
-BOJ_TABLE_THROUGH = "2025-01-24"
-CALL_RATE_STEP = 0.10   # この幅(%)以上動いた月は政策変更があったとみなす
-
-
-def boj_unknown_months(call, through):
-    """手入力の表が切れたあと、コールレートが動いた月を拾う"""
-    out = {}
-    lim = pd.Timestamp(through)
-    prev = None
-    for d, v in call.items():
-        if prev is not None and d > lim and abs(v - prev) >= CALL_RATE_STEP:
-            out[pd.Timestamp(d.year, d.month, 1)] = round(v - prev, 3)
-        prev = v
-    return out
+# この表を一次資料で確かめた最後の会合。これより後の会合は、表を更新するまで
+# 「変更なし」に混ぜず「不明」として集計から外す（推測で埋めない）。
+#
+# ★以前は表を 2025-01-24 で止め、その後は無担保コールレートの月平均（FRED）が動いた月の会合を
+#   「不明」にしていた。月平均は利上げの翌月に遅れて動くため、それでは
+#   2025-12-19 の利上げを見落とし（12月下旬の利上げで12月の平均はほぼ動かない）、
+#   利上げの無かった 2026-01-23・07-31 を「不明」にしていた。月平均で当たりを付ける方法はやめた。
+BOJ_TABLE_THROUGH = "2026-09-18"
 
 
 # ------------------------------------------------------------------ 検定
@@ -157,9 +156,17 @@ def verdict(s):
 
 
 def cut_verdict(pairs):
-    """切り方そのものの判定。グループ間に差があるか（t検定とU検定の小さいほう）"""
+    """切り方そのものの判定。グループ間に差があるか（t検定とU検定の小さいほう）。
+
+    比べる2グループのどちらかが20件未満の組は「件数不足」とし、判定に使わない。
+    グループ単体の判定（verdict）と同じ決まりに揃えた（2026-10-08）。
+    それまではグループ間だけ件数を見ておらず、日銀の「政策変更あり15回」の翌営業日が
+    t検定 p=0.048・U検定 p=0.018 で「効いている」になっていた。決まりを揃えた結果
+    「件数不足」になる（結果を見た後の変更なので、変える前の値も報告に残している）"""
     ps = []
     for cm in pairs.values():
+        if min(cm.get("n_a", 0), cm.get("n_b", 0)) < 20:
+            continue
         ps += [cm.get("p_ttest"), cm.get("p_mannwhitney")]
     ps = [x for x in ps if x is not None]
     if not ps:
@@ -292,27 +299,23 @@ def build_cuts(tbl, idx, pos):
 
     # ---- 5. 日銀: 政策変更あり／なし
     e, rmap, miss = ev("boj")
-    call = fred("IRSTCI01JPM156N")
-    unknown_m = boj_unknown_months(call, BOJ_TABLE_THROUGH)
     g = {"政策変更あり": {}, "政策変更なし": {}}
     unknown = []
     for dstr, i in rmap.items():
         if dstr in BOJ_CHANGES:
             g["政策変更あり"][dstr] = i
             continue
-        m = pd.Timestamp(dstr)
-        m = pd.Timestamp(m.year, m.month, 1)
-        if dstr > BOJ_TABLE_THROUGH and m in unknown_m:
-            unknown.append({"d": dstr, "call_rate_change": unknown_m[m]})
-            continue          # 手元で裏が取れない。「変更なし」に混ぜない
+        if dstr > BOJ_TABLE_THROUGH:
+            unknown.append({"d": dstr})
+            continue          # 表を確かめていない会合。「変更なし」に混ぜない
         g["政策変更なし"][dstr] = i
     cuts.append({
         "key": "boj_change", "label": "日銀: 政策変更あり／なし", "event": "日銀 金融政策決定会合",
         "react": "same", "windows": ["d0", "d1"], "groups": g, "all": rmap,
-        "fred": "手入力の表＋IRSTCI01JPM156N（無担保コールレート・月次）で補助確認",
-        "note": f"政策変更の回は公知の事実だけを手入力した（{BOJ_TABLE_THROUGH}まで）。"
-                "それ以降でコールレートが動いた月の会合は、手元で裏が取れないので"
-                "「変更なし」に混ぜず集計から外した",
+        "fred": "手入力の表（公表文と、日銀「基準割引率および基準貸付利率の推移」で確認）",
+        "note": f"政策変更の回は公知の事実と日銀の一次資料で確かめた回だけを手入力した（{BOJ_TABLE_THROUGH}の会合まで）。"
+                "2024年3月以降は政策金利の変更回を政策変更とし、国債買入れ計画だけの見直しは入れていない。"
+                "表より後の会合は「変更なし」に混ぜず集計から外す",
         "extra": {"政策変更の回": [{"d": d, "what": w} for d, w in sorted(BOJ_CHANGES.items())],
                   "不明として除外": unknown, "反応日が取れず除外": miss},
     })
