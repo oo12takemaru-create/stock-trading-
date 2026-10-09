@@ -2,7 +2,7 @@
 """大量保有の「人物・機関」（積上⑧ v1）→ docs/holders.json ・ docs/holders_events.json ・ data/holders_featured.csv
 
 ■ 材料
-  積上③（edinet_daily.py）の docs/edinet/YYYY-MM.jsonl（1行1書類）。ここは読むだけで、EDINET には取りに行かない。
+  積上③（edinet_daily.py）の書類（docs/edinet/days/*.jsonl.gz・読むのは edinet_store.iter_records）。ここは読むだけで、EDINET には取りに行かない。
 
 ■ 出すもの（docs/holders.json）
   holders[E番号]   … 提出者（保有者）ごとの現在の保有・売買履歴（60日間の取得/処分の表）・新規報告の後の騰落
@@ -69,14 +69,10 @@ def jload(p, default=None):
 
 
 def load_docs():
-    rows = []
-    for f in sorted(EDINET.glob("????-??.jsonl")):
-        for line in f.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
-    # 同じ書類が2回入ることは③が防いでいるが、念のため id で一意に
-    uniq = {r["id"]: r for r in rows}
-    return sorted(uniq.values(), key=lambda r: (r["d"], r.get("tm") or "", r["id"]))
+    # 保存の形は edinet_store.py だけが知っている（2026-10-09 に月ごと .jsonl → 日ごと .jsonl.gz へ移行）。
+    # docID で一意・提出日順に並べて返す
+    import edinet_store
+    return edinet_store.iter_records()
 
 
 def code_of(r):
