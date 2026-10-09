@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""指標の「結果別」検証 → event_result.json（第1段＝検証のみ。docsには置かない）
+"""指標の「結果別」検証 → docs/event_result.json（2026-10-09 から公開・指標の早見表の元）
 
 ■ 問い
   相場の暦（event_score.py）は「日付」で切った。ここは「結果の中身」で切る。
@@ -17,9 +17,12 @@
   米CPI・米雇用統計は「前月分」を翌月に発表する。
   発表日に紐づくのは **対象月＝発表月の1つ前** のデータ。
 
-■ FREDの値は改定後の値
-  雇用統計（PAYEMS）は毎月改定される。ここで使うのは今日時点の改定後の値で、
-  発表当日に市場が見た速報値ではない。CPIも季節調整係数が年1回改定される。
+■ 発表時点の数字（ALFRED）で切る（2026-10-09）
+  FRED の値は後から改定される（2024年7月の雇用統計は発表時 +11.4万人 → 今は +5.3万人）。
+  市場が反応したのは発表時の数字なので、米CPI・米雇用統計は ALFRED（FRED の過去版）で
+  「発表日時点の版」を取り、その版の数字で切る。キー不要の alfredgraph.csv に
+  id=系列,系列…&vintage_date=日付,日付… でまとめて問い合わせる。
+  FOMC（政策金利）は改定が無いので FRED のまま。
 
 ■ 反応日
   相場の暦と同じ。日銀＝当日、FOMC・米CPI・米雇用統計＝翌営業日。
@@ -47,7 +50,7 @@ from event_score import prices, summarize, windows
 
 HERE = Path(__file__).parent
 DATES = HERE / "event_dates.json"
-OUT = HERE / "event_result.json"      # ★docs/ ではない。第1段は公開しない
+OUT = HERE / "docs" / "event_result.json"   # 2026-10-09 から公開（指標の早見表）
 
 YEAR_FROM = 2013
 RECENT_YEARS = 3
@@ -78,6 +81,55 @@ def fred(series, tries=4):
             print(f"  FRED {series} 再試行{i + 1}: {e}", file=sys.stderr)
             time.sleep(3 + i * 4)
     raise RuntimeError(f"FRED {series} を取得できない: {last}")
+
+
+ALFRED = "https://alfred.stlouisfed.org/graph/alfredgraph.csv"
+ALFRED_BATCH = 12      # ★1回の問い合わせで返る版は12個まで（24個頼むと後ろ12個が黙って落ちる・2026-10-09 実測）
+
+
+def alfred_asof(series, dates, months_back=15):
+    """発表日ごとの「その日時点の版」→ {発表日: {月初Timestamp: 値}}。
+    ALFRED は vintage_date が改定日でなくても、その日時点の版を返す（2026-10-09 実測）。
+    取れなかった発表日は入れない（呼び出し側で「データが無く除外」に数える）"""
+    out = {}
+    ds = sorted(dates)
+    for k in range(0, len(ds), ALFRED_BATCH):
+        chunk = ds[k:k + ALFRED_BATCH]
+        lo = prev_month(pd.Timestamp(chunk[0][:7] + "-01"), months_back).strftime("%Y-%m-%d")
+        url = (f"{ALFRED}?id={','.join([series] * len(chunk))}"
+               f"&vintage_date={','.join(chunk)}&cosd={lo}")
+        txt, last = None, None
+        for i in range(4):
+            try:
+                req = urllib.request.Request(url, headers=FRED_UA)
+                with urllib.request.urlopen(req, timeout=60 + i * 30) as r:
+                    txt = r.read().decode("utf-8")
+                if not txt.startswith("observation_date"):
+                    raise ValueError("想定外の形: " + txt[:80])
+                break
+            except Exception as e:
+                last, txt = e, None
+                print(f"  ALFRED {series} 再試行{i + 1}: {e}", file=sys.stderr)
+                time.sleep(3 + i * 4)
+        if txt is None:
+            raise RuntimeError(f"ALFRED {series} を取得できない: {last}")
+        rows = list(csv.reader(io.StringIO(txt)))
+        head = rows[0]
+        for j, col in enumerate(head[1:], start=1):
+            v8 = col.rsplit("_", 1)[-1]
+            d = f"{v8[:4]}-{v8[4:6]}-{v8[6:]}"
+            vals = {}
+            for r_ in rows[1:]:
+                if len(r_) > j and r_[j] not in ("", "."):
+                    vals[pd.Timestamp(r_[0][:7] + "-01")] = float(r_[j])
+            if vals:
+                out[d] = vals
+        got = {c.rsplit("_", 1)[-1] for c in head[1:]}
+        lost = [d for d in chunk if d.replace("-", "") not in got]
+        if lost:
+            raise RuntimeError(f"ALFRED {series}: 頼んだ版が返ってこない {lost}（上限が変わった可能性）")
+        time.sleep(1.0)      # ALFRED への礼儀
+    return out
 
 
 def monthly(s):
@@ -239,7 +291,7 @@ def build_cuts(tbl, idx, pos):
 
     # ---- 2/3. 米CPI（対象月＝発表月の1つ前）
     e, rmap, miss = ev("cpi")
-    cpi = monthly(fred("CPIAUCSL"))
+    cpi_v = alfred_asof("CPIAUCSL", list(rmap))      # 発表日 → その日時点の版
     g_mom = {"前月比が加速": {}, "前月比が減速": {}}
     g_yoy = {"前年比が3%超": {}, "前年比が3%以下": {}}
     lack = 0
@@ -247,6 +299,7 @@ def build_cuts(tbl, idx, pos):
         rel = pd.Timestamp(dstr)
         ref = prev_month(pd.Timestamp(rel.year, rel.month, 1))      # 対象月
         need = [ref, prev_month(ref), prev_month(ref, 2), prev_month(ref, 12)]
+        cpi = cpi_v.get(dstr, {})
         if any(x not in cpi for x in need):
             lack += 1
             continue
@@ -258,15 +311,15 @@ def build_cuts(tbl, idx, pos):
     cuts.append({
         "key": "cpi_mom", "label": "米CPI: 前月比が前回より加速／減速", "event": "米CPI",
         "react": "next", "windows": ["d0", "d1"], "groups": g_mom, "all": rmap,
-        "fred": "CPIAUCSL（米消費者物価指数・季節調整済・月次）",
+        "fred": "CPIAUCSL（米消費者物価指数・季節調整済・月次）の発表日時点の版（ALFRED）",
         "note": "CPIは前月分を翌月に発表する。発表日に紐づけたのは対象月＝発表月の1つ前。"
-                "その月の前月比を、さらに1つ前の月の前月比と比べた",
+                "その月の前月比を、さらに1つ前の月の前月比と比べた。数字は発表日時点の版（改定前）",
         "extra": {"対象月のデータが無く除外": lack, "反応日が取れず除外": miss},
     })
     cuts.append({
         "key": "cpi_yoy", "label": "米CPI: 前年比が3%超／3%以下", "event": "米CPI",
         "react": "next", "windows": ["d0", "d1"], "groups": g_yoy, "all": rmap,
-        "fred": "CPIAUCSL（米消費者物価指数・季節調整済・月次）",
+        "fred": "CPIAUCSL（米消費者物価指数・季節調整済・月次）の発表日時点の版（ALFRED）",
         "note": "対象月＝発表月の1つ前。前年比は季節調整済系列で計算している"
                 "（公表される見出しの前年比は季節調整前。ほぼ同じだが完全には一致しない）",
         "extra": {"対象月のデータが無く除外": lack, "反応日が取れず除外": miss},
@@ -274,13 +327,15 @@ def build_cuts(tbl, idx, pos):
 
     # ---- 4. 米雇用統計
     e, rmap, miss = ev("payroll")
-    pay = monthly(fred("PAYEMS"))
+    pay_v = alfred_asof("PAYEMS", list(rmap))
     g = {"3か月平均より上": {}, "3か月平均より下": {}}
     lack = 0
+    first = {}                  # 確認用: 発表日 → 対象月の増加分（発表時点の版）
     for dstr, i in rmap.items():
         rel = pd.Timestamp(dstr)
         ref = prev_month(pd.Timestamp(rel.year, rel.month, 1))
         need = [prev_month(ref, k) for k in range(0, 5)]
+        pay = pay_v.get(dstr, {})
         if any(x not in pay for x in need):
             lack += 1
             continue
@@ -288,13 +343,15 @@ def build_cuts(tbl, idx, pos):
             return pay[m] - pay[prev_month(m)]
         avg3 = sum(chg(prev_month(ref, k)) for k in (1, 2, 3)) / 3.0
         g["3か月平均より上" if chg(ref) > avg3 else "3か月平均より下"][dstr] = i
+        first[dstr] = round(chg(ref), 1)
     cuts.append({
         "key": "payroll_3m", "label": "米雇用統計: 前月増加分が直近3か月平均より上／下",
         "event": "米雇用統計", "react": "next", "windows": ["d0", "d1"], "groups": g, "all": rmap,
-        "fred": "PAYEMS（米非農業部門雇用者数・季節調整済・月次）",
+        "fred": "PAYEMS（米非農業部門雇用者数・季節調整済・月次）の発表日時点の版（ALFRED）",
         "note": "対象月＝発表月の1つ前。直近3か月平均は対象月を含めない（1〜3か月前の増加分の平均）。"
-                "★FREDの値は改定後。発表当日に市場が見た速報値ではない",
-        "extra": {"対象月のデータが無く除外": lack, "反応日が取れず除外": miss},
+                "数字は発表日時点の版（市場が見た速報値。後の改定は入っていない）",
+        "extra": {"対象月のデータが無く除外": lack, "反応日が取れず除外": miss,
+                  "発表時点の増加分（千人・直近12回）": dict(sorted(first.items())[-12:])},
     })
 
     # ---- 5. 日銀: 政策変更あり／なし
@@ -348,6 +405,24 @@ def stats_for(px, idx, groups, allpos, window, recent_from=None):
         vals[lab] = [x for x in v if x is not None]
         out[lab] = summarize(v, base)
     return out, vals
+
+
+def range_for(px, idx, groups, allpos):
+    """反応日の値幅（高値−安値÷前日終値）の平均と、イベントの無い日の平均との比。
+    記述の数字なので p値は付けない（方向の検定の数に混ぜない）"""
+    hitset = set(allpos)
+    lo = min(allpos) if allpos else 0
+    base = [windows(px, idx, i).get("range") for i in range(max(lo, 6), len(idx) - 2) if i not in hitset]
+    base = [x for x in base if x is not None]
+    bm = float(np.mean(base)) if base else None
+    out = {"base_mean_pct": round(bm * 100, 3) if bm else None}
+    for lab, gm in groups.items():
+        v = [windows(px, idx, i).get("range") for i in sorted(gm.values())]
+        v = [x for x in v if x is not None]
+        out[lab] = {"n": len(v),
+                    "mean_pct": round(float(np.mean(v)) * 100, 3) if v else None,
+                    "ratio": round(float(np.mean(v)) / bm, 2) if (v and bm) else None}
+    return out
 
 
 def count_pvalues(obj):
@@ -422,8 +497,8 @@ def main():
             "差が出なかった場合、それは『指標が効かない』ではなく"
             "『実績の方向だけでは説明できない』という意味です",
             "米CPI・米雇用統計は前月分を翌月に発表します。発表日に紐づけたのは対象月＝発表月の1つ前です",
-            "FREDの値は改定後の値です。特に雇用統計は毎月改定されるため、"
-            "発表当日に市場が見た速報値とは違います",
+            "米CPI・米雇用統計は、発表日時点の版（ALFRED）の数字で分けています。"
+            "後から改定された値ではなく、発表当日に市場が見た数字です",
             "反応日は、日銀が当日、FOMC・米CPI・米雇用統計が翌営業日です",
             "日経平均そのものが上昇している期間なので、必ず同じ期間の非イベント日と比べています",
             "過去にこう動いたという記録であって、次にどう動くかを示すものではありません",
@@ -435,6 +510,9 @@ def main():
         allpos = sorted(set(c["all"].values()))
         co = {k: c[k] for k in ("key", "label", "event", "react", "fred", "note", "extra")}
         co["n_all"] = len(allpos)
+        # 早見表の「値幅（平常比）」。反応日の値幅なので、反応日を d0 とする切り方だけ
+        if "d0" in c["windows"]:
+            co["range"] = range_for(px, idx, c["groups"], allpos)
         co["groups"] = {}
         co["between"] = {}
         co["recent"] = {}
@@ -503,7 +581,7 @@ def main():
 
     print()
     print(f"多重検定: 見たp値は {n_tests} 個（偶然でも約{n_tests * 0.05:.1f}個は p<0.05 になる）")
-    print(f"→ {OUT.name} ({OUT.stat().st_size / 1024:.1f}KB)  ※docs/ には置いていない")
+    print(f"→ docs/{OUT.name} ({OUT.stat().st_size / 1024:.1f}KB)")
 
 
 if __name__ == "__main__":
