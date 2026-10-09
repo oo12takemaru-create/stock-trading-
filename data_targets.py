@@ -24,6 +24,10 @@ JST = timezone(timedelta(hours=9))
 # (ファイル, 表示名, 許容遅れ営業日数)
 TARGETS = [
     ("docs/heatmap.json",       "ヒートマップ/出来高", 0),
+    # ★2026-10-09 入口強化★ 日経225・グロース（heatmap.yml）と業種別（movers-daily.yml）
+    ("docs/heatmap_225.json",   "日経225ヒートマップ", 0),
+    ("docs/heatmap_growth.json", "グロースヒートマップ", 0),
+    ("docs/heatmap_sector.json", "業種別ヒートマップ", 0),
     ("docs/radar.json",         "地合い判定",         0),
     ("docs/ai_analysis.json",   "AI朝刊",             0),
     ("docs/score3.json",        "3軸スコア",          0),

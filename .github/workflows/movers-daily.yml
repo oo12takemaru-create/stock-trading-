@@ -55,7 +55,9 @@ jobs:
 
       - name: Install dependencies
         if: steps.done.outputs.skip != '1'
-        run: pip install yfinance pandas openpyxl   # openpyxl は JPX 銘柄一覧(xlsx)用
+        run: |
+          pip install yfinance pandas openpyxl pillow   # openpyxl は JPX 銘柄一覧(xlsx)用・pillow はヒートマップ画像用
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
 
       # 実行直前に最新を取り込む（tdnet_list.json / karauri.json などを照合に使うため）
       - name: Pull latest
@@ -66,12 +68,17 @@ jobs:
         if: steps.done.outputs.skip != '1'
         run: python -X utf8 movers_daily.py
 
+      # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
+      # 失敗しても prices / movers の公開は止めない
+      - name: Heatmap of the day
+        run: python -X utf8 heatmap_day.py || echo "::warning::heatmap_day.py が失敗（prices/movers は公開する）"
+
       - name: Commit prices / movers
         if: steps.done.outputs.skip != '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/prices.json docs/movers.json docs/movers_hist
+          git add -f docs/prices.json docs/movers.json docs/movers_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
