@@ -162,7 +162,7 @@ def verdict(s):
 # ★日程の正は event_dates.json（event_dates.py が作る）1か所★（積上⑥ Fable判断 2026-10-08）
 #   サイトの events.js（gen_events.py が作る）と AI朝刊（ai_analysis.py）は、ここで出す
 #   docs/event_score.json の schedule を読む。手書きの日程表を増やさない。
-# 今年の1月1日から（サイトの「年内の全日程」は過ぎた回も灰色で並べる）
+# 前年の1月1日から（サイトの「年内の全日程」は過ぎた回も灰色で並べる・年別の日程ページは翌年も残す）
 SCHEDULE_AHEAD_DAYS = 400       # 1年＋α。サイトの日付ページは12か月先まで
 # ★来年の12月31日までは必ず含める（入口強化 B: 年別の日程ページ「〇〇 2027年」は1年分そろっている必要がある）
 # 次期TOPIX の段階的ウエイト低減（JPX総研「TOPIX等の見直しについて」2026年5月の移行係数表）。
@@ -200,7 +200,7 @@ def _add_bd(d, n):
 
 
 def build_schedule(tbl, today):
-    lo = date(today.year, 1, 1)
+    lo = date(today.year - 1, 1, 1)     # 前年の1月から（年別の日程ページ「〇〇 2026年」を翌年も残す）
     hi = max(today + timedelta(days=SCHEDULE_AHEAD_DAYS), date(today.year + 1, 12, 31))
     out = []
 
