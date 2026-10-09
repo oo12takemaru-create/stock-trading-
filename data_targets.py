@@ -52,6 +52,7 @@ TARGETS = [
     ("docs/cot_score.json",     "投機筋の答え合わせ", 9),
     ("docs/cot_scale.json",     "投機筋の10年の物差し", 9),
     ("docs/event_score.json",   "相場の暦",           40),
+    ("docs/event_result.json",  "指標の早見表",       40),   # 2026-10-09 公開。相場の暦と同じ月次
     ("docs/ai_weekly.json",     "週末版AI",           8),
     # ★2026-09-23 追加★ どちらの監視からも漏れていた。
     #   builder_example.json は 9/15 の初版のまま8日間動かず、誰も気づかなかった
