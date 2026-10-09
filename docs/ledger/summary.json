@@ -1,28 +1,28 @@
 {
- "updated": "2026-10-09T01:57:29+09:00",
+ "updated": "2026-10-09T19:33:10+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 1791,
+ "total": 2143,
  "sources": {
   "ai": {
-   "count": 9,
+   "count": 10,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "free_scanner": {
-   "count": 317,
-   "scored_r20": 265,
-   "r20_mean": -0.4,
-   "r20_up_rate": 48.7
+   "count": 319,
+   "scored_r20": 266,
+   "r20_mean": -0.43,
+   "r20_up_rate": 48.5
   },
   "karauri_new": {
-   "count": 731,
-   "scored_r20": 504,
-   "r20_mean": -0.93,
-   "r20_up_rate": 46.8
+   "count": 734,
+   "scored_r20": 508,
+   "r20_mean": -0.94,
+   "r20_up_rate": 46.9
   },
   "movers": {
-   "count": 419,
+   "count": 519,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
@@ -34,7 +34,7 @@
    "r20_up_rate": 33.3
   },
   "score3": {
-   "count": 2,
+   "count": 3,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
@@ -46,19 +46,19 @@
    "r20_up_rate": null
   },
   "treasure_card": {
-   "count": 1,
+   "count": 2,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "treasure_contra": {
-   "count": 90,
+   "count": 177,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "treasure_quiet": {
-   "count": 168,
+   "count": 325,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
