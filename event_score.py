@@ -164,6 +164,7 @@ def verdict(s):
 #   docs/event_score.json の schedule を読む。手書きの日程表を増やさない。
 # 今年の1月1日から（サイトの「年内の全日程」は過ぎた回も灰色で並べる）
 SCHEDULE_AHEAD_DAYS = 400       # 1年＋α。サイトの日付ページは12か月先まで
+# ★来年の12月31日までは必ず含める（入口強化 B: 年別の日程ページ「〇〇 2027年」は1年分そろっている必要がある）
 # 次期TOPIX の段階的ウエイト低減（JPX総研「TOPIX等の見直しについて」2026年5月の移行係数表）。
 # 実施日は月末最終営業日の大引け
 TOPIX_NEXT = [(2026, 10, "移行100%（初回定期入替）"), (2027, 1, "移行係数87.5%"), (2027, 4, "移行係数75.0%"),
@@ -199,7 +200,8 @@ def _add_bd(d, n):
 
 
 def build_schedule(tbl, today):
-    lo, hi = date(today.year, 1, 1), today + timedelta(days=SCHEDULE_AHEAD_DAYS)
+    lo = date(today.year, 1, 1)
+    hi = max(today + timedelta(days=SCHEDULE_AHEAD_DAYS), date(today.year + 1, 12, 31))
     out = []
 
     def add(d, k, t, hhmm, label):

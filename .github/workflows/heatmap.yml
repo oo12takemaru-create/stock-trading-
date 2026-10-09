@@ -43,6 +43,11 @@ jobs:
       - name: Install dependencies
         run: pip install yfinance pandas
 
+      # 日経225の構成（日経の公表リスト）。取れなければ既存の data/n225.csv を使う（入口強化 A-1）
+      - name: Refresh Nikkei 225 list
+        run: python -X utf8 n225_list.py || true
+
+      # heatmap.json に加えて heatmap_225.json / heatmap_growth.json も作る（追加分の失敗は heatmap.json に響かない）
       - name: Fetch heatmap data
         run: python heatmap_fetch.py docs/heatmap.json
 
@@ -54,7 +59,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/heatmap.json docs/heatmap_hist
+          git add -f docs/heatmap.json docs/heatmap_225.json docs/heatmap_growth.json docs/heatmap_hist data/n225.csv
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
