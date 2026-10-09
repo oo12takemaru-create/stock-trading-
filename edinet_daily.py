@@ -12,7 +12,8 @@
   XBRL（type=1 の zip 内 PublicDoc/*.xbrl）だけを読む。CSV・PDF は見ない。
 
 ■ 出力
-  docs/edinet/YYYY-MM.jsonl   1行＝1書類。提出月のファイルに**追記のみ**（docID で重複を弾く）
+  docs/edinet/days/YYYY-MM-DD.jsonl.gz  1行＝1書類。提出日ごと（読み書きは edinet_store.py だけ・2026-10-09〜）
+                              旧 docs/edinet/YYYY-MM.jsonl（〜10-08）は移行済み
   docs/edinet_latest.json     直近30日の銘柄別・提出者別の索引＋直近90日の「新規5%超・増加」件数
   docs/edinet/_state.json     取り込み済みの日付（遡及の進み具合）
 
@@ -55,6 +56,8 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import edinet_store
+
 JST = timezone(timedelta(hours=9))
 ROOT = Path(__file__).resolve().parent
 DOCS = ROOT / "docs"
@@ -69,6 +72,9 @@ ORDINANCE = "060"
 LATEST_DAYS = 30
 BIG_DAYS = 90
 BACKFILL_DAYS = 365
+# 2026-11-01 からは5年まで遡る（起動文「まず直近1年。5年は11月以降」）。毎朝40分ずつ・約4週間で埋まる見込み
+BACKFILL_5Y_FROM = date(2026, 11, 1)
+BACKFILL_DAYS_5Y = 365 * 5
 
 FORM = {
     "010000": ("大量保有", False), "010002": ("変更", False), "020002": ("変更", False),
@@ -191,14 +197,8 @@ TD = re.compile(r"<td\b[^>]*/>|<td\b[^>]*>(.*?)</td>", re.S)
 
 
 def jdate(s):
-    s = nfkc(s)
-    m = re.match(r"(\d{4})年(\d{1,2})月(\d{1,2})日", s)
-    if m:
-        return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    m = re.match(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", s)
-    if m:
-        return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    return s or None
+    """取得・処分の日付。「令和8年1月9日」のような和暦も多い（7,588行・積上⑧ #598）ので ISO にそろえる"""
+    return edinet_store.iso_date(nfkc(s)) or None
 
 
 def trades(block):
@@ -210,6 +210,9 @@ def trades(block):
     for tr in re.findall(r"<tr\b[^>]*>(.*?)</tr>", h, re.S):
         cells = [nfkc(re.sub(r"<[^>]+>", "", m.group(1) or "")) for m in TD.finditer(tr)]
         if len(cells) < 6 or "年月日" in cells[0]:
+            continue
+        # 「該当事項なし」だけの行（表の埋め草）は売買ではないので捨てる
+        if "該当" in cells[0] and not any(ch.isdigit() for ch in cells[2]):
             continue
         cells += [""] * (7 - len(cells))
         price = cells[6].replace(",", "").replace("円", "")
@@ -296,25 +299,13 @@ def fetch_xbrl(doc_id, key):
 # ─────────────────────────────────────────────
 #  1日ぶんの取り込み
 # ─────────────────────────────────────────────
-def existing_ids(month):
-    p = OUT_DIR / f"{month}.jsonl"
-    ids = set()
-    if p.exists():
-        for line in p.read_text(encoding="utf-8").splitlines():
-            try:
-                ids.add(json.loads(line)["id"])
-            except Exception:
-                pass
-    return ids
-
-
 def run_day(d, key, stats):
     lst = json.loads(get(f"{API}/documents.json?date={d.isoformat()}&type=2", key))
     if str(lst.get("metadata", {}).get("status")) != "200":
         raise RuntimeError(f"書類一覧 {d}: {lst.get('metadata')}")
     rows = [r for r in lst.get("results") or []
             if r.get("ordinanceCode") == ORDINANCE and r.get("docTypeCode") in DOC_TYPES]
-    by_month = defaultdict(list)
+    got = []
     seen = {}
     c = Counter()
     for r in rows:
@@ -324,10 +315,10 @@ def run_day(d, key, stats):
         if r.get("xbrlFlag") != "1":
             c["XBRLなし"] += 1
             continue
-        month = (r.get("submitDateTime") or d.isoformat())[:7]
-        if month not in seen:
-            seen[month] = existing_ids(month)
-        if r["docID"] in seen[month]:
+        sd = (r.get("submitDateTime") or d.isoformat())[:10]   # 罠9: 過去日の提出が混ざる
+        if sd not in seen:
+            seen[sd] = edinet_store.day_ids(sd)
+        if r["docID"] in seen[sd]:
             c["取込済み"] += 1
             continue
         try:
@@ -341,17 +332,12 @@ def run_day(d, key, stats):
             log(f"  {r['docID']} 失敗: {e}")
             time.sleep(WAIT)
             continue
-        by_month[month].append(rec)
-        seen[month].add(r["docID"])
+        got.append(rec)
+        seen[sd].add(r["docID"])
         c[rec["type"] + ("（特例）" if rec["special"] else "")] += 1
         time.sleep(WAIT)
-    for month, recs in by_month.items():
-        p = OUT_DIR / f"{month}.jsonl"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "a", encoding="utf-8", newline="\n") as fh:
-            for rec in recs:
-                fh.write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n")
-    n = sum(len(v) for v in by_month.values())
+    edinet_store.write(got)
+    n = len(got)
     stats.update(c)
     log(f"  {d}: 対象 {len(rows)}件 → 取込 {n}件  {dict(c)}")
     return n
@@ -361,18 +347,7 @@ def run_day(d, key, stats):
 #  索引（edinet_latest.json）
 # ─────────────────────────────────────────────
 def load_records(since):
-    recs = []
-    for p in sorted(OUT_DIR.glob("????-??.jsonl")):
-        if p.stem < since[:7]:
-            continue
-        for line in p.read_text(encoding="utf-8").splitlines():
-            try:
-                r = json.loads(line)
-            except Exception:
-                continue
-            if r.get("d", "") >= since:
-                recs.append(r)
-    return recs
+    return edinet_store.iter_records(since=since)
 
 
 def build_latest(today):
@@ -460,8 +435,9 @@ def main():
         done.add(d.isoformat())
 
     if args.backfill:
-        lo = today - timedelta(days=BACKFILL_DAYS)
-        todo = [lo + timedelta(days=i) for i in range(BACKFILL_DAYS)
+        span = BACKFILL_DAYS_5Y if today >= BACKFILL_5Y_FROM else BACKFILL_DAYS
+        lo = today - timedelta(days=span)
+        todo = [lo + timedelta(days=i) for i in range(span)
                 if (lo + timedelta(days=i)).isoformat() not in done]
         n_days = 0
         for d in todo[:args.backfill]:
@@ -473,7 +449,7 @@ def main():
             n_days += 1
             write_json(STATE, {"done": sorted(done)})   # 途中で落ちても進みを残す
         left = len([x for x in todo if x.isoformat() not in done])
-        log(f"遡及: {n_days}日ぶん処理。直近{BACKFILL_DAYS}日の残り {left}日")
+        log(f"遡及: {n_days}日ぶん処理。直近{span}日の残り {left}日")
 
     write_json(STATE, {"done": sorted(done)})
     n30, n90 = build_latest(today)
