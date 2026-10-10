@@ -77,6 +77,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      # 週末版の方向感を記録・採点するときに、日付を指定して日経の終値を取る（2026-10-10）
+      - name: Install dependencies
+        run: pip install -q yfinance jpholiday
+
       - name: Ingest weekend edition
         env:
           MODEL_LABEL: ${{ steps.take.outputs.model_label }}

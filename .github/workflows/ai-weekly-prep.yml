@@ -16,14 +16,19 @@ name: AI Weekly Prep (data → prompt branch)
 #
 on:
   schedule:
-    - cron: '40 22 * * 5,6'   # 22:40 UTC(金・土) = 7:40 JST(土・日)。mode は JST の曜日で決める
-    - cron: '0 23 * * 5,6'    # 23:00 UTC(金・土) = 8:00 JST(土・日)
+    # 2026-10-10 週末版を土曜1本に統合（日曜版の定期実行は止めた）
+    - cron: '40 22 * * 5'     # 22:40 UTC(金) = 7:40 JST(土)
+    - cron: '0 23 * * 5'      # 23:00 UTC(金) = 8:00 JST(土)
   workflow_dispatch:
     inputs:
       mode:
-        description: 'sat=答え合わせ / sun=来週の想定'
+        description: 'sat=週末版（答え合わせ＋来週の地図） / sun=旧日曜版'
         required: true
         default: 'sat'
+      legacy_sun:
+        description: '旧日曜版をあえて作るときだけ true（2026-10-10 に週末版へ統合済み）'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -52,6 +57,7 @@ jobs:
         id: mode
         env:
           INPUT_MODE: ${{ github.event.inputs.mode }}
+          LEGACY_SUN: ${{ github.event.inputs.legacy_sun }}
         run: |
           M="$INPUT_MODE"
           if [ -z "$M" ]; then
@@ -61,14 +67,26 @@ jobs:
             fi
           fi
           case "$M" in sat|sun) ;; *) echo "::error::mode 不正: $M"; exit 1 ;; esac
+          # 日曜版は週末版（土曜）に統合した（2026-10-10）。cron-worker は日曜も mode=sun で起こしてくるので、
+          # ここで何もせず終える。どうしても旧日曜版を作るときは legacy_sun=true で手動実行する
+          if [ "$M" = "sun" ] && [ "$LEGACY_SUN" != "true" ]; then
+            echo "日曜版は週末版に統合済み → 何もしない"; echo "mode=skip" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           echo "mode=$M" >> "$GITHUB_OUTPUT"
           echo "モード: $M"
 
+      # yfinance=世界の値動き・方向感の採点用の日経終値 / jpholiday=来週の休場日
+      - name: Install dependencies
+        if: steps.mode.outputs.mode != 'skip'
+        run: pip install -q yfinance jpholiday
+
       # sat で採点対象が1件も無ければ weekly.py が exit 1（＝ブランチを作らない）
       - name: Build prompt
+        if: steps.mode.outputs.mode != 'skip'
         run: python -X utf8 weekly.py --prompt-out PROMPT.txt ${{ steps.mode.outputs.mode }} docs/ai_weekly.json
 
       - name: Push prompt branch
+        if: steps.mode.outputs.mode != 'skip'
         env:
           M: ${{ steps.mode.outputs.mode }}
         run: |
