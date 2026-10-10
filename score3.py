@@ -372,6 +372,31 @@ def main():
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # ★判定の履歴（docs/score3_hist.json・1日1件＝その日の最後の実行で上書き）。
+    #   3軸スコアは市場内部データ（25日線超の比率・騰落レシオ）や信用・空売りの
+    #   履歴を使っていて、過去5年ぶんが手元に無いため遡及検証ができない。
+    #   いまから残しておけば、あとから「公開後の実績」として採点できる。
+    try:
+        hp = OUT.parent / "score3_hist.json"
+        try:
+            hist = json.loads(hp.read_text(encoding="utf-8"))
+        except Exception:
+            hist = {"items": []}
+        day = data["updated"][:10]
+        entry = {"d": day, "trade_date": data["trade_date"], "total": total,
+                 "stance": key,
+                 "trend": a1, "risk": a2, "flow": a3,
+                 "inputs_ok": data["inputs_ok"]}
+        items = [x for x in hist.get("items", []) if x.get("d") != day]
+        items.append(entry)
+        items = sorted(items, key=lambda x: x["d"])[-1200:]
+        hp.write_text(json.dumps({"updated": data["updated"], "items": items},
+                                 ensure_ascii=False, separators=(",", ":")),
+                      encoding="utf-8")
+        print(f"score3_hist.json 更新: {len(items)}日分")
+    except Exception as e:
+        print(f"score3_hist.json の更新に失敗（本体は出せている）: {e}")
     print(f"OK {OUT.name}: 合計{total:+d} → {jp} "
           f"(トレンド{a1:+d} / 短期リスク{a2:+d} / 需給{a3:+d})")
     for ax in data["axes"]:

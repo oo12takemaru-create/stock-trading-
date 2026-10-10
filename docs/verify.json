@@ -1,0 +1,294 @@
+{
+ "updated": "2026-10-10T20:04:45+09:00",
+ "radar": {
+  "index": "1306.T（TOPIX連動ETF）",
+  "period": [
+   "2021-10-11",
+   "2026-10-09"
+  ],
+  "days": 1220,
+  "dropped_bars": [
+   "2026-03-30",
+   "2026-03-31"
+  ],
+  "cut": "2026-05-24",
+  "cut_commit": "b5415cf5（v2.8.0）",
+  "built": {
+   "all": {
+    "label": "全期間平均",
+    "n": 1125,
+    "r1": -0.0,
+    "r5": 0.31,
+    "r20": 1.41,
+    "r20_med": 1.63,
+    "up20": 66.3,
+    "dd20": -2.62,
+    "sankou": false
+   },
+   "rows": [
+    {
+     "label": "BULLISH",
+     "n": 637,
+     "r1": -0.01,
+     "r5": 0.21,
+     "r20": 1.62,
+     "r20_med": 1.77,
+     "up20": 68.9,
+     "dd20": -2.47,
+     "sankou": false
+    },
+    {
+     "label": "NEUTRAL",
+     "n": 135,
+     "r1": -0.06,
+     "r5": 0.24,
+     "r20": 0.22,
+     "r20_med": 0.18,
+     "up20": 53.3,
+     "dd20": -2.69,
+     "sankou": false
+    },
+    {
+     "label": "BEARISH",
+     "n": 349,
+     "r1": 0.04,
+     "r5": 0.47,
+     "r20": 1.37,
+     "r20_med": 1.92,
+     "up20": 66.2,
+     "dd20": -2.89,
+     "sankou": false
+    },
+    {
+     "label": "PANIC",
+     "n": 4,
+     "r1": -0.79,
+     "r5": 2.57,
+     "r20": 11.37,
+     "r20_med": 11.86,
+     "up20": 100.0,
+     "dd20": -2.42,
+     "sankou": true
+    }
+   ]
+  },
+  "tested": {
+   "all": {
+    "label": "全期間平均",
+    "n": 75,
+    "r1": -0.03,
+    "r5": 0.16,
+    "r20": 1.12,
+    "r20_med": 1.02,
+    "up20": 76.0,
+    "dd20": -2.06,
+    "sankou": false
+   },
+   "rows": [
+    {
+     "label": "BULLISH",
+     "n": 72,
+     "r1": -0.06,
+     "r5": 0.03,
+     "r20": 0.94,
+     "r20_med": 0.85,
+     "up20": 75.0,
+     "dd20": -2.16,
+     "sankou": false
+    },
+    {
+     "label": "NEUTRAL",
+     "n": 3,
+     "r1": 0.59,
+     "r5": 3.16,
+     "r20": 5.49,
+     "r20_med": 5.58,
+     "up20": 100.0,
+     "dd20": 0.31,
+     "sankou": true
+    }
+   ]
+  },
+  "whole": {
+   "all": {
+    "label": "全期間平均",
+    "n": 1200,
+    "r1": -0.0,
+    "r5": 0.3,
+    "r20": 1.39,
+    "r20_med": 1.52,
+    "up20": 66.9,
+    "dd20": -2.59,
+    "sankou": false
+   },
+   "rows": [
+    {
+     "label": "BULLISH",
+     "n": 709,
+     "r1": -0.01,
+     "r5": 0.2,
+     "r20": 1.55,
+     "r20_med": 1.64,
+     "up20": 69.5,
+     "dd20": -2.44,
+     "sankou": false
+    },
+    {
+     "label": "NEUTRAL",
+     "n": 138,
+     "r1": -0.05,
+     "r5": 0.3,
+     "r20": 0.34,
+     "r20_med": 0.25,
+     "up20": 54.3,
+     "dd20": -2.62,
+     "sankou": false
+    },
+    {
+     "label": "BEARISH",
+     "n": 349,
+     "r1": 0.04,
+     "r5": 0.47,
+     "r20": 1.37,
+     "r20_med": 1.92,
+     "up20": 66.2,
+     "dd20": -2.89,
+     "sankou": false
+    },
+    {
+     "label": "PANIC",
+     "n": 4,
+     "r1": -0.79,
+     "r5": 2.57,
+     "r20": 11.37,
+     "r20_med": 11.86,
+     "up20": 100.0,
+     "dd20": -2.42,
+     "sankou": true
+    }
+   ]
+  },
+  "worse": {
+   "label": "判定が悪化した日",
+   "n": 60,
+   "r1": -0.12,
+   "r5": 0.5,
+   "r20": 1.69,
+   "r20_med": 1.85,
+   "up20": 63.3,
+   "dd20": -2.42,
+   "sankou": false
+  },
+  "match": {
+   "same": 41,
+   "diff": 4,
+   "pct": 91.1,
+   "rows": [
+    {
+     "d": "2026-08-04",
+     "published": "NEUTRAL",
+     "replay": "BULLISH"
+    },
+    {
+     "d": "2026-08-18",
+     "published": "NEUTRAL",
+     "replay": "BULLISH"
+    },
+    {
+     "d": "2026-09-09",
+     "published": "NEUTRAL",
+     "replay": "BULLISH"
+    },
+    {
+     "d": "2026-09-10",
+     "published": "NEUTRAL",
+     "replay": "BULLISH"
+    }
+   ]
+  }
+ },
+ "ai": {
+  "period": [
+   "2026-08-07",
+   "2026-10-08"
+  ],
+  "days": 40,
+  "cut": "2026-09-05",
+  "cut_commit": "5a4104d4",
+  "main": {
+   "label": "AI朝刊（公開値）",
+   "hit": 14,
+   "judged": 25,
+   "pct": 56.0,
+   "sankou": true
+  },
+  "comparisons": [
+   {
+    "label": "機械の3軸だけ（AIの修正前）",
+    "hit": 10,
+    "judged": 19,
+    "pct": 52.6,
+    "sankou": true
+   },
+   {
+    "label": "毎日「攻め」",
+    "hit": 21,
+    "judged": 40,
+    "pct": 52.5,
+    "sankou": false
+   },
+   {
+    "label": "前日と同じ判定",
+    "hit": 14,
+    "judged": 24,
+    "pct": 58.3,
+    "sankou": true
+   },
+   {
+    "label": "温度計の判定そのまま",
+    "hit": 19,
+    "judged": 35,
+    "pct": 54.3,
+    "sankou": false
+   }
+  ],
+  "beats_all": false,
+  "downgrades": {
+   "rows": [
+    {
+     "d": "2026-09-17",
+     "m": "lean_defense",
+     "a": "defense",
+     "ret": 0.33,
+     "ok": false
+    },
+    {
+     "d": "2026-09-18",
+     "m": "lean_attack",
+     "a": "neutral",
+     "ret": 1.38,
+     "ok": false
+    },
+    {
+     "d": "2026-10-01",
+     "m": "attack",
+     "a": "lean_attack",
+     "ret": 3.3,
+     "ok": false
+    }
+   ],
+   "ok": 0,
+   "n": 3,
+   "pct": 0.0
+  }
+ },
+ "score3_backfill": {
+  "possible": false,
+  "reason": "3軸スコアの入力のうち、25日線より上の銘柄の比率・騰落レシオ・52週高値更新数（市場内部データ）と、信用買い残・大口の空売りの銘柄別残高に、過去5年ぶんの履歴が無い。いまある手持ちのデータでは当時のスコアを再現できないため、遡及検証はしない。",
+  "instead": "2026-10-10 から docs/score3_hist.json に毎日の判定を残している。件数がたまったら、公開後の実績として採点する。"
+ },
+ "crash": {
+  "status": "未実施",
+  "note": "傾斜計の遡及検証は未着手"
+ }
+}
