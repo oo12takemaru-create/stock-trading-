@@ -107,6 +107,7 @@ const WEEKEND_PLAN = {
     "07:40": ["ai-weekly-prep.yml"],
     "08:00": ["ai-weekly-prep.yml"],
     "09:30": ["pipeline-weekly.yml"],
+    "11:00": ["jukyu-events.yml"],   // 信用残・需給の検証（進化③）。週末バッチ（信用残・空売りの答え合わせ）の後
   },
   // 日: 週末版AI（来週の想定）の前段 07:40＋予備 08:00
   0: {

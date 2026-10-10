@@ -1,0 +1,65 @@
+name: Jukyu Events Weekly (信用残・需給の検証)
+
+# 信用残・機関の空売りのイベント（Q1〜Q7）を抽出し、その後の値動きを集計する（jukyu_events.py）。
+# 上場廃止の記録（docs/delisted.json）もここで更新する。公開ページは作らない（銘柄ページの統計1行だけ）。
+# 起動文: kaburadar\起動文_実務_進化③_信用残需給の検証_蓄積型_2026-10-10.md
+#
+# 毎週土曜 11:00 JST に cron-worker から dispatch（09:30 の pipeline-weekly＝信用残・空売りの答え合わせの後）。
+# schedule は保険。他の系統と同じワークフローに入れない（道連れを作らない）。
+on:
+  schedule:
+    - cron: '30 2 * * 6'      # 土 11:30 JST（保険・実際は遅れて走る）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jukyu-events
+  cancel-in-progress: false
+
+jobs:
+  jukyu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          # 機関の空売りの「報告消滅」は docs/karauri.json の過去の版を読む
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas numpy openpyxl
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Build jukyu_stats.json / delisted.json
+        run: python -X utf8 jukyu_events.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/jukyu_stats.json docs/delisted.json docs/jpx_listed_codes.json   # docs/*.json は .gitignore 対象
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🧮 信用残・需給の検証を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1

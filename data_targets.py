@@ -93,6 +93,8 @@ TARGETS = [
     ("docs/edinet_latest.json", "大量保有報告書",     2),
     # ★2026-10-08 追加（積上⑤）★ 決算反応カルテ（kessan-react-hist.yml・平日19:00 JST）
     ("docs/kessan_react_hist/index.json", "決算反応カルテ", 1),
+    # ★2026-10-10 追加（進化③）★ 信用残・需給の検証（jukyu-events.yml・毎週土曜）
+    ("docs/jukyu_stats.json",   "信用残・需給の検証", 8),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。

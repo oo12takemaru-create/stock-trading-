@@ -70,8 +70,9 @@ def to_int(tok):
     return -v if neg else v
 
 
-def parse_pdf(pdf):
+def parse_pdf(pdf, ratios=None):
     """日次PDF → (申込日, {code: [売残, 売前日比, 買残, 買前日比]}, 検算NG件数)
+    ratios に dict を渡すと、買残の上場比（%）を {code: 0.52} で入れて返す（進化③ Q2 用・2026-10-10）
 
     1銘柄の株数の行は「売残 前日比 上場比 買残 前日比 上場比」＋内訳8個
     （売の一般・前日比・制度・前日比、買の一般・前日比・制度・前日比）。"""
@@ -117,7 +118,26 @@ def parse_pdf(pdf):
             if code5[4] != "0":            # 優先株式などは除外（4桁コードの衝突防止）
                 continue
             items.setdefault(code5[:4], [s, sd, b, bd])
+            if ratios is not None and toks[5].endswith("%"):
+                try:
+                    ratios.setdefault(code5[:4], float(toks[5].rstrip("%")))
+                except ValueError:
+                    pass
     return asof, items, bad
+
+
+def save_listed(path, asof, items, ratios):
+    """上場株式数の推計 = 買残 ÷ 上場比。買残0・上場比0の銘柄は割り戻せないので入れない"""
+    out = {}
+    for c, r in ratios.items():
+        b = (items.get(c) or [None, None, None])[2]
+        if b and r and r > 0:
+            out[c] = int(round(b / (r / 100)))
+    path.write_text(json.dumps({
+        "updated": datetime.now(JST).isoformat(timespec="seconds"), "asof": asof, "unit": "株",
+        "note": "上場株式数の推計（日次PDFの買残÷上場比）。上場比は小数2桁なので数%の誤差がある。買残が0の銘柄は無い",
+        "items": dict(sorted(out.items()))}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"上場株式数の推計: {len(out)}銘柄（{asof}）", file=sys.stderr)
 
 
 def load_archive():
@@ -184,12 +204,21 @@ def main():
 
     days = load_archive()
     fetched = 0
+    # ── 上場株式数（進化③ Q2「買い残が上場株式数の0.5%以上」）。上場比（買残÷上場株式数）から割り戻す。
+    #    無ければ最新のPDFを1本だけ読み直す（取得済みでも）。上場株式数はめったに変わらないので最新の値で足りる
+    LISTED = DOCS / "shinyo_listed.json"
+    if not LISTED.exists() and links:
+        link, ymd = links[-1]
+        ratios = {}
+        asof_l, items_l, _ = parse_pdf(http(BASE + link), ratios)
+        save_listed(LISTED, asof_l, items_l, ratios)
     for link, ymd in links:
         key = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}"
         if key in days:
             continue                     # 取得済み（PDFは1本1.8MBあるので取り直さない）
         pdf = http(BASE + link)
-        asof, items, bad = parse_pdf(pdf)
+        ratios = {}
+        asof, items, bad = parse_pdf(pdf, ratios)
         total = len(items) + bad
         print(f"取得: {ymd} → 申込日 {asof} / {len(items)}銘柄 / 検算NG {bad}", file=sys.stderr)
         if asof != key:
@@ -201,6 +230,8 @@ def main():
             print(f"銘柄数が少なすぎる: {len(items)}", file=sys.stderr)
             sys.exit(1)
         days[asof] = items
+        if asof == max(days) or not (DOCS / "shinyo_listed.json").exists():
+            save_listed(DOCS / "shinyo_listed.json", asof, items, ratios)
         fetched += 1
         time.sleep(2)
 
