@@ -335,7 +335,7 @@ def fetch_prices(codes, start):
     return px
 
 
-def measure(e, px, cal, delisted):
+def measure(e, px, cal, delisted, umean=None):
     """起点＝公表日の翌営業日の始値。5・20・60営業日後の終値まで。TOPIX比・最大下落率・踏み上げ"""
     bars = px.get(e["c"] + ".T")
     tp = px.get(TOPIX_PROXY)
@@ -368,12 +368,41 @@ def measure(e, px, cal, delisted):
         res[f"r{h}"] = round(r * 100, 3)
         if rt is not None:
             res[f"x{h}"] = round((r - rt) * 100, 3)
+        um = umean(e["pub"], h) if umean else None
+        if um is not None:
+            res[f"u{h}"] = round(r * 100 - um, 3)          # 全信用銘柄の平均との差（pt）
         if h == 20:
             win = [bars[d][1] for d in after[: h + 1] if d in bars]
             if win:
                 res["dd20"] = round((min(win) / o - 1) * 100, 3)
                 res["up20max"] = round((max(win) / o - 1) * 100, 3)
     return res
+
+
+def universe_mean_fn(px, cal, margin_codes):
+    """信用取引のある全銘柄の、同じ起点・同じ期間の平均リターン（%）。区分どうしの違いを見るための基準。
+    空売りの答え合わせ（karauri_score.py）が「同じ公表日に報告があった銘柄の平均」と比べるのと同じ考え方
+    （Fable 判断 2026-10-10）。公表日ごとにキャッシュする"""
+    cache = {}
+    tick = [c + ".T" for c in margin_codes if (c + ".T") in px]
+
+    def f(pub, h):
+        k = (pub, h)
+        if k in cache:
+            return cache[k]
+        after = [d for d in cal if d > pub]
+        v = None
+        if len(after) > h:
+            base, end = after[0], after[h]
+            rs = []
+            for t in tick:
+                b = px[t]
+                if base in b and end in b and b[base][0]:
+                    rs.append(b[end][1] / b[base][0] - 1)
+            v = float(np.mean(rs)) * 100 if len(rs) >= 100 else None
+        cache[k] = v
+        return v
+    return f
 
 
 def vol_ratio_fn(px):
@@ -433,12 +462,16 @@ def summarize(rows, squeeze=False):
     for h in H:
         v = [r[f"r{h}"] for r in rows if r.get(f"r{h}") is not None]
         x = [r[f"x{h}"] for r in rows if r.get(f"x{h}") is not None]
+        u = [r[f"u{h}"] for r in rows if r.get(f"u{h}") is not None]
         k = len(v)
-        blk = {"n": k, "label": "通常" if k >= MIN_FULL else ("参考値" if k >= MIN_SHOW else "数字なし")}
+        blk = {"n": k, "label": "通常" if k >= MIN_FULL else ("参考値" if k >= MIN_SHOW else "数字なし"),
+               # 件数が多くても、少ない回数の公表に固まっていると1つの相場の性格しか見ていない（Fable 10/10）
+               "n_pubs": len({r["pub"] for r in rows if r.get(f"r{h}") is not None})}
         if k >= MIN_SHOW:
             blk.update({"mean": round(float(np.mean(v)), 2), "median": round(float(np.median(v)), 2),
                         "up_rate": round(sum(1 for a in v if a > 0) / k * 100, 1),
-                        "excess_mean": round(float(np.mean(x)), 2) if x else None})
+                        "excess_mean": round(float(np.mean(x)), 2) if x else None,
+                        "excess_univ_mean": round(float(np.mean(u)), 2) if u else None})
             if h == 20:
                 dd = [r["dd20"] for r in rows if r.get("dd20") is not None]
                 blk["max_drawdown_mean"] = round(float(np.mean(dd)), 2) if dd else None
@@ -518,9 +551,11 @@ def main():
     tier, tier_cut = value_tier_fn(px)
     rs = regime_series()
 
+    margin_codes = {c for c, rows in items.items() if c in universe and any(rows)}
+    umean = universe_mean_fn(px, cal, margin_codes)
     allev = dedup(e123 + e6 + e7, cal)
     for e in allev:
-        e["m"] = measure(e, px, cal, delisted)
+        e["m"] = measure(e, px, cal, delisted, umean)
         e["regime"] = regime_on(rs, e["pub"])
         e["size"] = tier(e["c"])
         e["market"] = meta.get(e["c"]) or "不明"
@@ -539,7 +574,8 @@ def main():
             "weekly_pub": "週次の信用残は申込日の2営業日後を公表日とした（先読みしない側）",
             "size": "規模＝直近20営業日の平均売買代金を、今の全銘柄の三分位で大型・中型・小型に分けた",
             "size_cut": tier_cut, "regime": "温度計（radar_history.json・2026-08-02〜）。それより前は「不明」",
-            "prices": "yfinance（分割調整済み）", "survivorship": "2026-10-10 から上場廃止を記録（delisted.json）。それ以前の廃止銘柄は含まれない",
+            "prices": "yfinance（分割調整済み）",
+            "excess_univ": "全信用銘柄の平均との差＝同じ起点・同じ期間の、信用残のある全銘柄の平均リターンを引いた値（サイトの1行はこちら）。TOPIX比はデータに残す", "survivorship": "2026-10-10 から上場廃止を記録（delisted.json）。それ以前の廃止銘柄は含まれない",
         },
         "data_since": {"信用残（週次）": first_week, "機関の空売り（転換・新規）": q6_from,
                        "機関の空売り（消滅）": q6_gone_from, "温度計": (rs[0][0] if rs else None)},
@@ -555,13 +591,16 @@ def main():
                    "note": "2年（104週）分の週次が必要。短い期間で代用しない"},
             "Q5": {"title": "6か月前の買い膨らみ→期日通過", "status": "蓄積待ち",
                    "available_from": "2029-02（設計書どおり：26週前の時点で2年レンジが要る）",
-                   "note": "26週前の買い残だけで見る簡易版なら2027-02から出せるが、2年レンジの代用になるのでやらない"},
+                   "note": "設計書の定義どおり2029-02から。26週前だけで見る簡易版は作らない（Fable 判断 2026-10-10）"},
             "Q6": {"title": "機関の空売り（合計）の新規報告・増加/減少への転換・報告消滅", "status": "集計中",
                    "groups": aggregate(qs("Q6"))},
             "Q7": {"title": "信用倍率×機関の空売り×出来高急増（20日平均の2倍以上）", "status": "集計中",
                    "groups": aggregate(qs("Q7"))},
         },
         "counts": {q: len(qs(q)) for q in ("Q1", "Q2", "Q3", "Q6", "Q7")},
+        # 週次の公表の回数（全体）。サイトの1行は13週以上たまってから（Fable 10/10）
+        "weekly_pubs": len(weeks),
+        "weekly_pubs_h20": sum(1 for p_ in pubs if len([d for d in cal if d > p_]) > 20),
     }
     OUT.write_text(json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
     # 手計算の照合用に、イベントの明細も残す（大きいので docs には置かない）
