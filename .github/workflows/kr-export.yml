@@ -1,0 +1,50 @@
+name: KR Export (閲覧数・面白い率)
+
+# 株レーダーの閲覧数（kr_views）と面白い／いまいち（kr_feedback）を Supabase から書き出す（進化①）
+#   docs/views.json（毎日）・docs/feedback.json（月曜）。サイトにはまだ出さない
+# 毎日 06:17 JST（= 前日 21:17 UTC）。前日ぶんがそろってから
+on:
+  schedule:
+    - cron: '17 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kr-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Export
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python -X utf8 kr_export.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/views.json docs/feedback.json
+          if git diff --staged --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "👀 閲覧数・面白い率を書き出し"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"; exit 1
