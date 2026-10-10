@@ -28,6 +28,8 @@ TARGETS = [
     ("docs/heatmap_225.json",   "日経225ヒートマップ", 0),
     ("docs/heatmap_growth.json", "グロースヒートマップ", 0),
     ("docs/heatmap_sector.json", "業種別ヒートマップ", 0),
+    # ★2026-10-10 進化①★ 閲覧数の書き出し（kr-export.yml・毎朝06:17 JST）。サイトには未掲載
+    ("docs/views.json",         "閲覧数の記録",       1),
     ("docs/radar.json",         "地合い判定",         0),
     ("docs/ai_analysis.json",   "AI朝刊",             0),
     ("docs/score3.json",        "3軸スコア",          0),
