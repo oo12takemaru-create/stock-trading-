@@ -55,11 +55,16 @@ jobs:
         continue-on-error: true
         run: python -X utf8 verify.py
 
+      # 暴落の傾斜計の遡及検証（検証3）。監視341銘柄を落とすので少し重い
+      - name: Build verify_crash.json
+        continue-on-error: true
+        run: python -X utf8 verify_crash.py
+
       - name: Commit ai_record.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/ai_record.json docs/sector_record.json docs/verify.json
+          git add -f docs/ai_record.json docs/sector_record.json docs/verify.json docs/verify_crash.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
