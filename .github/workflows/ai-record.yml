@@ -49,11 +49,17 @@ jobs:
       - name: Build sector_record.json
         run: python -X utf8 sector_record.py
 
+      # 判定の検証（温度計の遡及・AI朝刊の比較）。ai_record.json を読むのでこの後に置く。
+      # 指数の取得に失敗しても、ここで止めずに前回の verify.json を残す
+      - name: Build verify.json
+        continue-on-error: true
+        run: python -X utf8 verify.py
+
       - name: Commit ai_record.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/ai_record.json docs/sector_record.json
+          git add -f docs/ai_record.json docs/sector_record.json docs/verify.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
