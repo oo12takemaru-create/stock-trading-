@@ -1,0 +1,71 @@
+name: Board Score (掲示板の予想の採点)
+
+# 株レーダー掲示板の予想を採点する（board_score.py）。起動文: kaburadar\起動文_実務_掲示板_予想と雑談_2026-10-11.md
+#   起点 = 投稿の翌営業日の始値、終点 = 期限日の終値。採点が付いた予想は銘柄ページから消え、投稿者の成績に残る。
+#   あわせて docs/board_activity.json（銘柄ごとの雑談の件数。サイトには出さない）を書き出す。
+#
+# 平日 19:30 JST に cron-worker（Cloudflare）から dispatch する（ledger-daily と同じ枠）。
+# GitHub の schedule は保険（遅れて走っても、採点は終値が確定した日しか使わないので害はない）。
+# 手で走らせるとき: mode=dry-run（書き込まない）/ selftest（一時アカウントで採点を試して、アカウントごと消す）
+on:
+  schedule:
+    - cron: '45 9 * * 1-5'     # 18:45 JST（保険・実際は遅れて走る）
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'score（通常）/ dry-run（書き込まない）/ selftest（本番データに残さない試験）'
+        required: false
+        default: 'score'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: board-score
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Score
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODE: ${{ github.event.inputs.mode || 'score' }}
+        run: |
+          case "$MODE" in
+            selftest) python -X utf8 board_score.py --selftest ;;
+            dry-run)  python -X utf8 board_score.py --dry-run ;;
+            *)        python -X utf8 board_score.py ;;
+          esac
+
+      - name: Commit activity
+        if: ${{ (github.event.inputs.mode || 'score') == 'score' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/board_activity.json   # docs/*.json は .gitignore 対象なので -f
+          if git diff --staged --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "🗣️ 掲示板の予想を採点・雑談の件数を記録"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"; exit 1
