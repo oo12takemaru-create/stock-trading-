@@ -22,10 +22,17 @@ from universe import ACTIVE_TICKERS, JAPAN_STOCKS
 UNIVERSE_VERSION = "jp340_v2_8_0"
 
 
-def default_window(years: int) -> tuple[dt.date, dt.date]:
-    """取得期間。移動平均200日・52週高値のウォームアップに約1.2年ぶん余分に取る。"""
+def default_window(years: int = None) -> tuple[dt.date, dt.date]:
+    """取得期間。取り始めは**検証期間の頭から一定の日数だけ前**に固定する。
+
+    ★作った日で決めない★（2026-10-11）
+      以前は `今日 − years年 − 460日` だったため、作るたびに取り始めが動き、
+      ewm（ema_50 など）の値まで作った日によって変わった。
+      years は互換のために受け取るが、取り始めには使わない。
+    """
     end = dt.date.today() + dt.timedelta(days=1)
-    start = end - dt.timedelta(days=int(years * 365.25) + 460)
+    start = (dt.date.fromisoformat(config.MATERIAL_START)
+             - dt.timedelta(days=config.WARMUP_DAYS))
     return start, end
 
 
@@ -123,6 +130,8 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
         if df is None or len(df) < 200:
             skipped.append(t)
             continue
+        # ★分割の取りこぼしを直してから計算する★（2026-10-11・8227.T で見つけた）
+        df = fetching.fix_unadjusted_splits(df, t, log=log)
         frames.append(metrics.compute_stock_metrics(df, t))
         if i % 50 == 0 or i == len(tickers):
             log("  %d/%d 銘柄" % (i, len(tickers)))
@@ -145,7 +154,9 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
     panel.index.name = "date"
     panel = panel.reset_index()
     panel["date"] = pd.to_datetime(panel["date"])
-    cutoff = pd.Timestamp(end) - pd.Timedelta(days=int(years * 365.25))
+    # ★材料の開始日は検証期間の頭に固定する★（2026-10-11）
+    #   以前は `end − years年` で切っていたため、作り直すたびに検証期間の頭が削られた。
+    cutoff = pd.Timestamp(config.MATERIAL_START)
     panel = panel[panel["date"] >= cutoff]
     panel = metrics.add_rs_rank(panel)
     panel = panel.sort_values(["date", "ticker"]).reset_index(drop=True)
