@@ -130,6 +130,8 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
         if df is None or len(df) < 200:
             skipped.append(t)
             continue
+        # ★分割の取りこぼしを直してから計算する★（2026-10-11・8227.T で見つけた）
+        df = fetching.fix_unadjusted_splits(df, t, log=log)
         frames.append(metrics.compute_stock_metrics(df, t))
         if i % 50 == 0 or i == len(tickers):
             log("  %d/%d 銘柄" % (i, len(tickers)))

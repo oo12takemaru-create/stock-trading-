@@ -77,6 +77,64 @@ def _normalize(df):
     return df if len(df) else None
 
 
+#: 1日でこれより大きく動いたら分割の取りこぼしを疑う（0.6倍以下 / 1.7倍以上）
+SPLIT_SUSPECT_LOW, SPLIT_SUSPECT_HIGH = 0.6, 1.7
+#: 記録された分割の日と、値が動いた日のずれの許容（日本は権利落ちが効力発生の前日）
+SPLIT_DAY_TOLERANCE = 4
+#: 値動きの倍率が 1/分割比 からどれだけずれてよいか
+SPLIT_RATIO_TOLERANCE = 0.15
+
+
+def fix_unadjusted_splits(df, ticker, log=print, splits=None):
+    """★分割の記録があるのに、調整済みの値に反映されていない急変を直す★（2026-10-11）
+
+    yfinance は分割を記録していても、調整済みの値（auto_adjust=True）に
+    反映しないことがある。2026-10-11 に見つけた例:
+        8227.T（しまむら） 分割 1:3 の記録は 2026-02-19
+        調整済みの終値 2026-02-17 10,806円 → 02-18 3,634円（0.336倍）
+    株価が3分の1になったように見え、検証期間の中で移動平均を歪めていた。
+    日本は権利落ちが効力発生の前日なので、値が動くのは記録の前日になる。
+
+    直し方: 値が動いた日より前の四本値を 分割比 で割り、出来高を 分割比 倍する。
+    直すのは「記録された分割の近くで、倍率が 1/分割比 に合う急変」だけ。
+    記録の無い急変は直さない（本物の暴落かもしれないので、勝手に消さない）。
+
+    splits: 試験用に差し込める {日付: 分割比}。None なら yfinance に聞く。
+    """
+    if df is None or len(df) < 2:
+        return df
+    r = df["Close"] / df["Close"].shift(1)
+    sus = r[(r <= SPLIT_SUSPECT_LOW) | (r >= SPLIT_SUSPECT_HIGH)].dropna()
+    if sus.empty:
+        return df
+
+    if splits is None:
+        try:
+            raw = yf.Ticker(ticker).splits
+            splits = {pd.Timestamp(d).tz_localize(None).normalize(): float(k)
+                      for d, k in raw.items() if float(k) > 0}
+        except Exception as e:      # 聞けなければ直さない（勝手に推測しない）
+            log("  ★%s: 分割の記録を取れませんでした（%s）。急変は直さずに残します" % (ticker, e))
+            return df
+
+    df = df.copy()
+    for day, ratio in sus.items():
+        for sday, k in splits.items():
+            if abs((sday - day).days) > SPLIT_DAY_TOLERANCE:
+                continue
+            want = 1.0 / k                      # 1:k の分割なら値は 1/k になる
+            if abs(ratio / want - 1) > SPLIT_RATIO_TOLERANCE:
+                continue
+            before = df.index < day
+            for c in ("Open", "High", "Low", "Close"):
+                df.loc[before, c] = df.loc[before, c] / k
+            df.loc[before, "Volume"] = df.loc[before, "Volume"] * k
+            log("  ★%s: %s の %.3f倍 は分割（1:%g・記録 %s）の取りこぼし。"
+                "それより前の値を直しました" % (ticker, day.date(), ratio, k, sday.date()))
+            break
+    return df
+
+
 def _covers(df, start, end):
     """キャッシュが要求期間をカバーしているか。
     末尾は「最新営業日の少し前まであればよい」ので7日の余裕を見る。"""
