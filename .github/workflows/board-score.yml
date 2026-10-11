@@ -7,13 +7,14 @@ name: Board Score (掲示板の予想の採点)
 # 平日 19:30 JST に cron-worker（Cloudflare）から dispatch する（ledger-daily と同じ枠）。
 # GitHub の schedule は保険（遅れて走っても、採点は終値が確定した日しか使わないので害はない）。
 # 手で走らせるとき: mode=dry-run（書き込まない）/ selftest（一時アカウントで採点を試して、アカウントごと消す）
+#                   / apitest（一時アカウント3つで上限・NG・URL・通報3件・管理の口を試して、アカウントごと消す）
 on:
   schedule:
     - cron: '45 9 * * 1-5'     # 18:45 JST（保険・実際は遅れて走る）
   workflow_dispatch:
     inputs:
       mode:
-        description: 'score（通常）/ dry-run（書き込まない）/ selftest（本番データに残さない試験）'
+        description: 'score（通常）/ dry-run（書き込まない）/ selftest（採点の試験）/ apitest（掲示板の口の試験）。試験はどちらも本番データに残さない'
         required: false
         default: 'score'
 
@@ -52,6 +53,7 @@ jobs:
         run: |
           case "$MODE" in
             selftest) python -X utf8 board_score.py --selftest ;;
+            apitest)  python -X utf8 board_apitest.py ;;
             dry-run)  python -X utf8 board_score.py --dry-run ;;
             *)        python -X utf8 board_score.py ;;
           esac
