@@ -42,6 +42,14 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true", help="Supabase へ投入しない")
     p.add_argument("--env-file", default="", help="KEY=VALUE 形式の設定ファイル")
     p.add_argument("--chunk", type=int, default=supabase_io.CHUNK_ROWS)
+    # ★過去の材料は固定してある★（2026-10-11・本人承認）
+    #   このスクリプトは正本（daily_metrics）を**全部消して作り直す**。
+    #   以前は月次で毎月これを回していたため、作るたびに数字が動き、
+    #   2026-10-02 には yfinance が壊した10銘柄の価格がそのまま正本を上書きした。
+    #   いまは「正しいと確かめた材料で1回だけ作り、以後は新しい日だけ足す」。
+    #   作り直すのは、人が判断したときだけ。そのための明示の指定。
+    p.add_argument("--rebuild-frozen-material", action="store_true",
+                   help="固定した材料を作り直す（正本を消す）。人が判断したときだけ付ける")
     return p.parse_args()
 
 
@@ -49,6 +57,12 @@ def main():
     args = parse_args()
     if args.env_file:
         supabase_io.load_env_file(args.env_file)
+    if not args.dry_run and not args.rebuild_frozen_material:
+        raise SystemExit(
+            "このスクリプトは正本を全部消して作り直します。過去の材料は固定してあるので、\n"
+            "  人が判断したときだけ --rebuild-frozen-material を付けて実行してください。\n"
+            "  作り直す前に snapshot_material.py save で今の正本を退避すること。"
+        )
     t0 = time.time()
 
     # ★恒常的に取得できない銘柄を外した一覧を使う★（2026-09-22）

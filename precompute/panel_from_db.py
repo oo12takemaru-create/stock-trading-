@@ -196,6 +196,19 @@ def load_panel(start=None, end=None, log=print):
     panel["date"] = pd.to_datetime(panel["date"])
     log("  daily_metrics: %s 行 / %d 列" % (f"{len(panel):,}", panel.shape[1]))
 
+    # ★材料が検証期間の頭まで覆っているか★（2026-10-11）
+    #   以前は作り直すたびに材料の開始日が後ろへずれ、検証期間の頭の数週間が
+    #   黙って抜けていた（公開した「10年」は頭を含んでいなかった）。
+    #   検証期間の頭から1週間以内に始まっていなければ止める
+    #   （1日目が休場のこともあるので、ぴったりは求めない）。
+    import config
+    first = panel["date"].min()
+    limit = pd.Timestamp(config.MATERIAL_START) + pd.Timedelta(days=7)
+    if first > limit:
+        _die("材料が %s から始まっています。検証期間の頭 %s を覆っていません。\n"
+             "  材料を作り直す必要があります（build_metrics.py --rebuild-frozen-material）。"
+             % (first.date(), config.MATERIAL_START))
+
     # ★母集団が毎回同じであることを、ここで機械に確かめさせる★
     got = set(panel["ticker"].unique())
     want = set(ACTIVE_TICKERS)

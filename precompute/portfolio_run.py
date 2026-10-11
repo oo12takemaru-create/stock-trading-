@@ -16,6 +16,15 @@ from universe import JAPAN_STOCKS
 
 START, END = "2016-09-06", "2026-09-04"
 
+# ★検証期間の頭と、材料の開始日は同じでなければならない★（2026-10-11）
+#   材料がこれより後から始まると、検証期間の頭の数週間が黙って抜ける。
+#   実際に抜けていて、公開した「10年」は頭を含んでいなかった
+#   （頭まで覆うと最大DDは約3ポイント悪くなった）。
+if START != config.MATERIAL_START:
+    raise SystemExit(
+        "portfolio_run.START %s と config.MATERIAL_START %s が食い違っています。"
+        % (START, config.MATERIAL_START))
+
 NEEDED_COLUMNS = [
     "close", "low", "dev_25", "dev_50", "dev_75", "dev_200", "vol_ratio_20",
     "bb_pos_1_5", "high_20_ratio", "high_52w_ratio", "ret_5d", "day_change",
