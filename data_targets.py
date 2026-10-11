@@ -77,6 +77,9 @@ TARGETS = [
     # ★2026-10-07 追加★ シグナル台帳（ledger-daily.yml・平日19:30 JST）。公開はしないが、
     #   止まると3か月後の検証が欠けるので監視する
     ("docs/ledger/summary.json", "シグナル台帳",     1),
+    # ★2026-10-11 追加（掲示板）★ 予想の採点（board-score.yml・平日19:30 JST）。止まると期限の来た予想が
+    #   銘柄ページに残り続け、成績も増えない。board_activity.json は採点のたびに書き出す
+    ("docs/board_activity.json", "掲示板の採点",     1),
     # ★2026-10-08 追加（積上⑦）★ 宝探し（treasure-daily.yml・平日19:00 JST）。treasure.html の元
     ("docs/treasure.json",      "宝探し",             0),
     # ★2026-10-08 追加（積上⑧）★ 大量保有の人物・機関（holders-daily.yml・edinet-daily の完了に続けて）。
