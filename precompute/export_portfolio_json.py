@@ -265,6 +265,18 @@ def drift_errors(new, prev) -> list:
             "母集団を固定してからは動かない値です" % (pd_, nd_)
         )
 
+    # ★累積リターンも、前回と違えば止める★（2026-10-11）
+    #   材料を固定するまでは、配当の遡及修正で cum だけ日々動くのが正常だった
+    #   （引継ぎ.md §37 の旧版）。過去の材料を固定した（2026-10-11）ので、
+    #   いまは cum も動かない。動いたら、取り直しの揺れが別の経路から
+    #   入っている証拠。トレード数や最大DDより小さな揺れで先に気づける。
+    pc, nc = prev.get("cum_return_pct"), new.get("cum_return_pct")
+    if isinstance(pc, (int, float)) and isinstance(nc, (int, float)) and pc != nc:
+        errs.append(
+            "累積リターンが前回と違います: %.1f%% → %.1f%%。"
+            "材料を固定してからは動かない値です" % (pc, nc)
+        )
+
     return errs
 
 

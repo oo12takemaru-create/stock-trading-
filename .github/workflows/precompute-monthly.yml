@@ -103,9 +103,12 @@ jobs:
           for i in 1 2 3; do
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
-            python precompute/export_portfolio_json.py
+            # ★検査で止めたら、ジョブも赤くする★（日次と同じ理由・2026-10-11）
+            python precompute/export_portfolio_json.py \
+              || { echo "::error::公開数字の検査で止めました（前回の JSON を残しています）。理由はジョブの要約に出ています"; exit 1; }
             # カーブも同じ行・同じコミットで出す（日次と同じ理由・2026-09-21）
-            python precompute/export_equity_curve.py
+            python precompute/export_equity_curve.py \
+              || { echo "::error::カーブの検査で止めました（前回の JSON を残しています）"; exit 1; }
             git add -f docs/portfolio_stats.json docs/equity_curve.json
             if git diff --staged --quiet; then
               echo "変更なし → 完了"
