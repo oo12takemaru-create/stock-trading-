@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-14T19:01:25+09:00",
+ "updated": "2026-10-14T23:06:14+09:00",
  "rule": {
   "crash": "1306.T が直近20営業日の高値から-10%以上下げた日",
   "warn": "傾斜計の点灯が3つ以上（本の「注意」以上）",
@@ -110,8 +110,8 @@
   },
   {
    "threshold": 4,
-   "warn_days": 691,
-   "warn_pct": 56.7,
+   "warn_days": 694,
+   "warn_pct": 56.9,
    "cases": [
     {
      "d": "2022-03-08",
@@ -169,7 +169,7 @@
    ],
    "miss": 3,
    "miss_rate": 75.0,
-   "warn_starts": 45,
+   "warn_starts": 46,
    "warn_starts_rows": [
     {
      "d": "2022-04-01",
@@ -184,11 +184,15 @@
      "hit": false
     },
     {
+     "d": "2022-11-18",
+     "hit": false
+    },
+    {
      "d": "2022-11-22",
      "hit": false
     },
     {
-     "d": "2023-02-09",
+     "d": "2023-02-08",
      "hit": false
     },
     {
@@ -352,12 +356,12 @@
      "hit": false
     }
    ],
-   "false_rate": 95.6,
+   "false_rate": 95.7,
    "lead_median": 94
   },
   {
    "threshold": 5,
-   "warn_days": 98,
+   "warn_days": 97,
    "warn_pct": 8.0,
    "cases": [
     {
@@ -416,7 +420,7 @@
    ],
    "miss": 4,
    "miss_rate": 100.0,
-   "warn_starts": 28,
+   "warn_starts": 29,
    "warn_starts_rows": [
     {
      "d": "2022-04-13",
@@ -519,6 +523,10 @@
      "hit": true
     },
     {
+     "d": "2026-01-27",
+     "hit": true
+    },
+    {
      "d": "2026-02-06",
      "hit": true
     },
@@ -531,15 +539,15 @@
      "hit": true
     }
    ],
-   "false_rate": 25.0,
+   "false_rate": 24.1,
    "lead_median": null
   }
  ],
  "flags_dist": {
   "2": 77,
-  "3": 451,
-  "4": 593,
-  "5": 98
+  "3": 448,
+  "4": 597,
+  "5": 97
  },
  "tested_note": "傾斜計が入ったのは 2026-08-11。それ以前は作った期間（参考）",
  "tested_days": 42,
