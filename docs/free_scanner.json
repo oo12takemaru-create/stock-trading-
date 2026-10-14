@@ -1,6 +1,6 @@
 {
- "target_date": "2026-10-09",
- "generated_at": "2026-10-13T21:04:15+09:00",
+ "target_date": "2026-10-13",
+ "generated_at": "2026-10-14T18:03:28+09:00",
  "jiai": "強気(25日線・75日線の上)",
  "rows": [
   {
@@ -8,26 +8,26 @@
    "code": "6594",
    "name": "ニデック",
    "sector": "モーター",
-   "kairi": -19.11
+   "kairi": -23.72
   },
   {
    "judge": "watch",
-   "code": "8267",
-   "name": "イオン",
-   "sector": "小売",
-   "kairi": -7.51
+   "code": "9984",
+   "name": "ソフトバンクG",
+   "sector": "投資会社",
+   "kairi": -14.23
   },
   {
    "judge": "watch",
-   "code": "8604",
-   "name": "野村HD",
-   "sector": "証券",
-   "kairi": -6.42
+   "code": "4755",
+   "name": "楽天グループ",
+   "sector": "IT",
+   "kairi": -8.81
   }
  ],
- "asof": "2026-10-13",
+ "asof": "2026-10-14",
  "stale": false,
- "signals_today_date": "2026-10-13",
+ "signals_today_date": "2026-10-14",
  "is_halt": false,
  "signals_today_count": 0,
  "signal_of_day": null,
