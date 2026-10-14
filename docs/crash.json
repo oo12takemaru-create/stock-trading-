@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-14T21:04:59+09:00",
+ "updated": "2026-10-14T22:06:10+09:00",
  "trade_date": "2026-10-14",
  "n225": 67744.29,
  "horizon": 20,
@@ -16,9 +16,9 @@
    "key": "vix_high",
    "label": "VIXが20以上",
    "on": false,
-   "value": "15.35",
+   "value": "15.61",
    "threshold": "20以上",
-   "distance": "あと4.65",
+   "distance": "あと4.39",
    "ratio": 1.43,
    "why": "市場が平常時より不安定と見ている水準"
   },
@@ -36,9 +36,9 @@
    "key": "vix_chg5",
    "label": "VIXが5日で15%以上上昇",
    "on": false,
-   "value": "+2.27%",
+   "value": "+4.00%",
    "threshold": "15%以上",
-   "distance": "あと12.73%",
+   "distance": "あと11.00%",
    "ratio": 1.82,
    "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
   },
@@ -66,9 +66,9 @@
    "key": "usdjpy_chg20",
    "label": "20営業日で3%以上の円高",
    "on": false,
-   "value": "+3.16%",
+   "value": "+3.45%",
    "threshold": "-3%未満",
-   "distance": "あと6.16%",
+   "distance": "あと6.45%",
    "ratio": 1.98,
    "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
@@ -76,9 +76,9 @@
    "key": "gold_chg20",
    "label": "金が20営業日で5%以上上昇",
    "on": false,
-   "value": "-5.57%",
+   "value": "-6.38%",
    "threshold": "5%以上",
-   "distance": "あと10.57%",
+   "distance": "あと11.38%",
    "ratio": 1.27,
    "why": "株を持ちながら保険を買う動き。資金が逃げ場を探しているサイン"
   }
