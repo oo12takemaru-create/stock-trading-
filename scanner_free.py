@@ -177,6 +177,22 @@ def load_today_signals(csv_path: str, today: str) -> dict | None:
     sig = sig.sort_values(["scan_timestamp", "ticker"]).drop_duplicates("ticker", keep="first")
     out["signals_today_count"] = int(len(sig))
 
+    # ★戦略ごとの当日件数(2026-10-15 本人決定)★
+    #   サイトの「今日のシグナル」を3本の見本ダッシュボードとして見せるため、件数だけを出す。
+    #   銘柄名・コードはここに入れない(全件の銘柄は公開しない線を維持する)。
+    #   ・数えるのは上の sig(銘柄単位に寄せた集合)なので、3本の合計は signals_today_count と一致する
+    #   ・該当0件の戦略も 0 を入れる(キーを省くと「取れなかった」と区別できないため)
+    #   ・HALT の日は本番 scan() が BNF-LITE 以外を止めるので、通常は他の2本が 0 になる
+    by_strategy = {code: 0 for code in STRATEGY_LABELS}
+    counts = sig["strategy"].value_counts()
+    for code in by_strategy:
+        by_strategy[code] = int(counts.get(code, 0))
+    unknown = sorted(set(counts.index) - set(by_strategy))
+    if unknown:
+        # 4本目の戦略などが現れたら合計と一致しなくなるので、黙らずに知らせる
+        print(f"  ⚠ 未知の戦略コードがあり戦略別件数に含めていません: {unknown}")
+    out["signals_today_by_strategy"] = by_strategy
+
     # 当日が初出の銘柄だけに絞る(過去のどこかで出ていたものは繰り越し扱い)
     seen_before = set(df[has_ticker & (df["scan_date"] < today)]["ticker"])
     fresh = sig[~sig["ticker"].isin(seen_before)]
@@ -417,6 +433,8 @@ def main() -> None:
     if today_info is not None:
         print(f"\n[本番シグナル] {today} のシグナル {result['signals_today_count']}件"
               + ("  ※HALT中" if result.get("is_halt") else ""))
+        by = result.get("signals_today_by_strategy", {})
+        print("  戦略別: " + " / ".join(f"{STRATEGY_LABELS.get(k, k)} {v}件" for k, v in by.items()))
         sod = result.get("signal_of_day")
         if sod:
             print(f"  公開する1件: {sod['code']} {sod['name']} ({sod['strategy_label']}) — {sod['reason']}")
