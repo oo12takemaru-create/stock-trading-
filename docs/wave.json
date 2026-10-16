@@ -1,0 +1,328 @@
+{
+ "updated": "2026-10-16T21:38:24+09:00",
+ "asof": "2026-10-16",
+ "position": {
+  "regime": "BULLISH",
+  "streak": 22,
+  "streak_radar": 17,
+  "streak_replay": 52,
+  "regime_replay": "BULLISH",
+  "regime_asof": "2026-10-16",
+  "n225": {
+   "close": 65324.29,
+   "high": 70683.98,
+   "high_d": "2026-10-06",
+   "dist": -7.58,
+   "asof": "2026-10-16",
+   "radar_n225": 65324.29
+  },
+  "topix": {
+   "name": "TOPIX（1306.T で代用）",
+   "close": 428.4,
+   "high": 440.4,
+   "high_d": "2026-10-06",
+   "dist": -2.72,
+   "asof": "2026-10-16"
+  },
+  "vix": 16.11,
+  "gauge": {
+   "lit": 3,
+   "total": 5,
+   "asof": "2026-10-16"
+  },
+  "shinyo": {
+   "buy_oku": 64533.0,
+   "chg_oku": -1900.0,
+   "chg_pct": -2.86,
+   "asof": "2026-09-18"
+  },
+  "next_event": {
+   "t": "FOMC結果発表（10/27-28開催）",
+   "iso": "2026-10-29T03:00:00+09:00",
+   "time": "午前3:00",
+   "days": 13
+  }
+ },
+ "branches": [
+  {
+   "key": "up",
+   "label": "上抜け",
+   "triggers": [
+    {
+     "text": "日経平均が直近高値 70,684円（10/6）を終値で上回る",
+     "level": 70683.98,
+     "today": 65324.29,
+     "gap": 5359.69,
+     "unit": "円",
+     "gap_pct": 8.2,
+     "met": false
+    }
+   ],
+   "type": [
+    "ブレイクの翌日に飛びつかない。",
+    "押しを待つ。",
+    "1銘柄あたりの量は変えない。"
+   ]
+  },
+  {
+   "key": "flat",
+   "label": "横ばい",
+   "triggers": [
+    {
+     "text": "20営業日のうちに、上抜けも崩れも起きない",
+     "level": null,
+     "today": null,
+     "gap": null,
+     "unit": null,
+     "met": false
+    }
+   ],
+   "type": [
+    "イベント（次の大波）までは小さく。",
+    "決算をまたぐ玉は減らす。"
+   ]
+  },
+  {
+   "key": "down",
+   "label": "崩れ",
+   "triggers": [
+    {
+     "text": "温度計が BEARISH/PANIC を2営業日連続",
+     "level": 2,
+     "today": "BULLISH",
+     "gap": 2,
+     "unit": "営業日",
+     "met": false
+    },
+    {
+     "text": "日経平均が直近高値から-5%（67,150円）を終値で下回る",
+     "level": 67149.78,
+     "today": 65324.29,
+     "gap": -1825.49,
+     "unit": "円",
+     "gap_pct": 2.79,
+     "met": true
+    },
+    {
+     "text": "傾斜計が3つ以上点灯",
+     "level": 3,
+     "today": 3,
+     "gap": 0,
+     "unit": "つ",
+     "met": true,
+     "hold": true,
+     "hold_note": "過去5年の9割超の日が3つ以上点灯しているため、引き金に数えるかを確認中です（いまは分岐の判定に使っていません）"
+    }
+   ],
+   "type": [
+    "新規は見送り。",
+    "持ち玉は損切りラインを上げる。",
+    "ポジション量は通常の半分まで。"
+   ]
+  }
+ ],
+ "similar": {
+  "cond": {
+   "regime": "BULLISH",
+   "streak_band": "21日以上",
+   "dist_band": "−5〜−10%",
+   "vix_band": "15–20"
+  },
+  "cut": "2026-05-24",
+  "whole": {
+   "n": 7,
+   "enough": false,
+   "sankou": true,
+   "up": null,
+   "flat": null,
+   "down": null,
+   "ret20_med": null,
+   "dd20_med": null,
+   "major": null
+  },
+  "built": {
+   "n": 5,
+   "enough": false,
+   "sankou": true,
+   "up": null,
+   "flat": null,
+   "down": null,
+   "ret20_med": null,
+   "dd20_med": null,
+   "major": null
+  },
+  "tested": {
+   "n": 2,
+   "enough": false,
+   "sankou": true,
+   "up": null,
+   "flat": null,
+   "down": null,
+   "ret20_med": null,
+   "dd20_med": null,
+   "major": null
+  },
+  "base": {
+   "n": 61,
+   "enough": true,
+   "sankou": false,
+   "up": 44.3,
+   "flat": 1.6,
+   "down": 54.1,
+   "ret20_med": 0.12,
+   "dd20_med": -1.97,
+   "major": "down"
+  },
+  "cases": [
+   {
+    "d": "2023-08-16",
+    "res": "down",
+    "res_d": "2023-08-17",
+    "k": 1,
+    "ret20": 3.43,
+    "dd20": -0.54,
+    "dist": -5.11,
+    "vix": 16.46,
+    "streak": 58
+   },
+   {
+    "d": "2023-10-02",
+    "res": "down",
+    "res_d": "2023-10-03",
+    "k": 1,
+    "ret20": -2.37,
+    "dd20": -3.42,
+    "dist": -5.29,
+    "vix": 17.52,
+    "streak": 90
+   },
+   {
+    "d": "2024-04-16",
+    "res": "down",
+    "res_d": "2024-04-17",
+    "k": 1,
+    "ret20": 0.52,
+    "dd20": -3.94,
+    "dist": -5.91,
+    "vix": 19.23,
+    "streak": 110
+   },
+   {
+    "d": "2024-07-19",
+    "res": "down",
+    "res_d": "2024-07-22",
+    "k": 1,
+    "ret20": -6.41,
+    "dd20": -21.25,
+    "dist": -5.12,
+    "vix": 15.93,
+    "streak": 174
+   },
+   {
+    "d": "2026-05-20",
+    "res": "up",
+    "res_d": "2026-05-22",
+    "k": 2,
+    "ret20": 15.78,
+    "dd20": 2.17,
+    "dist": -5.48,
+    "vix": 18.06,
+    "streak": 26
+   },
+   {
+    "d": "2026-07-09",
+    "res": "down",
+    "res_d": "2026-07-10",
+    "k": 1,
+    "ret20": -4.26,
+    "dd20": -10.35,
+    "dist": -6.39,
+    "vix": 16.9,
+    "streak": 21
+   },
+   {
+    "d": "2026-09-02",
+    "res": "down",
+    "res_d": "2026-09-03",
+    "k": 1,
+    "ret20": 8.07,
+    "dd20": -1.92,
+    "dist": -7.07,
+    "vix": 16.34,
+    "streak": 24
+   }
+  ],
+  "alt_with_gauge": null,
+  "period": [
+   "2021-10-16",
+   "2026-10-16"
+  ]
+ },
+ "record": {
+  "days": 1,
+  "scored": 0,
+  "judged": 0,
+  "hits": 0,
+  "pct": null,
+  "by_major": {
+   "up": {
+    "n": 0,
+    "hit": 0
+   },
+   "flat": {
+    "n": 0,
+    "hit": 0
+   },
+   "down": {
+    "n": 0,
+    "hit": 0
+   }
+  },
+  "res_count": {
+   "up": 0,
+   "flat": 0,
+   "down": 0
+  },
+  "rows": []
+ },
+ "rules": {
+  "high_win": 20,
+  "horizon": 20,
+  "down_pct": -5.0,
+  "bear_run": 2,
+  "gauge_min": 3,
+  "gauge_clause": false,
+  "spacing": 20,
+  "n_hide": 10,
+  "n_sankou": 30,
+  "years": 5,
+  "streak_bands": [
+   "1–5日",
+   "6–20日",
+   "21日以上"
+  ],
+  "dist_bands": [
+   "0〜−2%",
+   "−2〜−5%",
+   "−5〜−10%",
+   "−10%超"
+  ],
+  "vix_bands": [
+   "15未満",
+   "15–20",
+   "20–30",
+   "30超"
+  ],
+  "fixed_on": "2026-10-16",
+  "history": [
+   {
+    "d": "2026-10-16",
+    "change": "初期値で固定（起動文の値）。直近高値は直近20営業日の終値の最高値とした。傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留（要判断）"
+   }
+  ]
+ },
+ "link": {
+  "text": "型の全文と、実際にどう運用しているかはルールトレード →",
+  "url": "https://ruletrade.jp/"
+ }
+}

@@ -95,8 +95,15 @@ jobs:
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/gauge-daily.yml
     secrets: inherit
+  # 次の波（2026-10-16）。温度計の公開（radar-publish）と傾斜計（gauge）の後。
+  # 温度計が公開できなかった日は、古い判定で地図と答え合わせの行を作らないよう走らせない
+  wave:
+    needs: [radar-publish, gauge]
+    if: ${{ !cancelled() && needs.radar-publish.result == 'success' }}
+    uses: ./.github/workflows/wave-daily.yml
+    secrets: inherit
   crash:
-    needs: gauge
+    needs: [gauge, wave]
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/crash-daily.yml
     secrets: inherit
@@ -136,7 +143,7 @@ jobs:
   # どこかで落ちたら、何が止まったか1か所に残す
   summary:
     if: always()
-    needs: [daily-signal, free-scanner, radar-publish, fault-test, gauge, crash, kessan, kessan-react, karauri, precompute, healthcheck]
+    needs: [daily-signal, free-scanner, radar-publish, fault-test, gauge, wave, crash, kessan, kessan-react, karauri, precompute, healthcheck]
     runs-on: ubuntu-latest
     steps:
       - name: Write summary
@@ -151,6 +158,7 @@ jobs:
             echo "| 3. 地合い公開（夕シグナルに依存） | ${{ needs.radar-publish.result }} |"
             echo "| (テスト) わざと失敗 | ${{ needs.fault-test.result }} |"
             echo "| 4. 傾斜計 | ${{ needs.gauge.result }} |"
+            echo "| 4. 次の波（温度計の公開に依存） | ${{ needs.wave.result }} |"
             echo "| 4. 着火メーター | ${{ needs.crash.result }} |"
             echo "| 4. 決算 | ${{ needs.kessan.result }} |"
             echo "| 4. 決算反応 | ${{ needs.kessan-react.result }} |"
