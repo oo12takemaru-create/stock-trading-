@@ -43,6 +43,8 @@ TARGETS = [
     ("docs/kessan.json",        "決算カレンダー",     2),
     ("docs/gauge.json",         "暴落の傾斜計",       0),
     ("docs/crash.json",         "着火判定",           0),
+    # ★2026-10-16 追加★ 次の波（wave-daily.yml・pipeline-daily の gauge の後）。wave.html の元
+    ("docs/wave.json",          "次の波",             1),
     ("docs/shinyo.json",        "信用取引の需給",     6),
     # 2026-09-25 から日次公表。週次の頃の 6 のままだと、止まっても1週間以上気づけない
     ("docs/shinyo_meigara.json", "銘柄別信用残",      2),

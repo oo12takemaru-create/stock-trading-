@@ -217,6 +217,10 @@ def main():
         "tested_note": f"傾斜計が入ったのは {CUT}。それ以前は作った期間（参考）",
         "tested_days": int((df.index >= cut).sum()),
         "tested_crashes": sum(1 for d in events if d >= cut),
+        # 日ごとの点灯数（次の波 wave.py が「似た局面のその後」を数えるときに読む・2026-10-16）。
+        # d と on は同じ並び。on は1文字＝その日の点灯数（0〜5）
+        "series": {"d": [str(x.date()) for x in df.index],
+                   "on": "".join(str(int(x)) for x in df["on"])},
     }
     (DOCS / "verify_crash.json").write_text(json.dumps(out, ensure_ascii=False, indent=1),
                                             encoding="utf-8")

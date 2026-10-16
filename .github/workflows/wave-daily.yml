@@ -1,0 +1,59 @@
+name: Wave Daily (次の波・kaburadar.jp)
+
+# 次の波（局面の地図）→ docs/wave.json と docs/wave_history.json（追記のみ）
+# 起動文 `起動文_実務_次の波_2026-10-16.md`。
+# 温度計の夕方判定（radar-publish）と傾斜計（gauge）の後に走らせたいので、
+# pipeline-daily.yml の gauge の直後に workflow_call で呼ぶ（同じ cron-worker 枠）。
+# 単体の手動実行もできる。
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wave-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # main のルールセットを通すため deploy key で checkout する（他の日次と同じ）
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas numpy
+
+      - name: Build wave.json
+        run: python -X utf8 wave.py
+
+      - name: Commit wave.json (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/wave.json docs/wave_history.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🌊 次の波を更新（wave.json）"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
