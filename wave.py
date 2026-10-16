@@ -19,24 +19,23 @@
 ■ ルールは先に固定する（2026-10-16）。結果を見てから変えない。変えるときは変える前の結果も残す
   しきい値は下の定数と RULE_HISTORY にだけ書く。
 
-■ 用語（先に固定した定義）
-  直近高値 = 直近20営業日（当日を含む）の日経平均の終値の最高値。
-             このリポジトリで「直近高値」を使っている既存の定義（verify_crash.py の暴落＝直近20営業日の
-             高値から-10%）に揃えた。分岐を見る期間（20営業日）とも同じ長さ
-  上抜け   = その後20営業日のうちに、日経の終値が判定日の直近高値を上回る
-  崩れ     = その後20営業日のうちに、次のどれかが起きる
-             ・温度計が BEARISH/PANIC を2営業日連続
-             ・日経の終値が判定日の直近高値から-5%以下
-             （・傾斜計が3つ以上点灯 … 下の GAUGE_CLAUSE を参照。保留中）
-  横ばい   = 20営業日のうちに上の2つのどちらも起きない
+■ 用語（v2・2026-10-16 Fable 判断で改定。v1 の結果も残す）
+  3分岐は「今日の終値を起点にした、この先20営業日の出来事」で決める（状態ではなく出来事）。
+  上抜け   = 20営業日以内に、日経の終値が判定日の終値の +5% 以上
+  崩れ     = 20営業日以内に、日経の終値が判定日の終値の −5% 以下、
+             または 温度計が BEARISH/PANIC を2営業日連続
+  横ばい   = 20営業日以内にどちらも起きない（±5%の帯の中）
   先に起きたほうをその日の結果とする。同じ日に両方起きたら「崩れ」（守る側に倒す）
+  節目     = 直近20営業日の高値・52週高値。距離（あと◯円）を出すだけで引き金にはしない
+  傾斜計3つ以上 = 引き金にしない（過去5年の93.8%の日が該当）。参考に点灯数を出し、
+             入れた場合の結果は similar.alt_with_gauge に記録だけ続ける
+  似た局面の帯（連続日数・高値からの距離・VIX）は v1 のまま（状態の記述なので）
 
-■ 傾斜計の条項を保留している理由（要判断・2026-10-16）
-  起動文の崩れの引き金には「傾斜計が3つ以上点灯」が入っているが、verify_crash.json では
-  過去5年の 93% 超の日が3つ以上点灯しており、今日も3つ点灯している。このまま入れると
-  ほぼ全ての日が初日に「崩れ」に分類され、分岐の地図として意味を持たない（設計と矛盾）。
-  推測で直さず、この条項だけ判定から外して表示上「保留中」とし、Fable の判断を待つ。
-  条項を入れた場合の結果も similar.alt_with_gauge に残す（変える前の結果を残す作法）。
+■ v1（2026-10-16 の初版）→ v2 の理由
+  v1 は「判定日の直近高値を上回る＝上抜け／直近高値から−5%＝崩れ」だった。高値からの距離は
+  状態なので、すでに−5%より下の日は初日に崩れ、高値の日は翌日少し上がるだけで上抜けになり、
+  横ばいがほぼ出なかった（条件なし61件で 1.6%）。v1 の結果は similar.v1 と
+  wave_history.json の version:1 の行に残す。
 """
 import json
 import re
@@ -60,12 +59,15 @@ JST = timezone(timedelta(hours=9))
 
 # ───────────── 先に固定したルール（2026-10-16）。結果を見てから変えない
 YEARS = 5              # 似た局面を探す期間
-HIGH_WIN = 20          # 直近高値を見る営業日数（当日を含む）
+RULE_VERSION = 2       # 2026-10-16 v1→v2（下の RULE_HISTORY）
+HIGH_WIN = 20          # 直近高値（節目・距離の帯）を見る営業日数（当日を含む）
+HIGH52_WIN = 250       # 52週高値（節目）
 HORIZON = 20           # 分岐を見る営業日数
-DOWN_PCT = -5.0        # 崩れ：直近高値からの下げ（%）
+UP_PCT = 5.0           # 上抜け：判定日の終値から（%）
+DOWN_PCT = -5.0        # 崩れ：判定日の終値から（%）
 BEAR_RUN = 2           # 崩れ：温度計 BEARISH/PANIC の連続営業日数
-GAUGE_MIN = 3          # 崩れ：傾斜計の点灯数（保留中）
-GAUGE_CLAUSE = False   # 傾斜計の条項を判定に使うか（False＝保留中・要判断）
+GAUGE_MIN = 3          # 傾斜計の点灯数（参考。引き金には使わない）
+V1_DOWN_PCT = -5.0     # v1：直近高値からの下げ（記録用）
 SPACING = 20           # 同じ局面が続くときは20営業日おきに1件
 N_HIDE = 10            # これ未満は数字を出さない
 N_SANKOU = 30          # これ未満は「参考値」
@@ -78,8 +80,13 @@ VIX_BANDS = [("15未満", 15), ("15–20", 20), ("20–30", 30.0001), ("30超", 
 BIG_KINDS = {"boj", "fomc", "cpi", "payroll", "sq", "topix"}   # events.js の「次の大波」と同じ種類
 
 RULE_HISTORY = [
-    {"d": "2026-10-16", "change": "初期値で固定（起動文の値）。直近高値は直近20営業日の終値の最高値とした。"
-                                  "傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留（要判断）"},
+    {"v": 1, "d": "2026-10-16", "change": "初期値で固定（起動文の値）。上抜け＝判定日の直近高値（20営業日の終値の最高値）を上回る／"
+                                          "崩れ＝直近高値から−5%以下 または 温度計 BEARISH/PANIC 2営業日連続。"
+                                          "傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留"},
+    {"v": 2, "d": "2026-10-16", "change": "3分岐を判定日の終値を起点にした出来事に改定：上抜け＝+5%以上／崩れ＝−5%以下 または "
+                                          "温度計 BEARISH/PANIC 2営業日連続／横ばい＝どちらも起きない。直近高値・52週高値は節目として"
+                                          "距離を出すだけにした。傾斜計3つ以上は引き金にしない（参考表示）。理由：高値基準は状態を引き金にして"
+                                          "いて、初日から崩れ・横ばいがほぼ出なかった"},
 ]
 
 BRANCH_JP = {"up": "上抜け", "flat": "横ばい", "down": "崩れ"}
@@ -173,24 +180,39 @@ def gauge_series():
     return pd.Series([int(c) for c in s["on"]], index=pd.to_datetime(s["d"]))
 
 
-def outcome(df, i, regimes=None, lit=None):
+def levels(df, i, version=RULE_VERSION):
+    """判定日 i の引き金の水準（上抜けの水準・崩れの水準・上抜けを「以上」で見るか）"""
+    if version == 1:
+        hi = float(df["high"].iloc[i])
+        return hi, hi * (1 + V1_DOWN_PCT / 100), False        # v1: 直近高値を「上回る」
+    c = float(df["close"].iloc[i])
+    return c * (1 + UP_PCT / 100), c * (1 + DOWN_PCT / 100), True   # v2: 終値の+5%「以上」
+
+
+def walk(closes, regs, i, up_lv, dn_lv, up_ge, n, dates, lit=None):
+    """i の翌営業日から n 営業日、先に起きたほうを返す。同じ日に両方なら崩れ"""
+    for k in range(1, n + 1):
+        j = i + k
+        c = closes[j]
+        bear = regs[j] in BEAR and regs[j - 1] in BEAR
+        gz = lit is not None and lit[j] is not None and lit[j] >= GAUGE_MIN
+        if c <= dn_lv or bear or gz:
+            return ("down", k, dates[j])
+        if (c >= up_lv) if up_ge else (c > up_lv):
+            return ("up", k, dates[j])
+    return ("flat", n, dates[i + n])
+
+
+def outcome(df, i, regimes=None, lit=None, version=RULE_VERSION):
     """判定日 i（位置）からその後 HORIZON 営業日で、どの分岐になったか。
-    regimes: 温度計の判定の並び（None なら df の遡及判定）／lit: 点灯数の並び（傾斜計条項を使うときだけ）"""
+    regimes: 温度計の判定の並び（None なら df の遡及判定）／lit: 点灯数の並び（傾斜計条項を入れた参考計算のときだけ）"""
     if i + HORIZON >= len(df):
         return None
     reg = df["regime"].tolist() if regimes is None else regimes
-    up_lv = float(df["high"].iloc[i])
-    dn_lv = up_lv * (1 + DOWN_PCT / 100)
-    for k in range(1, HORIZON + 1):
-        j = i + k
-        c = float(df["close"].iloc[j])
-        bear = reg[j] in BEAR and reg[j - 1] in BEAR
-        gz = lit is not None and lit[j] is not None and lit[j] >= GAUGE_MIN
-        if c <= dn_lv or bear or gz:
-            return {"res": "down", "k": k, "d": str(df.index[j].date())}
-        if c > up_lv:
-            return {"res": "up", "k": k, "d": str(df.index[j].date())}
-    return {"res": "flat", "k": HORIZON, "d": str(df.index[i + HORIZON].date())}
+    up_lv, dn_lv, up_ge = levels(df, i, version)
+    res, k, d = walk(df["close"].astype(float).tolist(), reg, i, up_lv, dn_lv, up_ge, HORIZON,
+                     [str(x.date()) for x in df.index], lit)
+    return {"res": res, "k": k, "d": d}
 
 
 def fwd(df, i):
@@ -205,7 +227,7 @@ def fwd(df, i):
     return (c20 / o - 1) * 100, (lo / o - 1) * 100
 
 
-def similar(df, cond, lit_series=None):
+def similar(df, cond, lit_series=None, version=RULE_VERSION):
     """条件3つが一致する日を、20営業日おきに1件ずつ拾ってその後を数える"""
     end = df.index[-1]
     start = end - pd.Timedelta(days=int(365.25 * YEARS))
@@ -230,7 +252,7 @@ def similar(df, cond, lit_series=None):
         if i - last < SPACING:
             continue
         last = i
-        o = outcome(df, i, lit=lit)
+        o = outcome(df, i, lit=lit, version=version)
         r20, dd20 = fwd(df, i)
         picked.append({"d": str(d.date()), "res": o["res"], "res_d": o["d"], "k": o["k"],
                        "ret20": r2(r20), "dd20": r2(dd20),
@@ -327,6 +349,7 @@ def load_rules():
 
 # ───────────── 答え合わせ（追記のみ）
 SCORE_KEYS = {"res", "res_d", "res_k", "hit", "res_note"}
+VERSION_KEY = "version"      # v1 の行に後から付けた（2026-10-16・採点前なので可）。一度付いた値は書き換えない
 
 
 def score_history(hist, df, pub):
@@ -341,20 +364,9 @@ def score_history(hist, df, pub):
         if i is None or i + HORIZON >= len(df):
             continue                       # 20営業日たっていない
         # 判定日に出していた水準そのもので採点する（あとから計算し直さない）
-        up_lv, dn_lv = row["up_level"], row["down_level"]
-        res = None
-        for k in range(1, HORIZON + 1):
-            j = i + k
-            c = float(df["close"].iloc[j])
-            bear = regs[j] in BEAR and regs[j - 1] in BEAR
-            if c <= dn_lv or bear:
-                res = ("down", k, str(df.index[j].date()))
-                break
-            if c > up_lv:
-                res = ("up", k, str(df.index[j].date()))
-                break
-        if res is None:
-            res = ("flat", HORIZON, str(df.index[i + HORIZON].date()))
+        up_ge = row.get("version", 1) >= 2
+        res = walk(df["close"].astype(float).tolist(), regs, i, row["up_level"], row["down_level"],
+                   up_ge, HORIZON, [str(x.date()) for x in df.index])
         row["res"], row["res_k"], row["res_d"] = res
         major = (row.get("sim") or {}).get("major")
         row["hit"] = (major == res[0]) if major else None
@@ -365,6 +377,9 @@ def score_history(hist, df, pub):
 
 
 def record_of(hist):
+    # 通算は今のルール（version）の行だけで数える。前のルールの行は v_old に件数だけ
+    old = [r for r in hist if r.get("version", 1) != RULE_VERSION]
+    hist = [r for r in hist if r.get("version", 1) == RULE_VERSION]
     scored = [r for r in hist if r.get("res") is not None]
     judged = [r for r in scored if r.get("hit") is not None]
     hits = sum(1 for r in judged if r["hit"])
@@ -372,7 +387,9 @@ def record_of(hist):
     for b in ("up", "flat", "down"):
         xs = [r for r in judged if r["sim"]["major"] == b]
         by[b] = {"n": len(xs), "hit": sum(1 for r in xs if r["hit"])}
-    return {"days": len(hist), "scored": len(scored), "judged": len(judged), "hits": hits,
+    return {"version": RULE_VERSION,
+            "v_old": {"days": len(old), "scored": sum(1 for r in old if r.get("res"))},
+            "days": len(hist), "scored": len(scored), "judged": len(judged), "hits": hits,
             "pct": round(hits / len(judged) * 100, 1) if judged else None,
             "by_major": by,
             "res_count": {b: sum(1 for r in scored if r["res"] == b) for b in ("up", "flat", "down")},
@@ -435,33 +452,42 @@ def main():
             "dist_band": band_of(DIST_BANDS, dist, "dist"),
             "vix_band": band_of(VIX_BANDS, vix, "vix")}
 
-    # ── 2. 3つの分岐と引き金（今日の値と並べる）
-    up_lv = high
-    dn_lv = high * (1 + DOWN_PCT / 100)
+    # ── 節目（引き金ではない）：直近20営業日の高値・52週高値までの距離
+    c_all = df["close"].astype(float)
+    w52 = c_all.iloc[-HIGH52_WIN:]
+    h52, h52d = float(w52.max()), str(w52.idxmax().date())
+    pos["fushime"] = [
+        {"label": "直近20営業日の高値", "level": r2(high), "d": str(last["high_d"].date()),
+         "gap": r2(high - close), "gap_pct": r2((high / close - 1) * 100)},
+        {"label": "52週高値", "level": r2(h52), "d": h52d,
+         "gap": r2(h52 - close), "gap_pct": r2((h52 / close - 1) * 100)},
+    ]
+
+    # ── 2. 3つの分岐と引き金（今日の終値を起点に。今日の値と並べる）
+    up_lv, dn_lv, _ = levels(df, len(df) - 1)
     last_bear = 1 if regime in BEAR else 0
     bear_need = 0 if (last_bear and len(pub_biz) > 1 and pub_biz[-2].get("regime") in BEAR) else (BEAR_RUN - last_bear)
     rules = load_rules()
-    hdt = last["high_d"]
     branches = [
         {"key": "up", "label": "上抜け",
-         "triggers": [{"text": f"日経平均が直近高値 {up_lv:,.0f}円（{hdt.month}/{hdt.day}）を終値で上回る",
+         "triggers": [{"text": f"日経平均の終値が {up_lv:,.0f}円（今日の終値の+{UP_PCT:.0f}%）以上",
                        "level": r2(up_lv), "today": r2(close), "gap": r2(up_lv - close), "unit": "円",
-                       "gap_pct": r2((up_lv / close - 1) * 100), "met": close > up_lv}]},
+                       "gap_pct": r2((up_lv / close - 1) * 100), "met": False}]},
         {"key": "flat", "label": "横ばい",
-         "triggers": [{"text": f"{HORIZON}営業日のうちに、上抜けも崩れも起きない", "level": None,
+         "triggers": [{"text": f"{HORIZON}営業日のうちに、上抜けも崩れも起きない（終値が {dn_lv:,.0f}〜{up_lv:,.0f}円の帯の中）", "level": None,
                        "today": None, "gap": None, "unit": None, "met": False}]},
         {"key": "down", "label": "崩れ",
          "triggers": [
              {"text": f"温度計が BEARISH/PANIC を{BEAR_RUN}営業日連続", "level": BEAR_RUN,
               "today": regime, "gap": bear_need, "unit": "営業日", "met": bear_need == 0},
-             {"text": f"日経平均が直近高値から{DOWN_PCT:.0f}%（{dn_lv:,.0f}円）を終値で下回る",
+             {"text": f"日経平均の終値が {dn_lv:,.0f}円（今日の終値の{DOWN_PCT:.0f}%）以下",
               "level": r2(dn_lv), "today": r2(close), "gap": r2(close - dn_lv), "unit": "円",
-              "gap_pct": r2((dn_lv / close - 1) * 100), "met": close <= dn_lv},
+              "gap_pct": r2((dn_lv / close - 1) * 100), "met": False},
              {"text": f"傾斜計が{GAUGE_MIN}つ以上点灯", "level": GAUGE_MIN, "today": lit,
               "gap": (max(0, GAUGE_MIN - lit) if lit is not None else None), "unit": "つ",
               "met": lit is not None and lit >= GAUGE_MIN,
-              "hold": not GAUGE_CLAUSE,
-              "hold_note": "過去5年の9割超の日が3つ以上点灯しているため、引き金に数えるかを確認中です（いまは分岐の判定に使っていません）"},
+              "ref": True,
+              "ref_note": "参考（引き金には使わない）。過去5年の93.8%の日が3つ以上点灯しているため、引き金になりません"},
          ]},
     ]
     for b in branches:
@@ -476,7 +502,8 @@ def main():
     alt = None
     if lit_s is not None:
         arows = similar(df, cond, lit_series=lit_s)
-        alt = {"note": "傾斜計3つ以上の条項を崩れに入れた場合（起動文どおり）。参考に残す",
+        alt = {"note": "傾斜計3つ以上の条項を崩れに入れた場合（記録だけ。引き金には使わない）",
+               "base": agg(similar(df, None, lit_series=lit_s)),
                "whole": agg(arows),
                "gauge_series_period": [str(lit_s.index[0].date()), str(lit_s.index[-1].date())]}
     sim = {"cond": cond, "cut": cut,
@@ -484,15 +511,22 @@ def main():
            # 比較対象：条件をつけずに5年の全日から20営業日おきに拾った場合
            "base": agg(similar(df, None)),
            "cases": rows, "alt_with_gauge": alt,
+           # 変える前（v1：直近高値基準）の結果も残す
+           "v1": {"rule": RULE_HISTORY[0]["change"],
+                  "whole": agg(similar(df, cond, version=1)),
+                  "base": agg(similar(df, None, version=1))},
            "period": [str((df.index[-1] - pd.Timedelta(days=int(365.25 * YEARS))).date()), asof]}
 
     # ── 5. 答え合わせ（追記のみ）
     hist = (jload(HIST, {"items": []}) or {"items": []}).get("items", [])
     orig = json.loads(json.dumps(hist))
+    # version の無い行は v1（2026-10-16 の初版）。印だけ付けて残す
+    for r in hist:
+        r.setdefault("version", 1)
     changed = score_history(hist, df, pub)
-    if not any(r["d"] == asof for r in hist):
+    if not any(r["d"] == asof and r.get("version") == RULE_VERSION for r in hist):
         hist.append({
-            "d": asof, "regime": regime, "streak": streak, "n225": r2(close), "high": r2(high),
+            "d": asof, "version": RULE_VERSION, "regime": regime, "streak": streak, "n225": r2(close), "high": r2(high),
             "dist": r2(dist), "vix": vix, "lit": lit,
             "up_level": r2(up_lv), "down_level": r2(dn_lv), "bear_need": bear_need,
             "cond": cond,
@@ -506,8 +540,10 @@ def main():
     if len(hist) < len(orig):
         sys.exit("::error::wave_history.json の行が減った。書き込みを止めます")
     for a, b in zip(orig, hist):
-        if {k: v for k, v in a.items() if k not in SCORE_KEYS} != \
-           {k: v for k, v in b.items() if k not in SCORE_KEYS}:
+        if a.get(VERSION_KEY) is not None and a.get(VERSION_KEY) != b.get(VERSION_KEY):
+            sys.exit(f"::error::{a.get('d')} の version が変わった。書き込みを止めます")
+        if {k: v for k, v in a.items() if k not in SCORE_KEYS | {VERSION_KEY}} != \
+           {k: v for k, v in b.items() if k not in SCORE_KEYS | {VERSION_KEY}}:
             sys.exit(f"::error::{a.get('d')} の採点以外の欄が変わった。書き込みを止めます")
     HIST.write_text(json.dumps({"items": hist}, ensure_ascii=False, separators=(",", ":")),
                     encoding="utf-8")
@@ -520,12 +556,14 @@ def main():
         "similar": sim,
         "record": record_of(hist),
         "rules": {
-            "high_win": HIGH_WIN, "horizon": HORIZON, "down_pct": DOWN_PCT, "bear_run": BEAR_RUN,
-            "gauge_min": GAUGE_MIN, "gauge_clause": GAUGE_CLAUSE, "spacing": SPACING,
+            "version": RULE_VERSION,
+            "high_win": HIGH_WIN, "high52_win": HIGH52_WIN, "horizon": HORIZON,
+            "up_pct": UP_PCT, "down_pct": DOWN_PCT, "bear_run": BEAR_RUN,
+            "gauge_min": GAUGE_MIN, "gauge_clause": False, "spacing": SPACING,
             "n_hide": N_HIDE, "n_sankou": N_SANKOU, "years": YEARS,
             "streak_bands": [x[0] for x in STREAK_BANDS], "dist_bands": [x[0] for x in DIST_BANDS],
             "vix_bands": [x[0] for x in VIX_BANDS],
-            "fixed_on": RULE_HISTORY[0]["d"], "history": RULE_HISTORY,
+            "fixed_on": RULE_HISTORY[-1]["d"], "history": RULE_HISTORY,
         },
         "link": rules["link"],
     }

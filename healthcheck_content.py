@@ -118,6 +118,23 @@ def ck_board(d, ctx):
     return None
 
 
+SHINYO_MAX_DAYS = 14   # 申込み日（金曜）→翌週火曜ごろ公表。次の公表直前でも11日。祝日ぶんを足して14日
+
+
+def ck_shinyo_datadate(d, ctx):
+    """信用買い残（全体）の申込み日が古すぎないか（2026-10-16 追加）。
+    JPX が 9/25 申込み分から様式（mtseisan*.xls → *_mtcurrent.xlsx）を変え、shinyo_fetch.py が
+    新しいファイルを1つも拾えないまま「成功」し続け、9/18 のまま4週止まっていた。
+    updated は毎日進むので鮮度（data_targets）では捕まらない。中身の日付を見る"""
+    dt = d.get("date")
+    if not dt:
+        return "date（申込み日）が無い"
+    age = (ctx.ref - datetime.fromisoformat(dt).date()).days
+    if age > SHINYO_MAX_DAYS:
+        return f"申込み日が {dt}（{age}日前）＝JPXの新しい公表を取り込めていない"
+    return None
+
+
 HORIZON_DAYS = 60     # 定例イベントの、分かっている一番先の日程がこれより手前なら知らせる
 
 
@@ -164,6 +181,7 @@ CHECKS = [
     ("docs/investor_flow.json", "投資部門別",            count_check("items", 4, "主体")),
     # 平常は約4,250銘柄。PDFの様式が変わって行を読み落とすと、まずここが減る
     ("docs/shinyo_daily.json", "銘柄別信用残（日次）",   count_check("items", 2000, "銘柄")),
+    ("docs/shinyo.json",       "信用買い残（全体の週次）", ck_shinyo_datadate),
 ]
 
 
