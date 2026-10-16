@@ -1,35 +1,49 @@
 {
- "target_date": "2026-10-14",
- "generated_at": "2026-10-15T21:03:15+09:00",
- "jiai": "強気(25日線・75日線の上)",
+ "target_date": "2026-10-15",
+ "generated_at": "2026-10-16T18:04:04+09:00",
+ "jiai": "弱気(75日線の下)",
  "rows": [
   {
    "judge": "signal",
    "code": "6594",
    "name": "ニデック",
    "sector": "モーター",
-   "kairi": -20.48
+   "kairi": -24.46
   },
   {
-   "judge": "watch",
+   "judge": "signal",
    "code": "9984",
    "name": "ソフトバンクG",
    "sector": "投資会社",
-   "kairi": -13.77
+   "kairi": -21.44
   },
   {
-   "judge": "watch",
-   "code": "8267",
-   "name": "イオン",
-   "sector": "小売",
-   "kairi": -12.92
+   "judge": "signal",
+   "code": "3436",
+   "name": "SUMCO",
+   "sector": "半導体",
+   "kairi": -16.75
   }
  ],
- "asof": "2026-10-15",
+ "asof": "2026-10-16",
  "stale": false,
- "signals_today_date": "2026-10-15",
+ "signals_today_date": "2026-10-16",
  "is_halt": false,
- "signals_today_count": 0,
- "signal_of_day": null,
+ "signals_today_count": 2,
+ "signals_today_by_strategy": {
+  "MOMENTUM": 2,
+  "BNF-LITE": 0,
+  "MINERVINI": 0
+ },
+ "signal_of_day": {
+  "scan_date": "2026-10-16",
+  "strategy": "MOMENTUM",
+  "strategy_label": "順張り（ブレイク）",
+  "code": "7267",
+  "name": "ホンダ",
+  "sector": "自動車",
+  "reason": "20日高値ブレイク",
+  "carried_over": true
+ },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
