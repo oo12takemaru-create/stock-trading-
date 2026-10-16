@@ -63,8 +63,19 @@ def http(url, tries=3):
 
 
 def find_files(html):
+    """申込み日(YYYYMMDD) → ファイルURL。
+
+    ★2026-09-25 申込み分から JPX の様式が変わった★
+      旧: mtseisanYYYYMMDD00.xls（委託・自己・合計を横に並べた表）
+      新: YYYYMMDD_mtcurrent.xlsx（制度信用と一般信用を縦に分けた表）
+      旧の正規表現だけだと新しいファイルを1つも拾えず、9/18 のまま4週止まっていた
+      （ワークフローは「成功」し updated も毎日進んだので、鮮度の監視では気づけなかった）。
+      同じ日の両方があれば新様式を使う。
+    """
     out = {}
     for m in re.finditer(r'href="(/markets/statistics-equities/margin/[^"]*?mtseisan(\d{8})\d*\.xls)"', html):
+        out[m.group(2)] = BASE + m.group(1)
+    for m in re.finditer(r'href="(/markets/statistics-equities/margin/[^"]*?/(\d{8})_mtcurrent\.xlsx)"', html):
         out[m.group(2)] = BASE + m.group(1)
     return out
 
@@ -74,8 +85,45 @@ def num(v):
     return None if pd.isna(v) else float(v)
 
 
+def parse_new(d):
+    """新様式（2026-09-25〜）。二市場の「委託」＝制度信用の委託＋一般信用の委託。
+    旧様式の「委託」（制度＋一般）と同じものになることを、9/25 の前週比から確かめた
+    （9/25 の委託の買残金額 − 前週比 ＝ 6,453,374百万円 ≒ 旧様式 9/18 の 6,453,287百万円）。
+    列は 4:売残高 5:前週比 6:買残高 7:前週比（二市場）"""
+    v = d.iloc[0, 1]
+    if not hasattr(v, "year"):
+        raise ValueError("申込み日を読み取れない（新様式）")
+    date = f"{v.year}-{v.month:02d}-{v.day:02d}"
+    acc = {"sh": {k: 0.0 for k in COL}, "va": {k: 0.0 for k in COL}}
+    hits = {"sh": 0, "va": 0}
+    cur = None
+    for i in range(len(d)):
+        if "委託" in str(d.iloc[i, 2]):
+            cur = "委託"
+        elif str(d.iloc[i, 2]) not in ("nan", "None"):
+            cur = None
+        if pd.notna(d.iloc[i, 1]) and "合計" in str(d.iloc[i, 1]):
+            break                      # 信用取引残高合計 以降（自己を含む・貸借など）は使わない
+        unit = str(d.iloc[i, 3])
+        if cur != "委託" or not ("株数" in unit or "金額" in unit):
+            continue
+        key = "sh" if "株数" in unit else "va"
+        for k, c in zip(("sell", "sell_chg", "buy", "buy_chg"), (4, 5, 6, 7)):
+            x = num(d.iloc[i, c])
+            if x is None:
+                raise ValueError(f"新様式の{k}が読めない（行{i}）")
+            acc[key][k] += x
+        hits[key] += 1
+    if hits["sh"] != 2 or hits["va"] != 2:
+        raise ValueError(f"新様式の委託の行が想定と違う（株数{hits['sh']}・金額{hits['va']}。制度・一般の2行ずつのはず）")
+    return date, acc["sh"], acc["va"]
+
+
 def parse(data):
     d = pd.read_excel(BytesIO(data), sheet_name=0, header=None)
+    if not re.search(r"\d{4}/\d{1,2}/\d{1,2}", str(d.iloc[0, 0])):
+        date, sh, va = parse_new(d)
+        return _rec(date, sh, va)
     # 「信用取引現在高（2026/8/7申込み現在）」から申込み日を取る
     m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})", str(d.iloc[0, 0]))
     if not m:
@@ -84,6 +132,10 @@ def parse(data):
 
     sh = {k: num(d.iloc[ROW_SHARES, c]) for k, c in COL.items()}
     va = {k: num(d.iloc[ROW_VALUE, c]) for k, c in COL.items()}
+    return _rec(date, sh, va)
+
+
+def _rec(date, sh, va):
     if not sh["buy"] or not va["buy"]:
         raise ValueError("二市場計の買残高が読めない")
     return {
