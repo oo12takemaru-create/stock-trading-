@@ -14,6 +14,7 @@ import pandas as pd
 import config
 import metrics
 import fetching
+import trading_calendar
 from fetching import get_prices
 from universe import ACTIVE_TICKERS, JAPAN_STOCKS
 
@@ -135,6 +136,16 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
             )
         log("  ★取り直しに成功しました: %s" % ", ".join(failed))
 
+    # ★東証の休場日の行を落としてから計算する★（2026-10-17・Fable）
+    #   yfinance は 2017〜2018 年の休場日に「前の営業日の終値・出来高0」の行を返していて、
+    #   それが材料に入り、エンジンが休場日の行で約定・決済していた。
+    #   営業日の表は trading_calendar の1か所（検証側の panel_from_db と同じ表）。
+    #   日経平均（東証の指数）も同じ表で落とす。米国の指数は東証の日に合わせて並べ直すので触らない。
+    #   個別株は下の [3/4] で、行数の検査を通ったあとに1銘柄ずつ落とす。
+    _drop_holidays({k: v for k, v in global_data.items() if k == "^N225"}, log, "日経平均",
+                   target=global_data)
+    holiday_days, holiday_tickers = set(), 0
+
     log("[3/4] 前計算列を算出")
     frames, skipped = [], []
     for i, t in enumerate(tickers, 1):
@@ -144,9 +155,18 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
             continue
         # ★分割の取りこぼしを直してから計算する★（2026-10-11・8227.T で見つけた）
         df = fetching.fix_unadjusted_splits(df, t, log=log)
+        df, bad = trading_calendar.drop_non_sessions(df, None)   # 東証の休場日の行（上の説明）
+        if len(bad):
+            holiday_days.update(bad)
+            holiday_tickers += 1
         frames.append(metrics.compute_stock_metrics(df, t))
         if i % 50 == 0 or i == len(tickers):
             log("  %d/%d 銘柄" % (i, len(tickers)))
+        if i == len(tickers) and holiday_days:
+            ds = sorted(holiday_days)
+            log("  個別株: 東証の休場日の行を落としました（%d 銘柄・%d 日: %s）"
+                % (holiday_tickers, len(ds), "、".join(str(d.date()) for d in ds[:6])
+                   + (" ほか" if len(ds) > 6 else "")))
     # ★行数が足りない銘柄も、黙って落とさない★（2026-09-22）
     #   取得は成功したのに中身が短い、という形でも母集団は変わる。
     #   入口（取得失敗）だけ塞いでも、ここが開いていれば同じことが起きる。
@@ -208,3 +228,24 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
           "is_active": t in prices} for t, v in JAPAN_STOCKS.items()])
 
     return panel, market, sectors
+
+
+def _drop_holidays(frames: dict, log, what, target: dict | None = None):
+    """{名前: 日付 index の DataFrame} から東証の休場日の行を落とす（target に書き戻す）。"""
+    import trading_calendar as tc
+
+    target = frames if target is None else target
+    days, n = set(), 0
+    for k, df in frames.items():
+        if df is None or not len(df):
+            continue
+        out, bad = tc.drop_non_sessions(df, None)
+        if len(bad):
+            target[k] = out
+            days.update(bad)
+            n += 1
+    if days:
+        ds = sorted(days)
+        log("  %s: 東証の休場日の行を落としました（%d 銘柄・%d 日: %s）"
+            % (what, n, len(ds), "、".join(str(d.date()) for d in ds[:6])
+               + (" ほか" if len(ds) > 6 else "")))

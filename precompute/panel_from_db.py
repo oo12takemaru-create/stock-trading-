@@ -176,6 +176,33 @@ def _die(msg):
     )
 
 
+def drop_holiday_rows(df, what, log=print):
+    """★東証の休場日の行を、読み込んだ直後にメモリ上で落とす★（2026-10-17・Fable）
+
+    正本（daily_metrics / market_condition）には 2017〜2018 年の休場日の行が
+    22 日分入っている（値は前の営業日の終値のまま・出来高0）。エンジンはそれを
+    「翌営業日」として扱い、休場日の行で約定・決済していた。
+    **正本からは消さない**（消すかは別に決める）。計算に使わないだけ。
+    営業日の表は trading_calendar（東証の公式カレンダー）の1か所だけを見る。
+
+    営業日なのに無い日は、ここでは**埋めずに知らせるだけ**（扱いは件数を見てから決める）。
+    """
+    import trading_calendar as tc
+
+    df, bad = tc.drop_non_sessions(df, "date")
+    if len(bad):
+        log("  %s: 東証の休場日の行 %d 日分を計算から外しました（%s）"
+            % (what, len(bad), "、".join(str(d.date()) for d in bad[:6])
+               + (" ほか" if len(bad) > 6 else "")))
+    miss = tc.missing_sessions(df["date"], end=min(df["date"].max(), tc.table_last_day()))
+    if len(miss):
+        log("  ★%s: 営業日なのに行が無い日が %d 日あります（%s）。埋めずに進めます"
+            % (what, len(miss), "、".join(str(d.date()) for d in miss[:6])
+               + (" ほか" if len(miss) > 6 else "")))
+    tc.warn_beyond_table(df["date"], log)
+    return df
+
+
 def load_panel(start=None, end=None, log=print):
     """(panel, market) を返す。足りなければ SystemExit で止まる。"""
     q = []
@@ -195,6 +222,7 @@ def load_panel(start=None, end=None, log=print):
     panel = pd.DataFrame(rows)
     panel["date"] = pd.to_datetime(panel["date"])
     log("  daily_metrics: %s 行 / %d 列" % (f"{len(panel):,}", panel.shape[1]))
+    panel = drop_holiday_rows(panel, "daily_metrics", log)
 
     # ★材料が検証期間の頭まで覆っているか★（2026-10-11）
     #   以前は作り直すたびに材料の開始日が後ろへずれ、検証期間の頭の数週間が
@@ -246,6 +274,8 @@ def load_panel(start=None, end=None, log=print):
                       query + ("&" if query else "") + "order=date.asc", log)
     market = pd.DataFrame(mrows)
     market["date"] = pd.to_datetime(market["date"])
+    # 相場環境の行も同じ表で落とす（PANIC の連続日数は行で数えるので、休場日の行が混ざるとずれる）
+    market = drop_holiday_rows(market, "market_condition", log)
     # 相場環境が欠けると別物になる（pipeline.py のグローバル指数と同じ理由）
     if market["regime"].isna().any():
         _die("market_condition の regime に欠けがあります。")
