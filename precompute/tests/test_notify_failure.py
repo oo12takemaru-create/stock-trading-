@@ -61,13 +61,19 @@ def main():
     mode, _, body = nf.build_message({}, URL, False, "2026-10-16")
     check(mode == "failure" and "特定できませんでした" in body, "失敗として送る")
 
+    print("\n― 5b. 失敗ではない知らせ（書けない銘柄が続いた）―")
+    mode, subj, body = nf.build_notice("件名の行\n本文1\n本文2\n", URL, "2026-10-20")
+    check(mode == "notice" and subj == "件名の行（2026-10-20）", "1行目が件名になる", subj)
+    check("本文2" in body and URL in body and "失敗ではありません" in body,
+          "本文・URL・失敗ではない旨が入る")
+
     print("\n― 6. ワークフローの step id と STEP_INFO が揃っている ―")
     wf = os.path.join(HERE, "..", "..", ".github", "workflows", "precompute-daily.yml")
     with open(wf, encoding="utf-8") as f:
         text = f.read()
-    # update ジョブの段だけを見る（通知の段 today/mark/mail は対象外）
+    # update ジョブの段だけを見る（通知の段 today/mark/mail・skipday/skipmark は対象外）
     ids = set(re.findall(r"^\s+id:\s*([A-Za-z0-9_-]+)\s*$", text, flags=re.M))
-    ids -= {"today", "mark", "mail"}
+    ids -= {"today", "mark", "mail", "skipday", "skipmark"}
     check(len(ids) > 0, "step id を1つ以上読めた", str(sorted(ids)))   # 0件を成功と見なさない
     missing = sorted(ids - set(nf.STEP_INFO))
     extra = sorted(set(nf.STEP_INFO) - ids)

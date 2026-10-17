@@ -35,7 +35,111 @@ def log(msg):
 MAX_JUMP = 0.5
 
 
-def check_incoming(panel, recent, log=print):
+#: 同じ銘柄の新しい日を、何営業日続けて書けなかったら本人に知らせるか（2026-10-17・Fable 案C）
+SKIP_ALERT_DAYS = 5
+
+
+def last_stored_rows(tickers, before=None):
+    """正本の、銘柄ごとの最後の行 {ticker: {"date", "close"} or None}。
+    before を渡すと、その日より前で最後の行。"""
+    from concurrent.futures import ThreadPoolExecutor
+
+    import json
+    url_base, key = supabase_io.credentials()
+
+    def one(ticker):
+        ep = ("%s/rest/v1/daily_metrics?select=date,close&ticker=eq.%s"
+              "%s&order=date.desc&limit=1"
+              % (url_base, ticker, ("&date=lt.%s" % before.date().isoformat()) if before is not None else ""))
+        _, body = supabase_io._request("GET", ep, key)
+        rows = json.loads(body.decode("utf-8"))
+        return ticker, (rows[0] if rows else None)
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return dict(ex.map(one, sorted(tickers)))
+
+
+def rows_to_write(panel, recent, stored):
+    """書く行を選ぶ。直近 recent の日に加えて、**正本に抜けている END より後の日**も埋める。
+
+    ★履歴が短くて飛ばした銘柄（9508.T など）が戻ったとき、自動で抜けを埋める★（2026-10-17）
+      飛ばしていた間の日は、直近 --days の窓から外れていることがある。窓だけ書くと
+      その日が正本から永久に欠ける。銘柄ごとに「正本の最後の日（recent より前）」より
+      後を書けば、戻った回に抜けごと埋まる。
+      ★END 以前（固定した検証期間）は、ここでは絶対に選ばない★
+    stored … last_stored_rows(tickers, before=recent の最初の日) の結果
+    """
+    from portfolio_run import END
+
+    end = pd.Timestamp(END)
+    first_new = min(recent)
+    keep = panel["date"].isin(recent)
+    # 候補は END より後・recent より前の行だけ（全期間を銘柄ごとになめない）
+    post = panel[(panel["date"] > end) & (panel["date"] < first_new)]
+    lower = post["ticker"].map({t: max(pd.Timestamp(r["date"]), end)
+                                for t, r in (stored or {}).items() if r})
+    # 正本に1行も無い銘柄（lower が NaT）は埋めない。比較は False になる
+    keep.loc[post.index[(post["date"] > lower).to_numpy()]] = True
+    return panel[keep]
+
+
+def report_skipped(skipped, all_dates, log=print):
+    """★飛ばした銘柄を黙らせない★（2026-10-17・Fable 案C）
+
+    1. ログ（update.log → ジョブの要約）と、ジョブの要約（GITHUB_STEP_SUMMARY）に
+       銘柄・取れた行数・期間・正本の最後の日・書けていない営業日数を出す
+    2. 同じ銘柄の新しい日を SKIP_ALERT_DAYS 営業日以上書けていなければ、
+       SKIP_ALERT_FILE（ワークフローが渡す）に知らせの本文を書く。
+       ワークフローがそれを見て本人にメールする（失敗扱いにはしない）
+    数え方: 正本にあるその銘柄の最後の日より後の営業日（他の銘柄の新しい日）の数。
+      状態を別に持たないので、戻って書けた回に自然に 0 に戻る。
+    """
+    if not skipped:
+        return []
+    last = last_stored_rows([s["ticker"] for s in skipped])
+    dates = pd.DatetimeIndex(all_dates)
+    lines, alerts = [], []
+    for s in skipped:
+        row = last.get(s["ticker"])
+        last_day = pd.Timestamp(row["date"]) if row else None
+        missed = int((dates > last_day).sum()) if last_day is not None else len(dates)
+        s["stored_last"] = None if last_day is None else str(last_day.date())
+        s["missed_days"] = missed
+        line = ("%s: 取得 %d 行（%s 〜 %s）/ 正本の最後の日 %s / 書けていない営業日 %d"
+                % (s["ticker"], s["rows"], s["first"], s["last"], s["stored_last"], missed))
+        lines.append(line)
+        if missed >= SKIP_ALERT_DAYS:
+            alerts.append(line)
+    log("★履歴が短いので新しい日を書かなかった銘柄: %d" % len(skipped))
+    for line in lines:
+        log("  " + line)
+
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write("## 新しい日を書かなかった銘柄（取得した履歴が短い）\n\n")
+            f.write("検証期間（固定した10年）には触れていません。提供元が戻れば、次の回に抜けごと書きます。\n\n")
+            for line in lines:
+                f.write("- %s\n" % line)
+            f.write("\n")
+
+    path = os.environ.get("SKIP_ALERT_FILE")
+    if alerts and path:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("[ルールトレード] 前計算：%d 営業日以上書けていない銘柄があります\n" % SKIP_ALERT_DAYS)
+            f.write("毎日の前計算（precompute-daily）で、次の銘柄の新しい日の行を書けていません。\n"
+                    "提供元（yfinance）が短い履歴しか返さないためです。ジョブは止めずに、"
+                    "ほかの銘柄は書いています。\n"
+                    "固定した検証期間（公開している10年の数字）には影響しません。\n\n")
+            for line in alerts:
+                f.write("  ・%s\n" % line)
+            f.write("\n長く続くなら、取り方を変えるか（案B）、理由を書いて universe.EXCLUDED_TICKERS に"
+                    "足すかを決めてください。\n")
+        log("  ★%d 営業日以上書けていない銘柄があるので、本人への知らせを用意しました" % SKIP_ALERT_DAYS)
+    return alerts
+
+
+def check_incoming(panel, recent, log=print, stored=None, first_write=None):
     """★正本に足す前に、受け取った値を疑う★（2026-10-11）
 
     提供元（yfinance）は黙って壊れた値を返すことがある。
@@ -51,34 +155,23 @@ def check_incoming(panel, recent, log=print):
          分割か、10/02 のような壊れ方。どちらも人が見るまで足さない）
       3. 足す日どうしで、終値が1日に ±MAX_JUMP 以上動いていない
     """
-    from concurrent.futures import ThreadPoolExecutor
-
-    import json
     from portfolio_run import END
 
     errs = []
     first_new = min(recent)
+    # 抜けを埋める行（rows_to_write）があれば、書く最初の日はそれより前になる
+    first_w = min(first_new, pd.Timestamp(first_write)) if first_write is not None else first_new
 
     # 1. 固定した検証期間に書かない
-    if first_new <= pd.Timestamp(END):
+    if first_w <= pd.Timestamp(END):
         errs.append("足す日 %s が、固定した検証期間（〜%s）に入っています。"
-                    % (first_new.date(), END))
+                    % (first_w.date(), END))
 
     # 2. 保存済みの最後の日と、今回取った値が食い違っていないか
-    url_base, key = supabase_io.credentials()
-
-    def last_stored(ticker):
-        ep = ("%s/rest/v1/daily_metrics?select=date,close&ticker=eq.%s"
-              "&date=lt.%s&order=date.desc&limit=1"
-              % (url_base, ticker, first_new.date().isoformat()))
-        _, body = supabase_io._request("GET", ep, key)
-        rows = json.loads(body.decode("utf-8"))
-        return ticker, (rows[0] if rows else None)
-
     fresh = panel.set_index(["ticker", "date"])["close"]
     tickers = sorted(panel["ticker"].unique())
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        stored = dict(ex.map(last_stored, tickers))
+    if stored is None:
+        stored = last_stored_rows(tickers, before=first_new)
 
     shifted = []
     for t in tickers:
@@ -100,10 +193,10 @@ def check_incoming(panel, recent, log=print):
 
     # 3. 足す日どうしの1日の動き
     jumps = []
-    for t, g in panel[panel["date"] >= first_new - pd.Timedelta(days=10)].groupby("ticker"):
+    for t, g in panel[panel["date"] >= first_w - pd.Timedelta(days=10)].groupby("ticker"):
         c = g.sort_values("date").set_index("date")["close"]
         ch = c.pct_change().dropna()
-        ch = ch[ch.index >= first_new]
+        ch = ch[ch.index >= first_w]
         big = ch[ch.abs() >= MAX_JUMP]
         for day, v in big.items():
             jumps.append("%s %s %+.1f%%" % (t, day.date(), v * 100))
@@ -141,7 +234,12 @@ def main():
     log("前計算バッチ（日次差分・直近 %d 営業日）" % args.days)
     log("=" * 70)
     # 日次は必ず最新を取りに行く（キャッシュが古いと1日ぶん増えない）
-    panel, market, _ = run_pipeline(years=args.years, refresh=True, log=log)
+    # ★履歴が短い銘柄は、新しい日の行だけ飛ばして進める★（2026-10-17・Fable 案C）
+    #   ここは END より後の日しか書かない経路なので、検証期間の母集団には触れない。
+    #   飛ばした銘柄は report_skipped でログ・要約に出し、続けば本人に知らせる。
+    skipped = []
+    panel, market, _ = run_pipeline(years=args.years, refresh=True, log=log,
+                                    short_ok=True, skipped_report=skipped)
 
     all_dates = sorted(pd.DatetimeIndex(panel["date"].unique()))
     recent = all_dates[-args.days:]
@@ -150,14 +248,18 @@ def main():
         return 0
     log("対象日: %s 〜 %s (%d 営業日)"
         % (recent[0].date(), recent[-1].date(), len(recent)))
+    report_skipped(skipped, all_dates, log=log)
 
-    panel_d = panel[panel["date"].isin(recent)]
+    stored = last_stored_rows(sorted(panel["ticker"].unique()), before=min(recent))
+    panel_d = rows_to_write(panel, recent, stored)
     market_d = market[pd.to_datetime(market["date"]).isin(recent)]
-    log("daily_metrics %s 行 / market_condition %d 行"
-        % (f"{len(panel_d):,}", len(market_d)))
+    n_gap = int((~panel_d["date"].isin(recent)).sum())
+    log("daily_metrics %s 行（うち正本の抜けを埋める行 %d）/ market_condition %d 行"
+        % (f"{len(panel_d):,}", n_gap, len(market_d)))
 
     # ★書く前に受け取った値を疑う★ 当たれば何も書かずに止まる（--dry-run でも見る）
-    check_incoming(panel, recent, log=log)
+    check_incoming(panel, recent, log=log, stored=stored,
+                   first_write=panel_d["date"].min() if len(panel_d) else None)
 
     if args.dry_run:
         log("--dry-run のため投入しません")
