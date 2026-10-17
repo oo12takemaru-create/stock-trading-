@@ -30,6 +30,11 @@ on:
         required: false
         type: boolean
         default: false
+      alert_test:
+        description: '失敗したときの本人宛メールが届くかを、テストメールを1通送って確かめる（計算・公開は走らせない）'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -39,7 +44,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ★メールのテストだけ★ alert_test を選んだ手動実行では、計算も公開も走らせない。
+  #   テストのために数字を動かさない（公開サイト側 sync-stats.yml の alert-test と同じ形）。
+  alert-test:
+    if: github.event_name == 'workflow_dispatch' && inputs.alert_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Send a test mail to the owner
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          STEPS_JSON: '{}'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ALERT_TEST: 'true'
+        run: python precompute/notify_failure.py
+
   update:
+    # pipeline-daily から workflow_call で呼ばれたときは inputs.alert_test が無い＝走る
+    if: github.event_name != 'workflow_dispatch' || !inputs.alert_test
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -87,6 +114,7 @@ jobs:
           fi
 
       - name: Update daily_metrics / market_condition
+        id: metrics
         if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -102,6 +130,7 @@ jobs:
       # 規定値ポートフォリオの成績（＝サイトの公開数字と同じ計算）を作り直す。
       # 分割利確・サーキットブレーカー・同セクター上限を含むので Python が正本。
       - name: Rebuild preset portfolio result
+        id: rebuild
         if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -136,6 +165,7 @@ jobs:
       #   **asof の違う2枚**が配られる。同じ行から作って1コミットで出す。
       #   （export_equity_curve.py 側でも asof と合計の一致を確かめている）
       - name: Publish portfolio_stats.json / equity_curve.json
+        id: publish
         if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -180,6 +210,7 @@ jobs:
       # --years 2: 移動平均と52週高値のウォームアップに1.2年ぶん余分に取る設計なので
       #            2年で直近の値は10年計算と一致する（毎日10年を回さない）
       - name: Update score3_lite (3軸スコアの縮約版)
+        id: score3
         if: steps.guard.outputs.skip != 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -238,6 +269,7 @@ jobs:
       #   本番実測で 28.2秒（温まっていれば 2.4〜3.8秒）かかっていた。
       #   --no-adjust は型＋規定値まで温めて、1,260通りの調整域は回さない。
       - name: Warm starter types and preset cache
+        id: warm
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -255,3 +287,52 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -20 update.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # ★失敗したら本人にメール★（2026-10-16）
+      #   10/13〜10/16 の4日間、このジョブは毎日失敗して公開数字が止まっていたのに、
+      #   誰も気づかなかった。公開サイト側（ruletrade-site の sync-stats.yml）と同じ形で、
+      #   本人の受信箱に直接1通。正常な日は送らない。
+      #   ★失敗した日だけ・1日1通★ このジョブは1日に最大4回走る（schedule 2本＋
+      #   pipeline-daily の本命と予備）。毎回送るとうるさくて読まれなくなるので、
+      #   送れたら「その日（JST）の印」を actions/cache に置き、印があれば送らない。
+      #   送るのに失敗したら印を置かない＝次の回でもう一度送ろうとする。
+      #   ★最後に置く★ failure() は「ここより前のどれかが失敗した」で真になる。
+      #   届くかのテストは、上の alert-test ジョブ（手動実行で alert_test を選ぶ）。
+      - name: Today (JST) for the mail mark
+        id: today
+        if: failure()
+        run: echo "day=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Look up today's mail mark
+        id: mark
+        if: failure()
+        uses: actions/cache/restore@v4
+        with:
+          path: .fail-mail-mark
+          key: precompute-fail-mail-${{ steps.today.outputs.day }}
+          lookup-only: true
+
+      - name: Mail the owner on failure
+        id: mail
+        if: failure() && steps.mark.outputs.cache-hit != 'true'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          STEPS_JSON: ${{ toJSON(steps) }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python precompute/notify_failure.py
+          mkdir -p .fail-mail-mark
+          echo "${{ steps.today.outputs.day }}" > .fail-mail-mark/day
+
+      - name: Save today's mail mark
+        if: failure() && steps.mail.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: .fail-mail-mark
+          key: precompute-fail-mail-${{ steps.today.outputs.day }}
+
+      - name: Already mailed today
+        if: failure() && steps.mark.outputs.cache-hit == 'true'
+        run: echo "今日（${{ steps.today.outputs.day }}）は失敗のメールを送り済みなので、2通目は送りません"
