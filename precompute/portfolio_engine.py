@@ -17,6 +17,7 @@
   約定    : 翌営業日の終値
   損切り  : 安値が損切り水準に触れた日の**終値**で手仕舞い（水準ではなく終値）
   手仕舞い: 各戦略の出口（下表）。決済できないまま期間が終わったら期末強制決済
+            （**期間の末の日の終値**で閉じる。期間の末より後の価格は使わない・2026-10-17）
 
   | 戦略 | 損切り | 利確 | 時間切れ |
   |---|---|---|---|
@@ -117,10 +118,27 @@ def simulate_ticker(ticker: str, sector: str, cols: dict, dates: pd.DatetimeInde
     start = pd.Timestamp(start) if start is not None else dates[0]
     end = pd.Timestamp(end) if end is not None else dates[-1]
 
+    # ★検証期間の末（end）より後の日付を、計算に一切使わない★（2026-10-17・Fable 案X）
+    #   以前はシグナルの日だけ end で止め、約定（翌営業日）と決済は end の後の
+    #   データまで追いかけていた。end の時点で残っている建玉は「期末強制決済」で
+    #   **いちばん新しい日の終値**で閉じていたため、日次で新しい日が足されるたびに
+    #   固定したはずの10年の数字（累積リターン等）が動き、公開の検査（#621）に
+    #   毎日当たって公開が止まった（2026-10-13〜）。
+    #   ここで end 以前に切っておけば、約定も決済も end を越えられない。
+    #   end に残った建玉は、下の _run_exit の最後で end の日の終値で閉じる。
+    k = int(dates.searchsorted(end, side="right"))
+    if k < n:
+        dates = dates[:k]
+        cols = {c: v[:k] for c, v in cols.items()}
+        n = k
+
     ordered = sorted(rules, key=lambda r: r.priority)
     trades: list[Trade] = []
     i = 0
-    while i < n - 1:                     # 約定は翌営業日なので最終日には出せない
+    # 約定は翌営業日。さらに**約定した日に強制決済になるだけの建玉は作らない**
+    #   （最終日の前日のシグナル → 最終日に約定 → 同じ日・同じ値で期末強制決済、になる。
+    #    損益0のトレードが「負け」として数えられ、勝率だけが動く）
+    while i < n - 2:
         date = dates[i]
         if date < start or date > end:
             i += 1
@@ -455,7 +473,8 @@ def monthly_equity_curve(trades: list[Trade], initial_capital=INITIAL_CAPITAL,
     first = pd.Period(start[:7], freq="M") if start else \
         pd.Period(st[0].exit_date.strftime("%Y-%m"), freq="M")
     last = pd.Period(end[:7], freq="M") if end else last_exit
-    # 期末強制決済などで、決済が検証期間の末より後に出ることがある。切り落とさない。
+    # simulate_ticker が検証期間の末より後を使わなくなった（2026-10-17）ので、
+    # 決済は end を越えないはず。越えた場合も切り落とさない（曲線が欠けるより安全）。
     last = max(last, last_exit)
 
     out = []
