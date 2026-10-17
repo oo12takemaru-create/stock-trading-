@@ -438,7 +438,17 @@ def build(years_back=10, days=None, log=print):
     import pipeline
 
     log("[1/4] 個別株と相場環境を再計算（daily_metrics 相当）")
-    panel, market, _ = pipeline.run_pipeline(years=years_back, log=lambda *a: None)
+    # ★日次（days 指定）のときだけ、履歴が短い銘柄を飛ばして進める★（2026-10-17・Fable 案C）
+    #   日次の前計算（update_metrics）と同じ扱い。末尾の数日ぶんしか使わないので
+    #   1銘柄欠けても広がりの判定は崩れない（下の MIN_TICKERS が別に見張る）。
+    #   全期間を作り直すとき（days なし）は今までどおり止める。
+    skipped = []
+    panel, market, _ = pipeline.run_pipeline(years=years_back, log=lambda *a: None,
+                                             short_ok=days is not None,
+                                             skipped_report=skipped)
+    for s in skipped:
+        log("  ★%s は取得した履歴が %d 行（%s 〜 %s）しかないので外して計算しました"
+            % (s["ticker"], s["rows"], s["first"], s["last"]))
 
     log("[2/4] 軸1 トレンド")
     a1 = axis1(panel, market)
