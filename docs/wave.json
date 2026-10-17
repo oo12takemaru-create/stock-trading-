@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-16T21:54:36+09:00",
+ "updated": "2026-10-17T21:50:46+09:00",
  "asof": "2026-10-16",
  "position": {
   "regime": "BULLISH",
@@ -28,19 +28,19 @@
   "gauge": {
    "lit": 3,
    "total": 5,
-   "asof": "2026-10-16"
+   "asof": "2026-10-17"
   },
   "shinyo": {
-   "buy_oku": 64533.0,
-   "chg_oku": -1900.0,
-   "chg_pct": -2.86,
-   "asof": "2026-09-18"
+   "buy_oku": 67059.0,
+   "chg_oku": 1841.0,
+   "chg_pct": 2.82,
+   "asof": "2026-10-09"
   },
   "next_event": {
    "t": "FOMC結果発表（10/27-28開催）",
    "iso": "2026-10-29T03:00:00+09:00",
    "time": "午前3:00",
-   "days": 13
+   "days": 12
   },
   "fushime": [
    {
@@ -268,7 +268,35 @@
     "streak": 24
    }
   ],
-  "alt_with_gauge": null,
+  "alt_with_gauge": {
+   "note": "傾斜計3つ以上の条項を崩れに入れた場合（記録だけ。引き金には使わない）",
+   "base": {
+    "n": 61,
+    "enough": true,
+    "sankou": false,
+    "up": 0.0,
+    "flat": 0.0,
+    "down": 100.0,
+    "ret20_med": 0.12,
+    "dd20_med": -1.97,
+    "major": "down"
+   },
+   "whole": {
+    "n": 7,
+    "enough": false,
+    "sankou": true,
+    "up": null,
+    "flat": null,
+    "down": null,
+    "ret20_med": null,
+    "dd20_med": null,
+    "major": null
+   },
+   "gauge_series_period": [
+    "2021-10-18",
+    "2026-10-16"
+   ]
+  },
   "v1": {
    "rule": "初期値で固定（起動文の値）。上抜け＝判定日の直近高値（20営業日の終値の最高値）を上回る／崩れ＝直近高値から−5%以下 または 温度計 BEARISH/PANIC 2営業日連続。傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留",
    "whole": {
