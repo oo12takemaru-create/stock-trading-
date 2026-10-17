@@ -36,12 +36,24 @@ def default_window(years: int = None) -> tuple[dt.date, dt.date]:
     return start, end
 
 
+#: 履歴が短い銘柄を飛ばして進めてよい上限（short_ok=True のときだけ使う）。
+#: これを超えたら1銘柄の不調ではなく提供元全体の不調とみなし、今までどおり止める
+MAX_SHORT_SKIP = 5
+
+
 def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
                  auto_adjust: bool = config.DEFAULT_AUTO_ADJUST,
-                 refresh: bool = False, log=print):
+                 refresh: bool = False, log=print,
+                 short_ok: bool = False, skipped_report: list | None = None):
     """(daily_metrics, market_condition, sectors) を返す。
 
     daily_metrics はウォームアップぶんを落とし、直近 years 年ぶんだけにする。
+
+    short_ok … ★日次で「新しい日」だけを書く経路（update_metrics.py）専用★（2026-10-17・Fable 案C）
+        取得した履歴が短い銘柄を、止めずに panel から外して進める。外した銘柄は
+        skipped_report（list）に {ticker, rows, first, last} で入れて返す。
+        検証の材料を作る経路（build_metrics.py など）は既定の False のままにすること。
+        そちらは「1銘柄でも欠けたら止める」を守る（母集団が変わるため）。
     """
     config.ensure_dirs()
     # ★恒常的に取得できない銘柄は明示して外す★（2026-09-22）
@@ -138,7 +150,20 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
     # ★行数が足りない銘柄も、黙って落とさない★（2026-09-22）
     #   取得は成功したのに中身が短い、という形でも母集団は変わる。
     #   入口（取得失敗）だけ塞いでも、ここが開いていれば同じことが起きる。
-    if skipped:
+    if skipped and short_ok and len(skipped) <= MAX_SHORT_SKIP:
+        # ★黙って落とさない★ 何を・なぜ外したかを、呼び出し側に必ず渡してログにも出す。
+        #   新しい日の行だけを書く経路なので、検証期間の母集団と材料には触れない。
+        #   提供元が戻れば、次の回から普通に計算に入る（ここには何も覚えない）。
+        for t in skipped:
+            df = prices.get(t)
+            info = {"ticker": t, "rows": 0 if df is None else len(df),
+                    "first": None if df is None or not len(df) else str(df.index.min().date()),
+                    "last": None if df is None or not len(df) else str(df.index.max().date())}
+            if skipped_report is not None:
+                skipped_report.append(info)
+            log("  ★%s は取得した履歴が %d 行（%s 〜 %s）しかないので、今回は新しい日の行を書きません"
+                % (t, info["rows"], info["first"], info["last"]))
+    elif skipped:
         raise SystemExit(
             "データが %d 行未満の銘柄があります: %s\n"
             "  そのまま外すと母集団が変わり、同じ10年でも別物の数字になります。\n"

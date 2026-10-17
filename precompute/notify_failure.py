@@ -47,6 +47,7 @@ STEP_INFO = {
                 "「前回と違います」の行。公開数字は前回のまま残っています"),
     "score3": ("3軸スコアの縮約版", "列が無い・upsert が 400 で落ちていないか"),
     "warm": ("型と規定値のキャッシュ温め", "公開数字には影響しません"),
+    "skipmail": ("書けない銘柄の知らせのメール", "GMAIL_APP_PASSWORD が失効していないか（ジョブは赤くしていません）"),
 }
 
 
@@ -81,6 +82,16 @@ def build_message(steps: dict, run_url: str, test: bool, today: str):
     return mode, subject, "\n".join(lines)
 
 
+def build_notice(raw: str, run_url: str, today: str):
+    """失敗ではない知らせ（1行目が件名・残りが本文）を (mode, 件名, 本文) にする。"""
+    head, _, rest = raw.strip().partition("\n")
+    subject = "%s（%s）" % (head.strip(), today)
+    text = (rest.strip() + "\n\n実行ログ:\n  " + run_url + "\n\n"
+            "※ この知らせは失敗ではありません。ジョブは止めずに進めています。\n"
+            "※ 続いているあいだは1日1通まで出ます。")
+    return "notice", subject, text
+
+
 def main():
     user = os.environ.get("GMAIL_USER", "").strip()
     pw = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
@@ -104,8 +115,20 @@ def main():
     except ValueError:
         steps = {}
     today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d")
-    mode, subject, text = build_message(steps, os.environ.get("RUN_URL", "(不明)"),
-                                        os.environ.get("ALERT_TEST") == "true", today)
+    notice = os.environ.get("NOTICE_FILE", "")
+    if notice:
+        # ★失敗ではない知らせ★（2026-10-17・Fable 案C）
+        #   update_metrics.report_skipped が書いた本文をそのまま送る（1行目が件名）
+        try:
+            with open(notice, encoding="utf-8") as f:
+                raw = f.read()
+        except OSError as e:
+            print("::error::知らせの本文（%s）を読めません（%s）" % (notice, type(e).__name__))
+            return 1
+        mode, subject, text = build_notice(raw, os.environ.get("RUN_URL", "(不明)"), today)
+    else:
+        mode, subject, text = build_message(steps, os.environ.get("RUN_URL", "(不明)"),
+                                            os.environ.get("ALERT_TEST") == "true", today)
 
     msg = MIMEText(text, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
@@ -116,7 +139,8 @@ def main():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=30) as smtp:
             smtp.login(user, pw)
             smtp.sendmail(user, [to], msg.as_string())
-        print("✓ 本人へメールを送りました（%s）" % ("テスト" if mode == "test" else "失敗の知らせ"))
+        print("✓ 本人へメールを送りました（%s）"
+              % {"test": "テスト", "notice": "失敗ではない知らせ"}.get(mode, "失敗の知らせ"))
         return 0
     except smtplib.SMTPAuthenticationError as e:
         # 理由のコードだけ出す。鍵・宛先は出さない
