@@ -119,6 +119,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 履歴が短くて新しい日を書けない銘柄が5営業日続いたら、ここに知らせの本文が出る
+          SKIP_ALERT_FILE: skip_alert.txt
         run: |
           # ★ python ... | tee は tee の終了コードになるので、失敗が success になる。
           #    pipefail を付けて Python の失敗をそのまま落とす（2026-09-06 に実際に踏んだ）。
@@ -287,6 +289,51 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -20 update.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # ★書けない銘柄が続いたら本人に知らせる（失敗扱いにはしない）★（2026-10-17・Fable 案C）
+      #   取得した履歴が短い銘柄は、新しい日の行だけ飛ばして進める（update_metrics.py）。
+      #   同じ銘柄が5営業日続けて書けていなければ skip_alert.txt が出るので、
+      #   失敗通知と同じ経路（notify_failure.py・Gmail）で1日1通まで送る。
+      #   ★continue-on-error★ 知らせが送れなくても、ジョブを赤くしない
+      #   （赤くすると下の「失敗の知らせ」が「知らせの段が失敗」として飛んでしまう）。
+      - name: Today (JST) for the skip notice
+        id: skipday
+        if: always() && hashFiles('skip_alert.txt') != ''
+        continue-on-error: true
+        run: echo "day=$(TZ='Asia/Tokyo' date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Look up today's skip notice mark
+        id: skipmark
+        if: always() && hashFiles('skip_alert.txt') != ''
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: .skip-mail-mark
+          key: precompute-skip-mail-${{ steps.skipday.outputs.day }}
+          lookup-only: true
+
+      - name: Mail the owner about tickers skipped for days
+        id: skipmail
+        if: always() && hashFiles('skip_alert.txt') != '' && steps.skipmark.outputs.cache-hit != 'true'
+        continue-on-error: true
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          NOTICE_FILE: skip_alert.txt
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python precompute/notify_failure.py
+          mkdir -p .skip-mail-mark
+          echo "${{ steps.skipday.outputs.day }}" > .skip-mail-mark/day
+
+      - name: Save today's skip notice mark
+        if: always() && steps.skipmail.outcome == 'success'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .skip-mail-mark
+          key: precompute-skip-mail-${{ steps.skipday.outputs.day }}
 
       # ★失敗したら本人にメール★（2026-10-16）
       #   10/13〜10/16 の4日間、このジョブは毎日失敗して公開数字が止まっていたのに、
