@@ -1,6 +1,6 @@
 {
- "target_date": "2026-10-16",
- "generated_at": "2026-10-19T21:03:24+09:00",
+ "target_date": "2026-10-19",
+ "generated_at": "2026-10-20T18:02:21+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,26 +8,26 @@
    "code": "6594",
    "name": "ニデック",
    "sector": "モーター",
-   "kairi": -23.97
+   "kairi": -23.22
   },
   {
    "judge": "signal",
    "code": "9984",
    "name": "ソフトバンクG",
    "sector": "投資会社",
-   "kairi": -19.29
+   "kairi": -20.01
   },
   {
-   "judge": "watch",
+   "judge": "signal",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -14.51
+   "kairi": -15.44
   }
  ],
- "asof": "2026-10-19",
+ "asof": "2026-10-20",
  "stale": false,
- "signals_today_date": "2026-10-19",
+ "signals_today_date": "2026-10-20",
  "is_halt": false,
  "signals_today_count": 0,
  "signals_today_by_strategy": {
