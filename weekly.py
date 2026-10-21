@@ -225,7 +225,8 @@ def market_lines():
     out = []
     for t, label, fmt in MARKET_TICKERS:
         try:
-            c = yf.Ticker(t).history(period="1mo", auto_adjust=False)["Close"].dropna()
+            from yf_latest import history_closes
+            c = history_closes(t, period="1mo")
             if len(c) < 6:
                 continue
             last, prev = float(c.iloc[-1]), float(c.iloc[-6])
@@ -320,9 +321,9 @@ def n225_close_on(day, s3=None):
     取れなければ score3.json の終値を、日付が合うときだけ使う"""
     try:
         import yfinance as yf
-        c = yf.Ticker("^N225").history(start=(day - timedelta(days=10)).isoformat(),
-                                       end=(day + timedelta(days=1)).isoformat(),
-                                       auto_adjust=False)["Close"].dropna()
+        from yf_latest import history_closes
+        c = history_closes("^N225", start=(day - timedelta(days=10)).isoformat(),
+                           end=(day + timedelta(days=1)).isoformat())
         if len(c):
             return round(float(c.iloc[-1]), 2), f"{c.index[-1]:%Y-%m-%d}"
     except Exception as e:
