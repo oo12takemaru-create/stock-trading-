@@ -21,6 +21,16 @@
   不一致が1%を超えたら公開せずに失敗させる（壊れたデータを出さない）。
 ■ 単位は株（PDFの原単位のまま）。信用倍率は表示側で 買残÷売残 を計算する。
 ■ 5桁コードの末尾が0以外（優先株式など）は除外（4桁コードが普通株式と衝突するため）。
+
+■ 2026-10-21 直近5営業日を毎回取り直す（Fable 判断）
+  10/20 申込分で JPX の総合計の買い残が前日比 −27.7%。取り込みは JPX と一致していたが、
+  JPX が後日 PDF を差し替えても「取得済みは取り直さない」作りでは拾えなかった。
+  → ページに並ぶ5本を毎回読み、中身が違えば上書きする（約9MB/日）。月別の蓄積も同じ日を上書き。
+    上書きしたら shinyo_daily.json の replaced に {date, before, after, at}（買い残の合計）を残す
+    （healthcheck が「差し替わった」と知らせる）。差し替え版が検算で落ちたら古いほうを残す。
+■ 市場全体の買い残が前日比±15%を超えた申込日は anomaly に [{date, pct}] で持つ
+  （直近5営業日に入っている間だけ＝5営業日前比に含まれる間だけ。過ぎたら自動で消える）。
+  shinyo_daily.json と shinyo_meigara.json の両方に入れる（銘柄ページの注記・ヒートマップの凡例）。
 """
 import json
 import re
@@ -140,6 +150,29 @@ def save_listed(path, asof, items, ratios):
     print(f"上場株式数の推計: {len(out)}銘柄（{asof}）", file=sys.stderr)
 
 
+def total_buy(items):
+    """全銘柄の買い残の合計（株）"""
+    return sum(v[2] for v in items.values() if v)
+
+
+ANOMALY_PCT = 15.0      # 市場全体の買い残の前日比がこれを超えた日に注記を出す
+
+
+def anomalies(days, last5):
+    """直近5営業日のうち、市場全体の買い残の前日比が±15%を超えた申込日。
+    前日比は JPX の公表値（各銘柄の前日比の和）÷前日の残高で出す（前日のファイルが無くても出せる）"""
+    out = []
+    for d in last5:
+        it = days.get(d) or {}
+        b = total_buy(it)
+        bd = sum(v[3] for v in it.values() if v)
+        if b - bd > 0:
+            pct = round(bd / (b - bd) * 100, 1)
+            if abs(pct) > ANOMALY_PCT:
+                out.append({"date": d, "pct": pct})
+    return out
+
+
 def load_archive():
     """月別の蓄積を全部読む → {申込日: {code: [s, sd, b, bd]}}"""
     days = {}
@@ -212,10 +245,10 @@ def main():
         ratios = {}
         asof_l, items_l, _ = parse_pdf(http(BASE + link), ratios)
         save_listed(LISTED, asof_l, items_l, ratios)
+    replaced = []
     for link, ymd in links:
         key = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}"
-        if key in days:
-            continue                     # 取得済み（PDFは1本1.8MBあるので取り直さない）
+        had = key in days                # 取得済みでも取り直す（JPX の差し替えを拾う・2026-10-21）
         pdf = http(BASE + link)
         ratios = {}
         asof, items, bad = parse_pdf(pdf, ratios)
@@ -223,12 +256,24 @@ def main():
         print(f"取得: {ymd} → 申込日 {asof} / {len(items)}銘柄 / 検算NG {bad}", file=sys.stderr)
         if asof != key:
             print(f"注意: ファイル名{key} と本文{asof} が不一致（本文を採用）", file=sys.stderr)
+        broken = total == 0 or bad / total > 0.01 or len(items) < 2000
+        if broken and (had or asof in days):
+            print(f"::warning::{asof} の取り直しが検算で落ちた → 前に取り込んだ分を残す", file=sys.stderr)
+            continue
         if total == 0 or bad / total > 0.01:
             print("検算不一致が1%超 → 公開しない（PDFの様式が変わった可能性）", file=sys.stderr)
             sys.exit(1)
         if len(items) < 2000:
             print(f"銘柄数が少なすぎる: {len(items)}", file=sys.stderr)
             sys.exit(1)
+        old = days.get(asof)
+        if old is not None:
+            if old == items:
+                continue                 # 前と同じ（差し替え無し）
+            b0, b1 = total_buy(old), total_buy(items)
+            replaced.append({"date": asof, "before": b0, "after": b1,
+                             "at": datetime.now(JST).strftime("%Y-%m-%d")})
+            print(f"::warning::{asof} 分が差し替わった（買い残の合計 {b0:,} → {b1:,}）", file=sys.stderr)
         days[asof] = items
         if asof == max(days) or not (DOCS / "shinyo_listed.json").exists():
             save_listed(DOCS / "shinyo_listed.json", asof, items, ratios)
@@ -250,12 +295,24 @@ def main():
     from jp_bizday import next_bizday
     published = {d: next_bizday(datetime.strptime(d, "%Y-%m-%d").date()).isoformat()
                  for d in last5}
-    keep_newest(DAILY, {
+    anom = anomalies(days, last5)
+    # 差し替えの記録は直近5営業日に入っている間だけ持つ（同じ日に何度走っても消えないよう前の分を引き継ぐ）
+    try:
+        prev_rep = json.loads(DAILY.read_text(encoding="utf-8")).get("replaced") or []
+    except Exception:
+        prev_rep = []
+    rep_keep = [r for r in prev_rep + replaced if r.get("date") in last5]
+    daily = {
         "updated": now, "asof": latest, "dates": last5, "published": published, "unit": "株",
         "fields": ["売残", "売残の前日比", "買残", "買残の前日比"],
         "source": "JPX 銘柄別信用取引残高（日次・申込日ベース）",
         "items": {c: [days[d].get(c) for d in last5] for c in days[latest]},
-    }, "asof", "日次信用残")
+    }
+    if anom:
+        daily["anomaly"] = anom
+    if rep_keep:
+        daily["replaced"] = rep_keep
+    keep_newest(DAILY, daily, "asof", "日次信用残")
 
     # ── 週次の推移（銘柄ページのグラフ）
     wk = build_weekly(days)
@@ -278,11 +335,14 @@ def main():
         "unit": "株",
         "basis": "sd/bd は5営業日前比（直近5日の前日比の和）、sd1/bd1 は前日比",
         "source": "JPX 銘柄別信用取引残高（日次）",
+        **({"anomaly": anom} if anom else {}),
         "items": items,
     }, "asof", "銘柄別信用残")
     r1 = sum(1 for x in items if x["s"] > 0 and x["b"] / x["s"] <= 1)
     print(f"週次の推移: {len(wk['weeks'])}週（{wk['weeks'][0]}〜{wk['weeks'][-1]}）")
-    print(f"新規取得 {fetched}日 / 蓄積 {len(order)}日（{order[0]}〜{latest}）"
+    if anom:
+        print(f"市場全体の買い残が±{ANOMALY_PCT:.0f}%超: {anom}")
+    print(f"新規取得 {fetched}日・差し替え {len(replaced)}日 / 蓄積 {len(order)}日（{order[0]}〜{latest}）"
           f" / shinyo_meigara.json {'更新' if wrote else '見送り'}: {len(items)}銘柄 倍率1以下={r1}")
 
 

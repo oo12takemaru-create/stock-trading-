@@ -135,6 +135,8 @@ def load_facts():
     try:
         sh = json.loads((HERE / "docs" / "shinyo_meigara.json").read_text(encoding="utf-8"))
         asof["md"] = sh.get("asof")
+        if sh.get("anomaly"):              # 市場全体の買い残が±15%超の申込日（凡例の下に注記）
+            asof["mx"] = sh["anomaly"]
         for i in sh.get("items") or []:
             b, s_, bd = i.get("b"), i.get("s"), i.get("bd")
             if b is None:
