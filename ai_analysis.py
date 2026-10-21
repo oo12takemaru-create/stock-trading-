@@ -127,7 +127,9 @@ def fetch_market():
             df = yf.download(ticker, period="10d", progress=False, auto_adjust=False)
             if df is None or len(df) < 2:
                 continue
-            closes = df["Close"].dropna()
+            # 最新日の終値が空欄で返ると、dropna で2営業日前が「直近」になる（yf_latest 参照）
+            from yf_latest import fill_latest
+            closes = fill_latest(ticker, df["Close"])
             if len(closes) < 2:
                 continue
 
@@ -162,7 +164,11 @@ def futures_gap_lines():
             v = df["Close"].dropna().iloc[-1]
             return float(v.item() if hasattr(v, "item") else v)
 
-        f, c = last(fut), last(cash)
+        # 現物は最新日の終値が空欄で返ることがある。先物との乖離を前々日の終値で
+        # 計算していたため「−2.9%の安寄り示唆」（正しくは+2.1%）が出た（2026-10-16）
+        from yf_latest import fill_latest
+        cash_c = fill_latest("^N225", cash["Close"])
+        f, c = last(fut), float(cash_c.iloc[-1])
         gap = (f / c - 1) * 100
         return [
             f"CME日経先物(円建て): {f:,.0f}円 / 現物終値: {c:,.0f}円 / 乖離 {gap:+.2f}%",
@@ -687,9 +693,8 @@ def _n225_month_pct(month):
     try:
         import yfinance as yf
         df = yf.download("^N225", period="3mo", progress=False, auto_adjust=False, threads=False)
-        c = df["Close"].dropna()
-        if hasattr(c, "columns"):
-            c = c.iloc[:, 0]
+        from yf_latest import fill_latest
+        c = fill_latest("^N225", df["Close"])
         days = [(i.strftime("%Y-%m-%d"), float(v)) for i, v in c.items()]
         prev = [v for d, v in days if d[:7] < month]
         cur = [v for d, v in days if d[:7] == month]

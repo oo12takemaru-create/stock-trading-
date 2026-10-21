@@ -246,10 +246,10 @@ def market_prices():
             df = yf.download(t, period=period, progress=False, auto_adjust=False, threads=False)
             if df is None or len(df) == 0:
                 return None
-            c = df["Close"]
-            if hasattr(c, "columns"):
-                c = c.iloc[:, 0]
-            c = c.dropna()
+            # 最新日の終値が空欄で返ると、2営業日前の終値で移動平均との位置を
+            # 判定してしまう（yf_latest 参照・2026-10-21）
+            from yf_latest import fill_latest
+            c = fill_latest(t, df["Close"])
             return c if len(c) else None
         except Exception as e:
             print(f"  {t}: 取得失敗 {e}", file=sys.stderr)
