@@ -120,6 +120,34 @@ def ck_heatmap(d, ctx):
     return None
 
 
+SHINYO_JUMP = 15.0     # 全体の買い残の前日比がこれ（%）を超えたら知らせる
+
+
+def ck_shinyo_daily(d, ctx):
+    """件数に加えて、全銘柄の買い残の合計が前日から±15%を超えて動いていないか（2026-10-21 追加）。
+    10/20 申込分で JPX の PDF の総合計が前日比 −27.7%（37.2億株→26.9億株）。取り込みは JPX の
+    総合計と一致していたので取り込みの故障ではないが、平常は1日±1%前後しか動かない。
+    公表内容の異常（後日の訂正など）に気づけるよう知らせる。updated は進むので鮮度では捕まらない"""
+    msg = count_check("items", 2000, "銘柄")(d, ctx)
+    if msg:
+        return msg
+    dates = d.get("dates") or []
+    if len(dates) < 2:
+        return None
+    k = len(dates) - 1
+    cur = sum(v[k][2] for v in (d.get("items") or {}).values()
+              if v and len(v) > k and v[k] and v[k - 1])
+    prev = sum(v[k - 1][2] for v in (d.get("items") or {}).values()
+               if v and len(v) > k and v[k] and v[k - 1])
+    if prev <= 0:
+        return None
+    chg = (cur / prev - 1) * 100
+    if abs(chg) > SHINYO_JUMP:
+        return (f"全体の買い残が前日比 {chg:+.1f}%（{dates[k - 1]} {prev / 1e8:.2f}億株 → {dates[k]} {cur / 1e8:.2f}億株）"
+                f"＝JPXの公表内容か取り込みの異常。PDFの総合計と見比べる")
+    return None
+
+
 def ck_board(d, ctx):
     want = {"radar.json", "gauge.json", "crash.json", "karauri.json", "kessan.json",
             "shinyo.json", "investor_flow.json", "cot.json", "ai_analysis.json", "heatmap_agg"}
@@ -191,7 +219,7 @@ CHECKS = [
     ("docs/tenbagger.json",    "十倍株スキャナー",       count_check("items", 10, "銘柄")),
     ("docs/investor_flow.json", "投資部門別",            count_check("items", 4, "主体")),
     # 平常は約4,250銘柄。PDFの様式が変わって行を読み落とすと、まずここが減る
-    ("docs/shinyo_daily.json", "銘柄別信用残（日次）",   count_check("items", 2000, "銘柄")),
+    ("docs/shinyo_daily.json", "銘柄別信用残（日次）",   ck_shinyo_daily),
     ("docs/shinyo.json",       "信用買い残（全体の週次）", ck_shinyo_datadate),
 ]
 
