@@ -1,40 +1,49 @@
 {
- "target_date": "2026-10-19",
- "generated_at": "2026-10-20T18:02:21+09:00",
+ "target_date": "2026-10-20",
+ "generated_at": "2026-10-21T18:03:06+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
-  {
-   "judge": "signal",
-   "code": "6594",
-   "name": "ニデック",
-   "sector": "モーター",
-   "kairi": -23.22
-  },
   {
    "judge": "signal",
    "code": "9984",
    "name": "ソフトバンクG",
    "sector": "投資会社",
-   "kairi": -20.01
+   "kairi": -23.68
+  },
+  {
+   "judge": "signal",
+   "code": "6594",
+   "name": "ニデック",
+   "sector": "モーター",
+   "kairi": -23.46
   },
   {
    "judge": "signal",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -15.44
+   "kairi": -20.12
   }
  ],
- "asof": "2026-10-20",
+ "asof": "2026-10-21",
  "stale": false,
- "signals_today_date": "2026-10-20",
+ "signals_today_date": "2026-10-21",
  "is_halt": false,
- "signals_today_count": 0,
+ "signals_today_count": 1,
  "signals_today_by_strategy": {
-  "MOMENTUM": 0,
+  "MOMENTUM": 1,
   "BNF-LITE": 0,
   "MINERVINI": 0
  },
- "signal_of_day": null,
+ "signal_of_day": {
+  "scan_date": "2026-10-21",
+  "strategy": "MOMENTUM",
+  "strategy_label": "順張り（ブレイク）",
+  "code": "6869",
+  "name": "シスメックス",
+  "sector": "医療機器",
+  "reason": "20日高値ブレイク",
+  "carried_over": true
+ },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
