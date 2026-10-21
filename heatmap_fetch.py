@@ -7,8 +7,18 @@
   docs/heatmap_225.json     日経平均の構成225銘柄（data/n225.csv・日経の公表リスト）
   docs/heatmap_growth.json  グロース市場の売買代金上位300（前営業日の docs/prices.json で選ぶ）
   どちらも heatmap.json と同じ形・同じ回（ザラ場中5回＋引け後）に作る。業種は東証33業種。
-  各銘柄に sr（信用倍率・JPX週次）と kd（次の決算発表予定日）を足す（タイルのツールチップ用）。
+  各銘柄に kd（次の決算発表予定日）などを足す（タイルのツールチップ用。需給の列は下の v2 を参照）。
   ★追加分の取得に失敗しても heatmap.json は今までどおり出す（トップの数字を巻き込まない）★
+
+■ 2026-10-21 ヒートマップ v2（需給レイヤー）で列を足した（別JSONは増やさない・4本とも同じ列）
+  mr  信用倍率（shinyo_meigara の 買残÷売残。売残0は出さない）  ※10/9〜10/21 は sr がこれだった
+  mb  信用買い残の5営業日前比%（shinyo_meigara の bd。銘柄ページの「5営業日前比」と同じ式）
+  sr  大口の空売り残高%（karauri.json の total・発行済比）。報告の無い銘柄は出さない
+  sx  空売り残高の前回報告日比 pt（karauri の d1）／ sn 報告している機関の数（karauri の cnt）
+  kd  次の決算発表予定日（既存）
+  先頭に md（信用残の申込日）・sd（空売りの計算日＝karauri の report_date）を1回だけ。
+  取れない値はキーごと出さない（サイトでは null と同じ扱い。null を337回書くと容量だけ増える）
+  サイトは karauri.json（約330KB）を別に読まなくてよくなる
 
 使い方: python heatmap_fetch.py docs/heatmap.json
 依存: yfinance, pandas
@@ -116,15 +126,37 @@ def make_items(df, tickers, meta, shares, trade_dates):
 
 
 def load_facts():
-    """タイルのツールチップに足す事実: 信用倍率(sr)と次の決算発表予定日(kd)"""
-    sr, kd = {}, {}
+    """タイルの需給レイヤーに足す事実（2026-10-21 v2）。
+    返す: facts = {code: {mr, mb, sr, sx, sn, kd}}, asof = {md, sd}"""
+    facts, asof = {}, {}
+
+    def put(c, k, v):
+        facts.setdefault(str(c), {})[k] = v
     try:
         sh = json.loads((HERE / "docs" / "shinyo_meigara.json").read_text(encoding="utf-8"))
+        asof["md"] = sh.get("asof")
         for i in sh.get("items") or []:
-            if i.get("s") and i.get("b") is not None:
-                sr[str(i["c"])] = round(i["b"] / i["s"], 2)
+            b, s_, bd = i.get("b"), i.get("s"), i.get("bd")
+            if b is None:
+                continue
+            if s_:
+                put(i["c"], "mr", round(b / s_, 2))
+            if bd is not None and (b - bd) > 0:
+                put(i["c"], "mb", round(bd / (b - bd) * 100, 1))
     except Exception as e:
         print(f"信用残の読込スキップ: {e}", file=sys.stderr)
+    try:
+        ka = json.loads((HERE / "docs" / "karauri.json").read_text(encoding="utf-8"))
+        asof["sd"] = ka.get("report_date")
+        for x in ka.get("stocks") or []:
+            if x.get("total") is None:
+                continue
+            put(x["c"], "sr", round(x["total"], 2))
+            put(x["c"], "sx", round(x.get("d1") or 0, 2))
+            if x.get("cnt"):
+                put(x["c"], "sn", x["cnt"])
+    except Exception as e:
+        print(f"空売り残高の読込スキップ: {e}", file=sys.stderr)
     try:
         k = json.loads((HERE / "docs" / "kessan.json").read_text(encoding="utf-8"))
         today = datetime.now(JST).strftime("%Y-%m-%d")
@@ -132,27 +164,28 @@ def load_facts():
             if day.get("d", "") < today:
                 continue
             for it in day.get("items") or []:
-                kd.setdefault(str(it.get("c")), day["d"])
+                c = str(it.get("c"))
+                if "kd" not in facts.get(c, {}):
+                    put(c, "kd", day["d"])
     except Exception as e:
         print(f"決算予定の読込スキップ: {e}", file=sys.stderr)
-    return sr, kd
+    return facts, asof
 
 
-def enrich(items, sr, kd):
+def enrich(items, facts):
     for i in items:
-        if i["t"] in sr:
-            i["sr"] = sr[i["t"]]
-        if i["t"] in kd:
-            i["kd"] = kd[i["t"]]
+        i.update(facts.get(i["t"]) or {})
 
 
-def write_map(dst, items, trade_dates, label, floor):
+def write_map(dst, items, trade_dates, label, floor, asof=None):
     if len(items) < floor:
         print(f"{label}: 取得数が少なすぎる {len(items)}（{floor}未満）。書かない", file=sys.stderr)
         return False
     trade_date = max(trade_dates, key=trade_dates.get) if trade_dates else None
     out = {"updated": datetime.now(JST).isoformat(timespec="seconds"),
-           "trade_date": trade_date, "count": len(items), "items": items}
+           "trade_date": trade_date, "count": len(items)}
+    out.update({k: v for k, v in (asof or {}).items() if v})     # md / sd（需給レイヤーの基準日）
+    out["items"] = items
     if not keep_newest(dst, out, "trade_date", label):
         return False
     up = sum(1 for i in items if i["c"] > 0)
@@ -171,7 +204,7 @@ def universe():
     return u
 
 
-def extra_maps(yf, shares, sr, kd):
+def extra_maps(yf, shares, facts, asof):
     """日経225とグロース上位300（heatmap_225.json / heatmap_growth.json）"""
     import unicodedata
     u = universe()
@@ -197,8 +230,8 @@ def extra_maps(yf, shares, sr, kd):
                                    ("グロース", gr, "docs/heatmap_growth.json", 200)):
         td = {}
         items = make_items(df, [c + ".T" for c in codes], meta, shares, td)
-        enrich(items, sr, kd)
-        write_map(dst, items, td, f"ヒートマップ（{key}）", floor)
+        enrich(items, facts)
+        write_map(dst, items, td, f"ヒートマップ（{key}）", floor, asof)
 
 
 def main():
@@ -207,7 +240,7 @@ def main():
     from daily_scanner_v2_8_0 import STOCKS
 
     shares = load_shares()
-    sr, kd = load_facts()
+    facts, asof = load_facts()
     tickers = list(STOCKS.keys())
     # 52週高値とMA200の計算に約1年分が必要（400暦日≒270営業日）
     df = yf.download(tickers, period="400d", progress=False, auto_adjust=False,
@@ -217,13 +250,13 @@ def main():
     if len(items) < 200:
         print(f"取得数が少なすぎる: {len(items)}", file=sys.stderr)
         sys.exit(1)
-    enrich(items, sr, kd)
+    enrich(items, facts)
     # 既に出ている取引日より古ければ書かない（stale_guard 参照）
-    write_map(dst, items, trade_dates, "ヒートマップ", 200)
+    write_map(dst, items, trade_dates, "ヒートマップ", 200, asof)
 
     # 追加分（日経225・グロース）。失敗しても上の heatmap.json には影響させない
     try:
-        extra_maps(yf, shares, sr, kd)
+        extra_maps(yf, shares, facts, asof)
     except Exception as e:
         print(f"::warning::日経225/グロースのヒートマップを作れなかった: {e}", file=sys.stderr)
 

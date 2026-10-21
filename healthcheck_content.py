@@ -109,6 +109,17 @@ def count_check(path, floor, what):
     return f
 
 
+def ck_heatmap(d, ctx):
+    """件数に加えて、需給レイヤーの列（2026-10-21 v2）が全銘柄で欠けていないか。
+    mr（信用倍率）が1つも無い＝shinyo_meigara.json を読めていない。updated は進むので鮮度では捕まらない"""
+    msg = count_check("items", 200, "銘柄")(d, ctx)
+    if msg:
+        return msg
+    if not any(i.get("mr") is not None for i in d.get("items") or []):
+        return "mr（信用倍率）が全銘柄で空（需給レイヤーが灰色一色になっている）"
+    return None
+
+
 def ck_board(d, ctx):
     want = {"radar.json", "gauge.json", "crash.json", "karauri.json", "kessan.json",
             "shinyo.json", "investor_flow.json", "cot.json", "ai_analysis.json", "heatmap_agg"}
@@ -175,7 +186,7 @@ CHECKS = [
     ("docs/market_jiai.json",  "地合い",                 ck_stale_flag),
     ("docs/ai_analysis.json",  "AI朝刊",                 ck_ai),
     ("docs/board.json",        "トップの要約",           ck_board),
-    ("docs/heatmap.json",      "ヒートマップ",           count_check("items", 200, "銘柄")),
+    ("docs/heatmap.json",      "ヒートマップ",           ck_heatmap),
     ("docs/karauri.json",      "空売り残高",             count_check("stocks", 700, "銘柄")),
     ("docs/tenbagger.json",    "十倍株スキャナー",       count_check("items", 10, "銘柄")),
     ("docs/investor_flow.json", "投資部門別",            count_check("items", 4, "主体")),

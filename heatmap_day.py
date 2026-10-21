@@ -6,6 +6,7 @@
                                      33業種の平均騰落。サイトの heatmap/YYYY-MM-DD.html はこれから焼く（消さずに積む）
   docs/heatmap_days/index.json       日付の一覧
   docs/heatmap_sector.json           業種別ヒートマップ（33業種を1枚ずつのタイルに。heatmap.json と同じ形）
+                                     2026-10-21 v2: 業種の需給 mr・mb・sr・sn と基準日 md・sd を足した（sector_jukyu）
   docs/x/heatmap_YYYY-MM-DD.png      その日のヒートマップ画像（1200×630・主要337銘柄）。サイトの日付ページと X 投稿（本人）用
 
 ■ 元データ
@@ -105,14 +106,61 @@ def build(prices, u):
             "sectors": sectors}
 
 
-def sector_map(day, updated, trade_date):
+def sector_jukyu(u):
+    """業種ごとの需給（ヒートマップ v2・2026-10-21）。heatmap.json と同じキーで返す。
+    mr = 業種内の買残合計÷売残合計 / mb = 買残合計の5営業日前比% / sr = 空売り報告がある銘柄の平均%（sn 銘柄）
+    元は shinyo_meigara.json・karauri.json（どちらも docs/ にある公表値の集計。新しいデータ源は使わない）。
+    kd（決算日）は業種では1つに決まらないので出さない。返す: ({業種: {...}}, {md, sd})"""
+    agg, asof = {}, {}
+    sh = jload(DOCS / "shinyo_meigara.json") or {}
+    asof["md"] = sh.get("asof")
+    for i in sh.get("items") or []:
+        sec = (u.get(str(i.get("c"))) or ("", "", ""))[1]
+        b, s_, bd = i.get("b"), i.get("s"), i.get("bd")
+        if not sec or b is None:
+            continue
+        x = agg.setdefault(sec, {"b": 0.0, "s": 0.0, "b0": 0.0, "bn": 0.0, "ss": 0.0, "sc": 0})
+        x["b"] += b
+        x["s"] += s_ or 0
+        if bd is not None:
+            x["bn"] += b
+            x["b0"] += b - bd
+    ka = jload(DOCS / "karauri.json") or {}
+    asof["sd"] = ka.get("report_date")
+    for k in ka.get("stocks") or []:
+        sec = (u.get(str(k.get("c"))) or ("", "", ""))[1]
+        if not sec or k.get("total") is None:
+            continue
+        x = agg.setdefault(sec, {"b": 0.0, "s": 0.0, "b0": 0.0, "bn": 0.0, "ss": 0.0, "sc": 0})
+        x["ss"] += k["total"]
+        x["sc"] += 1
+    out = {}
+    for sec, x in agg.items():
+        o = {}
+        if x["s"] > 0:
+            o["mr"] = round(x["b"] / x["s"], 2)
+        if x["b0"] > 0:
+            o["mb"] = round((x["bn"] / x["b0"] - 1) * 100, 1)
+        if x["sc"]:
+            o["sr"] = round(x["ss"] / x["sc"], 2)
+            o["sn"] = x["sc"]
+        out[sec] = o
+    return out, {k: v for k, v in asof.items() if v}
+
+
+def sector_map(day, updated, trade_date, jk=None, asof=None):
     """業種別ヒートマップ用（heatmap.json と同じ形。1業種＝1タイル。リンク先は業種ハブ）"""
     items = []
     for x in day["sectors"]:
-        items.append({"t": x["slug"] or x["s"], "n": x["s"], "a": x["s"], "s": x["s"], "c": x["avg"],
-                      "v": x["v"], "cnt": x["n"], "up": x["up"], "dn": x["dn"],
-                      "u": f"sector/{x['slug']}.html" if x["slug"] else "sectors.html"})
-    return {"updated": updated, "trade_date": trade_date, "count": len(items), "unit": "sector", "items": items}
+        it = {"t": x["slug"] or x["s"], "n": x["s"], "a": x["s"], "s": x["s"], "c": x["avg"],
+              "v": x["v"], "cnt": x["n"], "up": x["up"], "dn": x["dn"],
+              "u": f"sector/{x['slug']}.html" if x["slug"] else "sectors.html"}
+        it.update((jk or {}).get(x["s"]) or {})
+        items.append(it)
+    out = {"updated": updated, "trade_date": trade_date, "count": len(items), "unit": "sector"}
+    out.update(asof or {})
+    out["items"] = items
+    return out
 
 
 # ─────────────────────────── 画像（主要337銘柄のヒートマップ）
@@ -241,7 +289,12 @@ def main():
     jsave(DAYS / f"{d}.json", day)
     dates = sorted((p.stem for p in DAYS.glob("????-??-??.json")), reverse=True)
     jsave(DAYS / "index.json", {"updated": day["updated"], "dates": dates})
-    jsave(DOCS / "heatmap_sector.json", sector_map(day, day["updated"], d))
+    try:
+        jk, asof = sector_jukyu(u)
+    except Exception as e:          # 需給が読めなくても業種のヒートマップ本体は出す
+        print(f"::warning::業種の需給を作れなかった: {e}", file=sys.stderr)
+        jk, asof = {}, {}
+    jsave(DOCS / "heatmap_sector.json", sector_map(day, day["updated"], d, jk, asof))
     print(f"heatmap_days/{d}.json: 全{day['count']} 上昇{day['up']} 下落{day['down']} 業種{len(day['sectors'])} 画像={day['png']}")
     return 0
 
