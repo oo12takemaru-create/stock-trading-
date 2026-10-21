@@ -114,6 +114,7 @@ def sector_jukyu(u):
     agg, asof = {}, {}
     sh = jload(DOCS / "shinyo_meigara.json") or {}
     asof["md"] = sh.get("asof")
+    asof["mx"] = sh.get("anomaly")          # 市場全体の買い残が±15%超の申込日（無ければ出さない）
     for i in sh.get("items") or []:
         sec = (u.get(str(i.get("c"))) or ("", "", ""))[1]
         b, s_, bd = i.get("b"), i.get("s"), i.get("bd")

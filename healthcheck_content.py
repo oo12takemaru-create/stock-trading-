@@ -131,6 +131,12 @@ def ck_shinyo_daily(d, ctx):
     msg = count_check("items", 2000, "銘柄")(d, ctx)
     if msg:
         return msg
+    # JPX が PDF を差し替えた（shinmei_fetch.py が直近5日を取り直して上書きした）日を知らせる
+    ref = ctx.ref.isoformat() if ctx is not None else None
+    reps = [r for r in d.get("replaced") or [] if ref is None or r.get("at") == ref]
+    if reps:
+        return "・".join(f"{r['date']} 分が差し替わった（買い残 合計 {r['before'] / 1e8:.2f}億株→{r['after'] / 1e8:.2f}億株）"
+                        for r in reps)
     dates = d.get("dates") or []
     if len(dates) < 2:
         return None
