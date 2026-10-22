@@ -84,8 +84,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install yfinance pandas pillow
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
+          # フォントは X画像用だけ。apt が固まっても朝刊の公開は止めない（2026-10-23 に15分固まった）
+          if ! timeout 180 sh -c 'sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk'; then
+            echo "::warning::fonts-noto-cjk を入れられなかった（X画像は失敗しうる・朝刊は続ける）"
+          fi
 
       # 検証（validate）→ 上方修正の禁止 → 書き出し。回答不正なら exit 2
       - name: Ingest AI answer
