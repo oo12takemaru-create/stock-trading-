@@ -54,6 +54,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
 
+      # yfinance の返り値の形が変わると終値が全滅して朝刊が止まる（2026-10-22・23）。先に気づけるように
+      - name: Test yf_latest
+        run: python -X utf8 tests/test_yf_latest.py
+
       - name: Build 3-axis score
         run: python -X utf8 score3.py docs/score3.json
 
