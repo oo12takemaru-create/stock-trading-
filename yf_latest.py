@@ -32,11 +32,37 @@ def _flat(c):
     return c[~c.index.duplicated(keep="last")].sort_index()
 
 
+def _epoch(v):
+    """regularMarketTime などを UNIX 秒にそろえる。yfinance 1.7 から int ではなく
+    pandas.Timestamp で返るようになり、int(ts) が落ちて全ティッカーの終値が取れなくなった
+    （2026-10-22・10-23 の AI朝刊が欠番）。取れなければ None"""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return int(v)
+    try:
+        t = pd.Timestamp(v)
+    except Exception:
+        return None
+    if t.tzinfo is None:
+        t = t.tz_localize("UTC")
+    return int(t.timestamp())
+
+
 def fill_latest(ticker, c, verbose=True, until=None):
     """終値の Series（NaN を含んでよい）を受け取り、最新の取引日の終値が空欄なら
     取引所の確定値で埋めて、空欄を捨てて返す。
-    until（この日より前だけ欲しいとき）を渡すと、その日以降の値では埋めない"""
+    until（この日より前だけ欲しいとき）を渡すと、その日以降の値では埋めない
+    埋める処理で何が起きても、これまでどおり空欄を捨てるだけに戻す（終値ごと失わない）"""
     c = _flat(c)
+    try:
+        return _fill(ticker, c, verbose, until)
+    except Exception as e:
+        print(f"  {ticker}: 最新日の補完をあきらめた（{e}）", file=sys.stderr)
+        return c.dropna()
+
+
+def _fill(ticker, c, verbose, until):
     try:
         import yfinance as yf
         t = yf.Ticker(ticker)
@@ -48,14 +74,15 @@ def fill_latest(ticker, c, verbose=True, until=None):
         end = ((md.get("currentTradingPeriod") or {}).get("regular") or {}).get("end")
     except Exception:
         return c.dropna()
+    ts, end = _epoch(ts), _epoch(end)
     if price is None or ts is None:
         return c.dropna()
 
-    when = pd.Timestamp(int(ts), unit="s", tz="UTC").tz_convert(tzname)
+    when = pd.Timestamp(ts, unit="s", tz="UTC").tz_convert(tzname)
     day = pd.Timestamp(when.date())
     today = pd.Timestamp.now(tz=tzname).date()
     # その日の立会いが終わっているときだけ（取引時間中の途中の値で埋めない）
-    closed = day.date() < today or (end is not None and int(ts) >= int(end))
+    closed = day.date() < today or (end is not None and ts >= end)
     if not closed:
         return c.dropna()
     if until is not None and day >= pd.Timestamp(until):
