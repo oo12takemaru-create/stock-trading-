@@ -15,6 +15,9 @@ on:
     # 元データが更新された直後にも作り直す（定時だけだと最大4時間古くなる）
     workflows:
       - "AI Market Analysis (kaburadar.jp)"
+      # AI朝刊の本番経路はこちら（2026-10-05〜）。8:03 より後に朝刊が出た日に
+      # トップだけ前日の朝刊のまま 12:33 まで残っていた（2026-10-23）
+      - "AI Morning Ingest (routine → main)"
       - "Heatmap (kaburadar.jp)"
       - "Karauri Daily (kaburadar.jp)"
       - "Kessan Daily (kaburadar.jp)"
