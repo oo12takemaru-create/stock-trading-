@@ -60,6 +60,9 @@ TARGETS = [
     ("docs/buyback.json",       "自社株買い開示",     2),
     # 決算速報は平日に3回走る。決算が0件の日も updated は進むので当日更新を求める
     ("docs/kessan_flash.json",  "決算速報",           0),
+    # ★2026-10-24 追加★ 配当の記録（kessan_flash.py が同じ zip から追記・表示はまだしない）。
+    #   index.json は決算速報が走るたびに更新される。TDnet は31日で消えるので、止まると取り返せない
+    ("docs/dividend_hist/index.json", "配当の記録",   3),
     ("docs/board.json",         "トップの要約",       0),
     ("docs/karauri_score.json", "空売りの答え合わせ", 9),
     ("docs/cot_score.json",     "投機筋の答え合わせ", 9),
