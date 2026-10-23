@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-23T19:01:02+09:00",
+ "updated": "2026-10-23T22:51:37+09:00",
  "radar": {
   "index": "1306.T（TOPIX連動ETF）",
   "period": [
@@ -180,9 +180,9 @@
    "sankou": false
   },
   "match": {
-   "same": 50,
-   "diff": 4,
-   "pct": 92.6,
+   "same": 49,
+   "diff": 5,
+   "pct": 90.7,
    "rows": [
     {
      "d": "2026-08-04",
@@ -203,6 +203,11 @@
      "d": "2026-09-10",
      "published": "NEUTRAL",
      "replay": "BULLISH"
+    },
+    {
+     "d": "2026-10-23",
+     "published": "BULLISH",
+     "replay": "NEUTRAL"
     }
    ]
   }
