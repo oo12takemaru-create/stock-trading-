@@ -27,6 +27,14 @@
   ★週番号の数え方も変わった★ 新形式のA列コード（例 2026095）は「月曜が属する月」で数える。
   9/28〜10/2 は旧形式なら「10月第1週」だったが、新形式は「9月第5週」。JPX自身の表記に従う。
 
+■ 旧形式は「前週｜今週」の2ブロックが横に並んでいる（2026-10-23 に判明・修正）
+  11行目あたりに「08/31～09/04 | 09/07～09/11」の週ラベルがあり、各行は
+  [前週 金額・比率・差引] [今週 金額・比率・差引] の順。以前は行の「最初の大きな数」を
+  取っていたため**前週の値を拾っていた**（旧形式の履歴が丸ごと1週ずれていた）。
+  いまは週ラベル行から今週ブロックの列を特定して読む（parse_old_df）。
+  ファイルの週（ラベル・ファイル名）と選んだブロックの日付が一致しなければ止める。
+  investor_flow.py / precompute/score3_hist.py も parse_old_df を使う（読み方を1本化）。
+
 ■ パースの作法（カンマ入り文字列・千円→億円）は investor_flow.py と合わせる
 """
 import io
@@ -93,21 +101,6 @@ def links():
         print(f"  {p.split('/')[-1]:28s} {n}件")
         time.sleep(0.4)
     return found
-
-
-def first_number(vals):
-    """行から最初の大きな数値（売買代金・千円）を返す。カンマ入り文字列にも対応"""
-    for v in vals:
-        x = None
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            x = float(v)
-        elif isinstance(v, str):
-            s = v.replace(",", "").replace("△", "-").strip()
-            if re.fullmatch(r"-?\d+(\.\d+)?", s):
-                x = float(s)
-        if x is not None and abs(x) > 100000:
-            return x
-    return None
 
 
 def sheet_for(xl):
@@ -183,7 +176,7 @@ def _num(v):
     if v is None:
         return None
     if isinstance(v, (int, float)) and not isinstance(v, bool):
-        return float(v)
+        return None if v != v else float(v)          # NaN（pandas の空セル）は None
     t = str(v).replace(",", "").replace("△", "-").strip()
     return float(t) if re.fullmatch(r"-?\d+(\.\d+)?", t) else None
 
@@ -281,45 +274,114 @@ def new_week_meta(url_or_name, code):
     return d1.isoformat(), d2.isoformat(), label
 
 
+# ===== 旧形式（〜2026年9月第2週 stock_val_1_YYMMWW.xls） =====
+# 週ラベル行のセル「08/31～09/04」。前週・今週の2つが横に並ぶ（2016〜2026の557本すべて 10行目・D列とH列）
+OLD_BLOCK_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})\s*[～~〜]\s*(\d{1,2})/(\d{1,2})\s*$")
+
+
+def old_label(df):
+    """旧形式の週ラベル（例: 2026年9月第2週 2026/9 week2 ( 9/7 - 9/11 )）"""
+    for i in range(min(8, len(df))):
+        for v in df.iloc[i].tolist():
+            s = str(v)
+            if "週" in s and "年" in s:
+                return re.sub(r"\s+", " ", s).strip()
+    return None
+
+
+def old_week_block(df):
+    """週ラベル行を探し、今週ブロック（一番右）の 金額列・差引列・月日 を返す。
+
+    見出し「金額 Value」は2列の結合セルで、数字は右隣の列に入っている（D列見出し→E列に値）。
+    なので金額は「金額」見出しの列から「比率」見出しの手前までを範囲（amount_cols）で持つ。
+    戻り値: {"row","amount_cols":range,"balance_col","md":(m1,d1,m2,d2),"blocks":ブロック数}
+    """
+    for i in range(min(20, len(df))):
+        hits = []
+        for c, v in enumerate(df.iloc[i].tolist()):
+            m = OLD_BLOCK_RE.match(str(v))
+            if m:
+                hits.append((c, tuple(int(x) for x in m.groups())))
+        if not hits:
+            continue
+        c0, md = max(hits)                    # 一番右 = 今週（左は前週）
+        # 直下の段「金額 Value | 比率 Ratio | 差引き Balance」から、今週ブロック内の列を決める
+        sub = [str(v) for v in df.iloc[i + 1].tolist()] if i + 1 < len(df) else []
+        amount = next((c for c in range(c0, len(sub)) if sub[c].startswith("金額")), None)
+        ratio = next((c for c in range(c0, len(sub)) if sub[c].startswith("比率")), None)
+        balance = next((c for c in range(c0, len(sub)) if sub[c].startswith("差引")), None)
+        if amount is None or ratio is None or not amount < ratio:
+            raise ValueError("旧形式: 今週ブロックの「金額」「比率」列が見つからない")
+        return {"row": i, "amount_cols": range(amount, ratio), "balance_col": balance,
+                "md": md, "blocks": len(hits)}
+    raise ValueError("旧形式: 週ラベル行（MM/DD～MM/DD）が見つからない")
+
+
+def parse_old_df(df, code=None):
+    """旧形式の1シート（DataFrame, header=None）から **今週** の6主体を取る。
+
+    code（ファイル名の YYMMWW）があれば、週ラベルの「YYYY年M月第W週」とも突き合わせる。
+    戻り値: {"label","start","end","flows":{key:{"sell","buy"}}(千円),"net":{key:億円}}
+    """
+    label = old_label(df)
+    lm = re.search(r"(\d{4})年(\d{1,2})月第(\d)週", label or "")
+    if not lm:
+        raise ValueError(f"旧形式: 週ラベルが読めない（{label}）")
+    y, mo, wk = (int(x) for x in lm.groups())
+    if code and (2000 + int(code[:2]), int(code[2:4]), int(code[4:6])) != (y, mo, wk):
+        raise ValueError(f"旧形式: ファイル名 {code} と週ラベル {y}年{mo}月第{wk}週 が合わない")
+    start, end = week_dates(label, f"{y % 100:02d}")
+
+    blk = old_week_block(df)
+    m1, d1, m2, d2 = blk["md"]
+    # ★ずれ再発防止★ 選んだブロックの日付 = ファイルの週（ラベル末尾の ( 9/7 - 9/11 )）
+    if not start or (int(start[5:7]), int(start[8:10]), int(end[5:7]), int(end[8:10])) != (m1, d1, m2, d2):
+        raise ValueError(f"旧形式: 今週ブロック {m1:02d}/{d1:02d}～{m2:02d}/{d2:02d} が"
+                         f"ファイルの週 {start}〜{end} と合わない")
+
+    ac, bc = blk["amount_cols"], blk["balance_col"]
+
+    def amount(i):
+        """今週ブロックの金額（金額見出し〜比率見出しの手前で最初の数値）"""
+        return next((x for x in (_num(df.iloc[i, c]) for c in ac) if x is not None), None)
+
+    flows, net = {}, {}
+    for i in range(blk["row"] + 2, len(df) - 1):
+        lab = str(df.iloc[i, 0]).replace("　", "").replace(" ", "")
+        for prefix, key, _ in CATEGORIES:
+            if key in flows or not lab.startswith(prefix):
+                continue
+            sell, buy = amount(i), amount(i + 1)
+            if sell is None or buy is None:
+                continue
+            # 自己検証: 差引き（売り/買いどちらかの行に入る）= 買 − 売
+            if bc is not None:
+                bal = [b for b in (_num(df.iloc[i, bc]), _num(df.iloc[i + 1, bc])) if b is not None]
+                if bal and abs((buy - sell) - bal[0]) > 1:
+                    raise ValueError(f"旧形式: {key} 差引が 買−売 と合わない（{buy}-{sell}≠{bal[0]}）")
+            flows[key] = {"sell": sell, "buy": buy}
+            net[key] = round((buy - sell) / 100000)   # 千円 → 億円
+    return {"label": label, "start": start, "end": end, "flows": flows, "net": net}
+
+
+def read_old_sheet(raw, sheet=None):
+    """旧形式 xls から 東証1部/プライム のシートを DataFrame で返す → (df, シート名)"""
+    import pandas as pd
+    xl = pd.ExcelFile(io.BytesIO(raw))
+    sh = sheet or sheet_for(xl)
+    return xl.parse(sheet_name=sh, header=None), sh
+
+
 def parse(raw, code, url=""):
     if is_new_format(raw):
         w = parse_new(raw)
         start, end, label = new_week_meta(url, w["code"])
         return {"code": code, "label": label, "start": start, "end": end,
                 "sheet": w["sheet"], "net": w["net"]}
-    import pandas as pd
-    xl = pd.ExcelFile(io.BytesIO(raw))
-    sh = sheet_for(xl)
-    df = xl.parse(sheet_name=sh, header=None)
-
-    label = None
-    for i in range(min(8, len(df))):
-        for v in df.iloc[i].tolist():
-            s = str(v)
-            if "週" in s and "年" in s:
-                label = re.sub(r"\s+", " ", s).strip()
-                break
-        if label:
-            break
-
-    start, end = week_dates(label, code)
-
-    res = {}
-    for i in range(len(df) - 1):
-        lab = str(df.iloc[i, 0]).replace("　", "").replace(" ", "")
-        for prefix, key, _ in CATEGORIES:
-            if key in res:
-                continue
-            if lab.startswith(prefix):
-                # ★要確認(2026-10-23)★ 旧形式は「前週｜今週」の2列が並んでいて、first_number は
-                #   左の前週の列を拾っている（260902.xls で確認。9/7週のラベルに 8/31週の値が入る）。
-                #   旧形式の履歴(〜2026-09-11)は1週ずれている可能性がある。直すかは別途判断
-                sell = first_number(df.iloc[i].tolist()[1:])
-                buy = first_number(df.iloc[i + 1].tolist()[1:])
-                if sell and buy:
-                    res[key] = round((buy - sell) / 100000)   # 千円 → 億円
-    return {"code": code, "label": label, "start": start, "end": end,
-            "sheet": sh, "net": res}
+    df, sh = read_old_sheet(raw)
+    w = parse_old_df(df, code)
+    return {"code": code, "label": w["label"], "start": w["start"], "end": w["end"],
+            "sheet": sh, "net": w["net"]}
 
 
 def main():

@@ -247,11 +247,24 @@ def fetch_cftc(start="2015-01-01") -> pd.Series:
 
 
 def _jpx_xls_links(html: str):
-    return sorted(set(re.findall(r'href="([^"]*stock_val_1_\d+\.xls)"', html)))
+    """週次ファイルのリンク。旧形式 stock_val_1_YYMMWW.xls と
+    新形式 stock_1_w_開始日_終了日.xlsx（2026年9月第3週〜）の両方を拾う。
+    （新形式を拾わないと 9/14 週以降が取れず、海外投資家が最後の旧形式の値のまま前方補完される）"""
+    import investor_hist as ih
+    old = re.findall(r'href="([^"]*stock_val_1_\d+\.xls)"', html)
+    new = [m.group(1) for m in re.finditer(r'href="([^"]*' + ih.NEW_FILE_RE.pattern + ')"', html)]
+    return sorted(set(old + new))
 
 
+# ★v2★ 2026-10-23 に「前週の値を今週の週末日に付けていた」読み方を直した。
+#   旧キャッシュ（foreign_flow_weekly.csv）は1週ずれた値なので、名前を変えて使わない
 FLOW_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "cache", "foreign_flow_weekly.csv")
+                          "cache", "foreign_flow_weekly_v2.csv")
+
+# JPX は週の数字を翌週の第4営業日（ふつう木曜）15時ごろに出す。
+# 週末日（金曜）に付いた値を、公表後の翌金曜から使う（それより前に使うと先読みになる）。
+# 修正前は「前週の値を今週の週末日に付けていた」ため、結果的にこれと同じ1週遅れになっていた。
+FLOW_AVAILABLE_LAG = pd.Timedelta(days=7)
 
 
 def fetch_foreign_flow(years, use_cache=True) -> pd.Series:
@@ -265,8 +278,6 @@ def fetch_foreign_flow(years, use_cache=True) -> pd.Series:
     一度取ったら CSV に貯め、**足りない週だけ**取りに行く。
     日次バッチでは当年の1〜2本を見るだけで済む。
     """
-    import investor_flow as iflow
-
     cached = pd.Series(dtype="float64")
     if use_cache and os.path.exists(FLOW_CACHE):
         c = pd.read_csv(FLOW_CACHE)
@@ -301,8 +312,7 @@ def fetch_foreign_flow(years, use_cache=True) -> pd.Series:
         for href in todo:
             full = "https://www.jpx.co.jp" + href if href.startswith("/") else href
             try:
-                label, net = _parse_flow_xls(_get(full))
-                d = _week_end_from_label(label)
+                d, net = _parse_flow_any(href, _get(full))
                 if d and net is not None:
                     out[d] = float(net)
             except Exception:
@@ -323,7 +333,12 @@ def fetch_foreign_flow(years, use_cache=True) -> pd.Series:
 
 
 def _week_start_of(href):
-    """xls の名前 stock_val_1_YYMMDD.xls から週の頭の日付を取る。"""
+    """xls の名前 stock_val_1_YYMMDD.xls から週の頭の日付を取る。
+    新形式 stock_1_w_YYYYMMDD_YYYYMMDD.xlsx は開始日がそのまま入っている。"""
+    import investor_hist as ih
+    mn = ih.NEW_FILE_RE.search(href)
+    if mn:
+        return dt.datetime.strptime(mn.group(1), "%Y%m%d").date()
     m = re.search(r"stock_val_1_(\d{6})\.xls", href)
     if not m:
         return None
@@ -348,43 +363,37 @@ def _get(url, timeout=60):
         return r.read()
 
 
+def _parse_flow_any(href, raw):
+    """旧形式・新形式どちらでも (週末日, 海外投資家の差引 億円) を返す"""
+    import investor_hist as ih
+    if ih.is_new_format(raw):
+        w = ih.parse_new(raw)
+        _, end, _ = ih.new_week_meta(href, w["code"])
+        return (dt.date.fromisoformat(end) if end else None), w["net"].get("foreigners")
+    label, net = _parse_flow_xls(raw)
+    return _week_end_from_label(label), net
+
+
 def _parse_flow_xls(raw):
-    """海外投資家の差引（億円）を1本の xls から取る。
+    """海外投資家の差引（億円）を1本の xls から取る → (週ラベル, 億円)。
 
     ★シート名は市場区分の変更で変わる★
     2022年4月のプライム市場移行より前は "TSE 1st"、以後は "TSE Prime"。
-    株レーダー本番の investor_flow.py は "TSE Prime" 固定なので、
-    そのまま使うと2022年3月以前が丸ごと落ちる（実際に 2022-04 以降しか
-    取れず、10年のうち6年が欠けた）。本番は触らずここで吸収する。
+    シートの選び方と読み方は investor_hist.read_old_sheet / parse_old_df に1本化した。
+
+    ★旧形式は「前週｜今週」の2ブロックが横に並ぶ★（2026-10-23 修正）
+    以前は行の「最初の大きな数」＝**前週ブロックの値**を、今週のラベル（週末日）に
+    付けていた。いまは今週ブロックを読む。週末日は今週の値の週末日になる。
+    公表日（翌週木曜）より前に使わないためのずらしは axis3() 側で入れる（FLOW_AVAILABLE_LAG）。
     """
-    import io as _io
-    import pandas as _pd
-    import investor_flow as iflow
+    import investor_hist as ih
 
-    xl = _pd.ExcelFile(_io.BytesIO(raw))
-    sheet = next((s for s in ("TSE Prime", "TSE 1st") if s in xl.sheet_names), None)
-    if sheet is None:
+    try:
+        df, _ = ih.read_old_sheet(raw)
+    except Exception:
         return None, None
-    df = _pd.read_excel(xl, sheet_name=sheet, header=None)
-
-    label = None
-    for i in range(min(8, len(df))):
-        for v in df.iloc[i].tolist():
-            s = str(v)
-            if "週" in s and "年" in s:
-                label = re.sub(r"\s+", " ", s).strip()
-                break
-        if label:
-            break
-
-    for i in range(len(df) - 1):
-        head = str(df.iloc[i, 0]).replace("　", "").replace(" ", "")
-        if head.startswith("海外投資家"):
-            sell = iflow.first_number(df.iloc[i].tolist()[1:])
-            buy = iflow.first_number(df.iloc[i + 1].tolist()[1:])
-            if sell and buy:
-                return label, round((buy - sell) / 100000)   # 千円 → 億円
-    return label, None
+    w = ih.parse_old_df(df)
+    return w["label"], w["net"].get("foreigners")
 
 
 def _week_end_from_label(label):
@@ -410,6 +419,10 @@ def axis3(index, years) -> pd.DataFrame:
 
     df = pd.DataFrame(index=index)
     df["cot_change"] = cot.reindex(index, method="ffill") if len(cot) else np.nan
+    if len(flow):
+        flow = flow.copy()
+        flow.index = flow.index + FLOW_AVAILABLE_LAG      # 週末日 → 使ってよい日（公表後）
+        flow = flow[~flow.index.duplicated(keep="last")].sort_index()
     df["foreign_oku"] = flow.reindex(index, method="ffill") if len(flow) else np.nan
 
     pts = pd.Series(0, index=index, dtype="int64")
