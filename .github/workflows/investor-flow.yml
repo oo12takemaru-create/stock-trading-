@@ -32,8 +32,8 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        # numpy/scipy/yfinance は答え合わせ(investor_score.py)の分
-        run: pip install pandas xlrd numpy scipy yfinance
+        # openpyxl は新形式(2026年9月第3週〜の .xlsx)の読み込み、numpy/scipy/yfinance は答え合わせ(investor_score.py)の分
+        run: pip install pandas xlrd openpyxl numpy scipy yfinance
 
       - name: Fetch investor flow
         run: python investor_flow.py docs/investor_flow.json

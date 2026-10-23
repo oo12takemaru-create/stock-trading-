@@ -18,7 +18,16 @@
   構成銘柄が違うので、**黙って1本の系列として繋がない**。
   JSONの meta に変更日を持たせ、画面でも分かるようにする。
 
-■ 既存の investor_flow.py は無変更。パースの作法（カンマ入り文字列・千円→億円）だけ合わせる
+■ 2026年9月第3週（9/14〜）からファイル形式が変わった
+  旧: stock_val_1_YYMMWW.xls（シート "TSE Prime"、主体が行）
+  新: stock_1_w_YYYYMMDD_YYYYMMDD.xlsx（1シートだけ・横持ち。主体が列、市場が行）
+  ファイル名に週の開始日・終了日がそのまま入っている。
+  新形式の読み方は parse_new() にまとめ、investor_flow.py / investor_hist_append.py も
+  ここを使う（3本で読み方がずれないように）。
+  ★週番号の数え方も変わった★ 新形式のA列コード（例 2026095）は「月曜が属する月」で数える。
+  9/28〜10/2 は旧形式なら「10月第1週」だったが、新形式は「9月第5週」。JPX自身の表記に従う。
+
+■ パースの作法（カンマ入り文字列・千円→億円）は investor_flow.py と合わせる
 """
 import io
 import json
@@ -64,7 +73,8 @@ def http(url, tries=3):
 
 
 def links():
-    """最新ページ＋年別アーカイブから、週次xlsのURLを全部集める"""
+    """最新ページ＋年別アーカイブから、週次Excelの URL を全部集める
+    キーは 旧形式=YYMMWW（6桁）、新形式=w+開始日YYYYMMDD（並び順は週の開始日で後から直す）"""
     found = {}
     pages = [INDEX] + [ARCHIVE.format(n=n) for n in range(0, 11)]
     for p in pages:
@@ -76,6 +86,9 @@ def links():
         n = 0
         for m in re.finditer(r'href="([^"]*stock_val_1_(\d{6})\.xls)"', s):
             found.setdefault(m.group(2), BASE + m.group(1))
+            n += 1
+        for m in re.finditer(r'href="([^"]*' + NEW_FILE_RE.pattern + ')"', s):
+            found.setdefault("w" + m.group(2), BASE + m.group(1))
             n += 1
         print(f"  {p.split('/')[-1]:28s} {n}件")
         time.sleep(0.4)
@@ -131,7 +144,149 @@ def week_dates(label, code):
         return None, None
 
 
-def parse(raw, code):
+# ===== 新形式（2026年9月第3週〜 stock_1_w_YYYYMMDD_YYYYMMDD.xlsx） =====
+NEW_FILE_RE = re.compile(r"stock_1_w_(\d{8})_(\d{8})\.xlsx")
+
+# 旧形式の行の意味に合わせた、新形式での列の取り方。
+# 見出しは4段（自己/委託 → 個人・海外投資家・法人… → 現金・信用・投資信託… → 金融機関の内訳）。
+# 段ごとの日本語ラベル(p[0]〜p[3])で列グループを選び、該当グループの 売・買 を足す。
+#   旧「自己計」      = 自己の 現金＋信用
+#   旧「個人」        = 委託・個人の 現金＋信用
+#   旧「海外投資家」  = 委託・海外投資家の 法人＋個人
+#   旧「投資信託」「事業法人」「信託銀行」 = 委託・法人の内訳
+# （旧形式 stock_val_1_260902.xls の内訳表 個人現金/個人信用・自己現金/自己信用・
+#   海外投資家の法人/個人 を足すと、それぞれ 個人・自己計・海外投資家 に一致することを確認済み）
+# n は足すグループの数（列の取り違えを検出するため数も確かめる）
+NEW_SELECT = [
+    ("foreigners",  2, lambda p: p[0] == "委託" and p[1] == "海外投資家"),
+    ("individuals", 2, lambda p: p[0] == "委託" and p[1] == "個人"),
+    ("trust_banks", 1, lambda p: p[0] == "委託" and p[1] == "法人" and p[3] == "信託銀行"),
+    ("inv_trusts",  1, lambda p: p[0] == "委託" and p[1] == "法人" and p[2] == "投資信託"),
+    ("business",    1, lambda p: p[0] == "委託" and p[1] == "法人" and p[2] == "事業法人"),
+    ("proprietary", 2, lambda p: p[0] == "自己"),
+]
+
+
+def is_new_format(raw):
+    """xlsx（zip）なら新形式。旧形式は xls（BIFF）"""
+    return raw[:2] == b"PK"
+
+
+def _ja(v):
+    """「海外投資家 Foreigners」→「海外投資家」。見出しの日本語部分だけを取る"""
+    if v is None:
+        return ""
+    return re.split(r"[\s\u3000\xa0/／]+", str(v).strip())[0]
+
+
+def _num(v):
+    if v is None:
+        return None
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    t = str(v).replace(",", "").replace("△", "-").strip()
+    return float(t) if re.fullmatch(r"-?\d+(\.\d+)?", t) else None
+
+
+def parse_new(raw):
+    """新形式の週次xlsxから 東証プライム・金額 の6主体を取る。単位は旧形式と同じ千円。
+
+    列番号は決め打ちしない。結合セル（ws.merged_cells）を展開して各列の見出しの
+    階層を作り、NEW_SELECT の条件で列グループを選ぶ。
+    戻り値: {"code","market","sheet","flows":{key:{"sell","buy"}}(千円),"net":{key:億円}}
+    """
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+    ws = wb.worksheets[0]
+    nrow, ncol = ws.max_row, ws.max_column
+
+    grid = [[ws.cell(r, c).value for c in range(1, ncol + 1)] for r in range(1, nrow + 1)]
+    for mr in ws.merged_cells.ranges:          # 結合セルは左上の値で埋める
+        v = grid[mr.min_row - 1][mr.min_col - 1]
+        for r in range(mr.min_row, mr.max_row + 1):
+            for c in range(mr.min_col, mr.max_col + 1):
+                grid[r - 1][c - 1] = v
+
+    # 「売 Sales / 買 Purchases / 差引 Balance / 合計 Total」の段を探す。その上4段が見出し
+    sub_row = next((i for i, row in enumerate(grid)
+                    if sum(1 for v in row if _ja(v) == "売") >= 6), None)
+    if sub_row is None or sub_row < 4:
+        raise ValueError("新形式: 売/買 の見出し段が見つからない")
+    levels = grid[sub_row - 4:sub_row]
+
+    # 列グループ: 見出し4段が同じ列のまとまり（売・買・差引・合計）
+    groups = {}
+    for c in range(ncol):
+        sub = _ja(grid[sub_row][c])
+        if sub not in ("売", "買", "差引", "合計"):
+            continue
+        path = tuple(_ja(levels[k][c]) for k in range(4))
+        groups.setdefault(path, {})[sub] = c
+    if not any(p[0] == "自己" for p in groups) or not any(p[0] == "委託" for p in groups):
+        raise ValueError("新形式: 自己/委託 の見出しが見つからない")
+
+    # 東証プライムの「金額 Value」行
+    target, code, market = None, None, None
+    for i in range(sub_row + 1, nrow):
+        row = grid[i]
+        mk = str(row[1] or "")
+        if mk.startswith("東証プライム") and _ja(row[2]) == "金額":
+            target, code, market = row, str(row[0] or "").strip(), re.sub(r"\s+", " ", mk)
+            break
+    if target is None:
+        raise ValueError("新形式: 東証プライムの金額行が見つからない")
+
+    flows, net = {}, {}
+    for key, n_expect, cond in NEW_SELECT:
+        hit = [g for p, g in groups.items() if cond(p)]
+        if len(hit) != n_expect:
+            raise ValueError(f"新形式: {key} の列グループが {len(hit)}個（想定 {n_expect}）")
+        sell = buy = 0.0
+        for g in hit:
+            s_, b_, d_ = (_num(target[g[k]]) if k in g else None for k in ("売", "買", "差引"))
+            if s_ is None or b_ is None or d_ is None:
+                raise ValueError(f"新形式: {key} の売/買/差引が数値でない")
+            # 自己検証: 差引 = 買 − 売 になっていなければ列を取り違えている
+            if abs((b_ - s_) - d_) > 1:
+                raise ValueError(f"新形式: {key} 差引が 買−売 と合わない（{b_}-{s_}≠{d_}）")
+            sell += s_
+            buy += b_
+        flows[key] = {"sell": sell, "buy": buy}
+        net[key] = round((buy - sell) / 100000)        # 千円 → 億円
+
+    # 単位の確認: プライムの海外投資家の売りは週に数兆円＝10^9〜10^10千円台。桁が違えば単位が変わった
+    if not (1e8 < flows["foreigners"]["sell"] < 1e12):
+        raise ValueError(f"新形式: 金額の桁が想定外（海外投資家の売り {flows['foreigners']['sell']}）")
+
+    return {"code": code, "market": market, "flows": flows, "net": net,
+            # investor_hist.market_of はシート名で判定する。新形式はシートが1枚だけなので、
+            # 市場名の列（B列）で東証プライムの行を選んだうえで、旧形式と同じ "TSE Prime" を入れる
+            "sheet": "TSE Prime" if "TSE Prime" in market else market}
+
+
+def new_week_meta(url_or_name, code):
+    """新形式のファイル名（開始日・終了日）と A列の年月週コード（YYYYMMW）から
+    開始日・終了日・旧形式と同じ書式の週ラベルを作る"""
+    m = NEW_FILE_RE.search(url_or_name or "")
+    if not m:
+        return None, None, None
+    d1 = datetime.strptime(m.group(1), "%Y%m%d").date()
+    d2 = datetime.strptime(m.group(2), "%Y%m%d").date()
+    label = None
+    cm = re.fullmatch(r"(\d{4})(\d{2})(\d)", code or "")
+    if cm:
+        y, mo, w = int(cm.group(1)), int(cm.group(2)), int(cm.group(3))
+        label = (f"{y}年{mo}月第{w}週 {y}/{mo} week{w} "
+                 f"( {d1.month}/{d1.day} - {d2.month}/{d2.day} )")
+    return d1.isoformat(), d2.isoformat(), label
+
+
+def parse(raw, code, url=""):
+    if is_new_format(raw):
+        w = parse_new(raw)
+        start, end, label = new_week_meta(url, w["code"])
+        return {"code": code, "label": label, "start": start, "end": end,
+                "sheet": w["sheet"], "net": w["net"]}
     import pandas as pd
     xl = pd.ExcelFile(io.BytesIO(raw))
     sh = sheet_for(xl)
@@ -156,6 +311,9 @@ def parse(raw, code):
             if key in res:
                 continue
             if lab.startswith(prefix):
+                # ★要確認(2026-10-23)★ 旧形式は「前週｜今週」の2列が並んでいて、first_number は
+                #   左の前週の列を拾っている（260902.xls で確認。9/7週のラベルに 8/31週の値が入る）。
+                #   旧形式の履歴(〜2026-09-11)は1週ずれている可能性がある。直すかは別途判断
                 sell = first_number(df.iloc[i].tolist()[1:])
                 buy = first_number(df.iloc[i + 1].tolist()[1:])
                 if sell and buy:
@@ -172,7 +330,7 @@ def main():
 
     weeks, bad = [], []
     for i, code in enumerate(sorted(urls), 1):
-        f = CACHE / f"{code}.xls"
+        f = CACHE / (f"{code}.xlsx" if urls[code].endswith(".xlsx") else f"{code}.xls")
         if not f.exists():
             try:
                 f.write_bytes(http(urls[code]))
@@ -181,7 +339,7 @@ def main():
                 continue
             time.sleep(0.4)          # JPXへの礼儀
         try:
-            w = parse(f.read_bytes(), code)
+            w = parse(f.read_bytes(), code, urls[code])
         except Exception as e:
             bad.append((code, str(e)[:60]))
             continue
