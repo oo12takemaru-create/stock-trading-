@@ -169,6 +169,15 @@ jobs:
           } > _app/.env.local
           ( cd _app && npm ci --no-audit --no-fund && npx tsx scripts/calc-builder-example.ts )
           rm -f _app/.env.local
+          # ★書き出し先を docs/ へ移す★（2026-10-23）
+          #   スクリプトは手元の並び（ruletrade-app の隣に stock-trading がある）を前提に
+          #   _app から見て ../stock-trading/docs/ に書く。CI ではそれがリポジトリ直下の
+          #   stock-trading/docs/ になり、docs/ は古いまま＝「変更なし」で緑に終わっていた。
+          #   書けていなければ赤くする（黙って古い数字を残さない）。
+          test -s stock-trading/docs/builder_example.json \
+            || { echo "::error::builder_example.json が書き出されていません"; exit 1; }
+          mv -f stock-trading/docs/builder_example.json docs/builder_example.json
+          rm -rf stock-trading
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/builder_example.json
