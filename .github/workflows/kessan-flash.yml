@@ -4,6 +4,7 @@ name: Kessan Flash (kaburadar.jp)
 #   tdnet_list.py  : TDnetの当日一覧を貯める → docs/tdnet_list.json（直近10営業日・値動き③と共用）
 #   kessan_flash.py: 決算短信のXBRLから数字を抜く → docs/kessan_flash.json（直近60日）
 #                                                 → docs/kessan_flash_hist/YYYY-MM.json（月別・追記のみ）
+#                  （同じzipから配当の状況）        → docs/dividend_hist/YYYY-MM.jsonl（月別・追記のみ・表示はまだしない）
 # TDnetの一覧は約1か月で消えるので、月別履歴が資産になる。
 #
 # 15:00の決算集中に合わせて 15:30 / 16:30 / 18:30 JST の3回。
@@ -66,7 +67,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/tdnet_list.json docs/kessan_flash.json docs/kessan_flash_hist/
+          git add -f docs/tdnet_list.json docs/kessan_flash.json docs/kessan_flash_hist/ docs/dividend_hist/
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
