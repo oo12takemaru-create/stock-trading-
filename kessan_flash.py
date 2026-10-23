@@ -34,6 +34,10 @@ TDnetの一覧（tdnet_list.py）から「決算短信」を拾い、XBRLのサ�
 使い方:
   python -X utf8 kessan_flash.py                # tdnet_list.json にある全日
   python -X utf8 kessan_flash.py 2026-09-14     # 日付を絞る（検証用）
+
+■ 配当の記録（2026-10-24〜）
+  同じ zip から「配当の状況」を抜いて docs/dividend_hist/YYYY-MM.jsonl に追記する（kessan_div.py）。
+  表示はまだしない。読み取りを直したときの履歴の読み直しは kessan_flash_reread.py
 """
 import io
 import json
@@ -55,27 +59,90 @@ UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0; +https://kaburad
 KEEP_DAYS = 60
 SLEEP = 1.0
 
-TAG = re.compile(r'<ix:(nonFraction|nonNumeric)\s([^>]*?)>([\s\S]*?)</ix:\1>')
+# ■ タグの拾い方（2026-10-24 に直した）
+#   以前は `<ix:(nonFraction|nonNumeric)\s([^>]*?)>([\s\S]*?)</ix:\1>` の1本で拾っていたが、
+#   (1) 値の無い欄は自己終了タグ `<ix:nonFraction … xsi:nil="true"/>` で書かれる（nonNumeric も同じ）。
+#       旧式はこれを開始タグとみなして次の閉じタグまで飲み込み、**隣の欄の値を空欄の文脈に付け、
+#       本来の欄を消していた**（7725 インターアクション 1Q: 経常 -125・純利益 -81 が ord/np とも null）
+#   (2) nonNumeric（注記・予想の表など）の中に nonFraction が入れ子になっている短信があり、
+#       外側が中の数値をまとめて飲み込んでいた。nonNumeric 同士の入れ子もある
+#   → nonFraction と nonNumeric を別々に拾い、自己終了は「値なし」として飛ばす。
+#     nonNumeric の中身は入れ子を数えて、対応する閉じタグまでを取る
+NF_OPEN = re.compile(r'<ix:nonFraction\s([^>]*?)(/?)>')
+NN_OPEN = re.compile(r'<ix:nonNumeric\s([^>]*?)(/?)>')
+NN_TOKEN = re.compile(r'<ix:nonNumeric\b[^>]*?(/?)>|</ix:nonNumeric>')
 ATTR = re.compile(r'(\w[\w:-]*)="([^"]*)"')
 NUM = re.compile(r"-?[\d,]+(?:\.\d+)?")
 
 
-# ---------------------------------------------------------------- XBRL
-def facts(zip_bytes):
-    """サマリーのixbrl → {(要素名, 文脈): {text, shown, scale}} と様式の種別"""
+def nn_body(html, start):
+    """nonNumeric の開始タグの直後 start から、入れ子を数えて対応する閉じタグまでの中身"""
+    depth = 1
+    for m in NN_TOKEN.finditer(html, start):
+        if m.group(0).startswith("</"):
+            depth -= 1
+            if depth == 0:
+                return html[start:m.start()]
+        elif not m.group(1):           # 自己終了は深さを変えない
+            depth += 1
+    return None
+
+
+def iter_tags(html):
+    """(種類, 属性dict, 中身) を出す。自己終了（xsi:nil の空欄）は出さない"""
+    for m in NF_OPEN.finditer(html):
+        if m.group(2):
+            continue
+        end = html.find("</ix:nonFraction>", m.end())
+        if end < 0:
+            continue
+        yield "nonFraction", dict(ATTR.findall(m.group(1))), html[m.end():end]
+    for m in NN_OPEN.finditer(html):
+        if m.group(2):
+            continue
+        body = nn_body(html, m.end())
+        if body is None:
+            continue
+        yield "nonNumeric", dict(ATTR.findall(m.group(1))), body
+
+
+def nn_text_of(html, name_suffix):
+    """name が name_suffix で終わる nonNumeric の中身（入れ子込み）。最初の空でないもの"""
+    for m in NN_OPEN.finditer(html):
+        if m.group(2):
+            continue
+        if not dict(ATTR.findall(m.group(1))).get("name", "").endswith(name_suffix):
+            continue
+        body = nn_body(html, m.end())
+        if body:
+            return body
+    return None
+
+
+def summary_html(zip_bytes):
+    """ZIP → (サマリーのixbrl本文, 様式の種別)"""
     z = zipfile.ZipFile(io.BytesIO(zip_bytes))
     sm = [n for n in z.namelist() if "/Summary/" in n and n.endswith("-ixbrl.htm")]
     if not sm:
         raise ValueError("SummaryのixbrlがZIPに無い")
     html = z.read(sm[0]).decode("utf-8", "replace")
     # 例: tse-qcedjpsm-63090-... → kind="qcedjpsm"
-    kind = sm[0].split("/")[-1].split("-")[1]
+    return html, sm[0].split("/")[-1].split("-")[1]
+
+
+# ---------------------------------------------------------------- XBRL
+def facts(zip_bytes):
+    """サマリーのixbrl → {(要素名, 文脈): {text, shown, scale}} と様式の種別"""
+    html, kind = summary_html(zip_bytes)
+    return facts_html(html), kind, html
+
+
+def facts_html(html):
     out = {}
-    for m in TAG.finditer(html):
-        a = dict(ATTR.findall(m.group(2)))
+    for _tag, a, body in iter_tags(html):
         name = a.get("name", "").split(":")[-1]
         ctx = a.get("contextRef", "")
-        text = re.sub(r"<[^>]+>", "", m.group(3)).strip()
+        text = re.sub(r"<[^>]+>", "", body).strip()
         shown = None
         if NUM.fullmatch(text or ""):
             shown = float(text.replace(",", ""))
@@ -94,7 +161,7 @@ def facts(zip_bytes):
             if old_f["shown"] is None and f["shown"] is None and old_f["text"] and not text:
                 continue
         out[(name, ctx)] = f
-    return out, kind, html
+    return out
 
 
 def mil(f):
@@ -173,11 +240,12 @@ def forecast_from_text(html):
       通期  : 22,500 3.1 700 △38.4 750 △36.7 460 △51.8 46.07
     単位行の「百万円/千円」のセル位置に、見出しを順に当てはめて読む。
     形が崩れていたら（セル数が合わない等）何も返さない＝推測で当てはめない。"""
-    m = re.search(r'<ix:nonNumeric[^>]*name="[^"]*PreambleToForecasts"[^>]*>([\s\S]*?)</ix:nonNumeric>',
-                  html)
-    if not m:
+    # 空欄の自己終了タグ（xsi:nil）は飛ばし、入れ子を数えて中身を取る（2026-10-24。
+    # 旧式の正規表現は空欄の後ろにある別の表まで読んでいた）
+    body = nn_text_of(html, "PreambleToForecasts")
+    if not body:
         return {}
-    rows = [_cells(r) for r in re.split(r"</tr>", m.group(1))]
+    rows = [_cells(r) for r in re.split(r"</tr>", body)]
     rows = [r for r in rows if r]
     unit_i = next((i for i, r in enumerate(rows)
                    if r and r[0] in ("百万円", "千円") and "％" in r), None)
@@ -208,7 +276,7 @@ def forecast_from_text(html):
         out["fc_range"] = True         # レンジ予想。1つの数字にしない
     # 修正有無のチェック欄も同じ塊の中に文字で入っている
     # 「（注）直近に公表されている業績予想からの修正の有無：無」
-    flag = re.search(r"修正の有無[:：]\s*(有|無)", re.sub(r"<[^>]+>|&#160;", "", m.group(1)))
+    flag = re.search(r"修正の有無[:：]\s*(有|無)", re.sub(r"<[^>]+>|&#160;", "", body))
     if flag:
         out["fc_rev_flag"] = flag.group(1)
     return out
@@ -287,6 +355,13 @@ def extract(zip_bytes):
     # （2026-09-14 山王 3441:「通期15,600 0.4 800 △39.2 …」が PreambleToForecasts の中）。
     # 数値は取らないが、「予想なし」と誤って書かないために印だけ付ける
     if rec["fc_sales"] is None and rec["fc_op"] is None and rec["fc_np"] is None:
+        # レンジ予想は数値タグの _LowerMember / _UpperMember に入る（2026-10-24。旧式の読み方では
+        # この数字が飲み込まれ、文字の表から「レンジ」と分かるだけだった）。1つの数字にはしない
+        lo, up = fcc.replace("_ForecastMember", "_LowerMember"), fcc.replace("_ForecastMember", "_UpperMember")
+        if any((f(k, c) or {}).get("shown") is not None
+               for k in (sales_key, OP[std], np_key) for c in (lo, up)):
+            rec["fc_range"] = True
+            return rec
         t = forecast_from_text(html)
         if t:
             rec.update({k: t.get(k) for k in ("fc_sales", "fc_op", "fc_np")})
@@ -359,6 +434,18 @@ def kind_of(title):
 
 
 # ---------------------------------------------------------------- 本体
+def record_div(zip_bytes, item, day, rec, flag=None):
+    """同じ zip から配当の状況を抜いて1行にする（kessan_div.py）。失敗しても決算速報は止めない"""
+    try:
+        import kessan_div
+        html, kind = summary_html(zip_bytes)
+        div = kessan_div.extract_div(html, kind, (rec or {}).get("q"))
+        return [kessan_div.row(item, day, rec, div, flag)] if div else []
+    except Exception as e:
+        print(f"  配当を読めず {item.get('code', '')[:4]}: {str(e)[:60]}", file=sys.stderr)
+        return []
+
+
 def fetch(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90) as r:
         return r.read()
@@ -405,6 +492,7 @@ def main():
             "訂正で上書き": 0, "訂正の元が手元に無い": 0}
     fixes = []                       # 訂正短信は最後にまとめて当てる
     fails = []
+    div_rows = []                    # 配当の記録（kessan_div.py）。同じ zip から抜く
     out_days = {}
     for day in sorted(days, key=lambda x: x["d"]):      # 古い順＝履歴の前回予想が育つ
         ks = [x for x in day["items"] if kind_of(x["title"]) == "new"]
@@ -421,7 +509,8 @@ def main():
                 continue
             else:
                 try:
-                    r = extract(fetch(x["xbrl_url"]))
+                    zb = fetch(x["xbrl_url"])
+                    r = extract(zb)
                     time.sleep(SLEEP)
                 except Exception as e:
                     stat["失敗"] += 1
@@ -436,8 +525,13 @@ def main():
                        "pdf": x["pdf_url"], "id": x["id"]}
                 if not rec.get("fy"):
                     rec["fy"] = fy_from_title(x["title"])
+                div_rows += record_div(zb, x, day["d"], rec)
             rec["verdict"] = verdict(rec.get("sales_yoy"), rec.get("op_yoy"))
-            rec["fc_rev"] = fc_rev(rec, prev_fc.get((rec["c"], rec.get("fy"))))
+            # 予想修正の向きは「初めて読んだとき」に、それより前の履歴と比べて決める。
+            # 読み直した回（同じ日の2回目以降の実行など）に比べ直すと、履歴には自分自身の予想が
+            # もう入っているので、修正「有」が必ず「据置」になっていた（2026-10 の修正有69件が全部据置）
+            if x["id"] not in done:
+                rec["fc_rev"] = fc_rev(rec, prev_fc.get((rec["c"], rec.get("fy"))))
             rec["progress_op"] = progress(rec)
             rec.pop("skip", None)
             # 同じ銘柄×期×四半期は後から出たもの（訂正）を優先
@@ -460,7 +554,8 @@ def main():
         if not x["xbrl_url"] or x["id"] in done:
             continue
         try:
-            r = extract(fetch(x["xbrl_url"]))
+            zb = fetch(x["xbrl_url"])
+            r = extract(zb)
             time.sleep(SLEEP)
         except Exception as e:
             fails.append((x["code"][:4], x["name"], "訂正短信: " + str(e)[:50]))
@@ -469,6 +564,7 @@ def main():
             continue
         if not r.get("fy"):
             r["fy"] = fy_from_title(x["title"])
+        div_rows += record_div(zb, x, dfix, r, flag="訂正")
         key = (x["code"][:4], r.get("fy"), r["q"])
         if key not in index:
             stat["訂正の元が手元に無い"] += 1
@@ -522,6 +618,14 @@ def main():
         "count": sum(x["count"] for x in recent),
         "days": recent,
     }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    # ---- 配当の記録（追記のみ・表示はまだしない）。失敗しても決算速報は止めない
+    try:
+        import kessan_div
+        n_div = kessan_div.append(div_rows)
+        print(f"  配当の記録 +{n_div}行 → docs/dividend_hist/")
+    except Exception as e:
+        print(f"::warning::配当の記録に失敗（決算速報は続行）: {e}", file=sys.stderr)
 
     print("  " + " / ".join(f"{k}={v}" for k, v in stat.items()))
     for c, n, why in fails[:20]:

@@ -129,5 +129,67 @@ r = extract(summary_zip("qcedifsm", [
     ("OperatingIncomeIFRS", CUR, "100,000"), ("OperatingIncomeIFRS", PRI, "120,000")]))
 eq((r["sales"], r["sales_yoy"]), (1986357.0, 2.4), "IFRSで NetSalesIFRS を使う会社（ニデック 6594）")
 
+
+
+# ---- 空欄の自己終了タグと nonNumeric の入れ子（2026-10-24 に直した）
+#   旧式の正規表現は `<ix:nonFraction … xsi:nil="true"/>` を開始タグとみなし、次の閉じタグまで
+#   飲み込んでいた → 隣の欄の値が空欄の文脈に付き、本来の欄が消える。
+#   7725 インターアクション 1Q（2026-10-09）: 短信は 経常 -125・純利益 -81 なのに ord/np が null だった
+def raw_zip(kind, body):
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(f"XBRLData/Summary/tse-{kind}-00000-20261009-ixbrl.htm", f"<html>{body}</html>")
+    return buf.getvalue()
+
+
+C1 = "CurrentAccumulatedQ1Duration_ConsolidatedMember_ResultMember"
+NIL = '<ix:nonFraction name="tse-ed-t:{n}" contextRef="{c}" xsi:nil="true"/>'
+VAL = '<ix:nonFraction name="tse-ed-t:{n}" contextRef="{c}" scale="6" decimals="-6" format="ixt:numdotdecimal"{s}>{v}</ix:nonFraction>'
+body = (VAL.format(n="QuarterlyPeriod", c="CurrentAccumulatedQ1Instant", s="", v="1")
+        + VAL.format(n="NetSales", c=C1, s="", v="816")
+        + VAL.format(n="OperatingIncome", c=C1, s=' sign="-"', v="142")
+        + NIL.format(n="ChangeInOperatingIncome", c=C1)          # 前年が黒字で比較不能＝空欄
+        + VAL.format(n="OrdinaryIncome", c=C1, s=' sign="-"', v="125")
+        + NIL.format(n="ChangeInOrdinaryIncome", c=C1)
+        + VAL.format(n="ProfitAttributableToOwnersOfParent", c=C1, s=' sign="-"', v="81"))
+r = extract(raw_zip("qcedjpsm", body))
+eq((r["op"], r["ord"], r["np"], r["op_yoy"]), (-142.0, -125.0, -81.0, None),
+   "空欄の自己終了タグで隣の欄を取り違えない（7725）")
+
+# 注記の nonNumeric の中に数値タグが入れ子（さらに nonNumeric の入れ子・空欄の nonNumeric）
+body = (VAL.format(n="QuarterlyPeriod", c="CurrentAccumulatedQ1Instant", s="", v="1")
+        + '<ix:nonNumeric name="tse-ed-t:PreambleToForecasts" contextRef="x" xsi:nil="true"/>'
+        + '<ix:nonNumeric name="tse-ed-t:NoteToDividends" contextRef="x"><p>注記'
+        + '<ix:nonNumeric name="tse-ed-t:Other" contextRef="x">中</ix:nonNumeric>'
+        + VAL.format(n="NetSales", c=C1, s="", v="1,000")
+        + '</p></ix:nonNumeric>'
+        + VAL.format(n="OperatingIncome", c=C1, s="", v="50"))
+r = extract(raw_zip("qcedjpsm", body))
+eq((r["sales"], r["op"], r.get("fc_src")), (1000.0, 50.0, None),
+   "nonNumeric の入れ子の中の数値も拾う・空欄の予想注記を表として読まない")
+
+# ---- 配当の状況（kessan_div.py・2026-10-24〜記録だけ）
+from kessan_div import extract_div  # noqa: E402
+
+D = '<ix:nonFraction name="tse-ed-t:DividendPerShare" contextRef="{w}YearDuration_{s}Member_NonConsolidatedMember_{t}Member" scale="0" decimals="2" format="ixt:numdotdecimal">{v}</ix:nonFraction>'
+DN = '<ix:nonFraction name="tse-ed-t:DividendPerShare" contextRef="{w}YearDuration_{s}Member_NonConsolidatedMember_{t}Member" xsi:nil="true"/>'
+body = (D.format(w="Prior", s="SecondQuarter", t="Result", v="10.00")
+        + D.format(w="Prior", s="YearEnd", t="Result", v="34.00")
+        + D.format(w="Prior", s="Annual", t="Result", v="44.00")
+        + DN.format(w="Current", s="YearEnd", t="Lower")          # レンジでない会社の空欄
+        + D.format(w="Current", s="YearEnd", t="Forecast", v="45.00")
+        + D.format(w="Current", s="Annual", t="Forecast", v="55.00")
+        + '<ix:nonNumeric name="tse-ed-t:CorrectionOfDividendForecastInThisQuarter" contextRef="x">無</ix:nonNumeric>'
+        + '<ix:nonNumeric name="tse-ed-t:NoteToDividends" contextRef="x"><p>期末配当金45円00銭には、特別配当金10円00銭が含まれております。</p></ix:nonNumeric>')
+v = extract_div(f"<html>{body}</html>", "qcedjpsm", "1Q")
+eq((v["dps_prior"], v["dps_fc"], v["dps_fc_fy"], v["per"]["current_forecast"].get("ye"), v["rev"], v["special"]),
+   (44.0, 55.0, "当期", 45.0, "無", True), "配当: 前期実績・今期予想・空欄のレンジを取り違えない（7725）")
+v = extract_div("<html>" + D.format(w="Prior", s="Annual", t="Result", v="0.00")
+                + '<td>' + DN.format(w="Current", s="Annual", t="Forecast") + '未定</td></html>', "qcedjpsm", "2Q")
+eq((v["dps_prior"], v["dps_fc"], v.get("dps_fc_null")), (0.0, None, "予想未定"), "配当: 無配は0・未定は null と理由")
+eq(extract_div("<html></html>", "qcrejpsm", "本決算"), None, "配当: REITは記録しない")
+
 print(f"{'NG ' + str(NG) + '件' if NG else '全て一致 ✓'}")
 sys.exit(1 if NG else 0)
