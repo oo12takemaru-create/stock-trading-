@@ -1,59 +1,59 @@
 {
- "updated": "2026-10-15T21:29:22+09:00",
- "week": "2026年9月第2週 2026/9 week2 ( 9/7 - 9/11 )",
+ "updated": "2026-10-23T21:16:17+09:00",
+ "week": "2026年10月第2週 2026/10 week2 ( 10/13 - 10/16 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
- "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000001yhs9-att/stock_val_1_260902.xls",
+ "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002havh-att/stock_1_w_20261013_20261016.xlsx",
  "sheet": "TSE Prime",
  "items": [
   {
    "key": "foreigners",
    "label": "海外投資家",
-   "sell_oku": 283522,
-   "buy_oku": 290811,
-   "net_oku": 7288,
-   "prev_net_oku": -1747
+   "sell_oku": 247126,
+   "buy_oku": 243692,
+   "net_oku": -3435,
+   "prev_net_oku": 14475
   },
   {
    "key": "individuals",
    "label": "個人投資家",
-   "sell_oku": 103072,
-   "buy_oku": 102526,
-   "net_oku": -546,
-   "prev_net_oku": -535
+   "sell_oku": 75171,
+   "buy_oku": 77305,
+   "net_oku": 2134,
+   "prev_net_oku": 475
   },
   {
    "key": "trust_banks",
    "label": "信託銀行（年金など）",
-   "sell_oku": 12782,
-   "buy_oku": 8355,
-   "net_oku": -4427,
-   "prev_net_oku": -2003
+   "sell_oku": 6315,
+   "buy_oku": 5551,
+   "net_oku": -764,
+   "prev_net_oku": -327
   },
   {
    "key": "inv_trusts",
    "label": "投資信託",
-   "sell_oku": 10638,
-   "buy_oku": 7657,
-   "net_oku": -2981,
-   "prev_net_oku": -569
+   "sell_oku": 4091,
+   "buy_oku": 5472,
+   "net_oku": 1381,
+   "prev_net_oku": -1457
   },
   {
    "key": "business",
    "label": "事業法人（自社株買いなど）",
-   "sell_oku": 3422,
-   "buy_oku": 6087,
-   "net_oku": 2664,
-   "prev_net_oku": 2127
+   "sell_oku": 2266,
+   "buy_oku": 3899,
+   "net_oku": 1633,
+   "prev_net_oku": 1770
   },
   {
    "key": "proprietary",
    "label": "証券自己（プロップ）",
-   "sell_oku": 49941,
-   "buy_oku": 49260,
-   "net_oku": -681,
-   "prev_net_oku": 3043
+   "sell_oku": 40882,
+   "buy_oku": 40786,
+   "net_oku": -96,
+   "prev_net_oku": -12565
   }
  ]
 }
