@@ -11,6 +11,8 @@ JPX公式の週間Excelから、海外投資家・個人・信託銀行などの
   新: stock_1_w_YYYYMMDD_YYYYMMDD.xlsx（1シート・横持ち）
   新形式を優先して読む。新形式の読み方は investor_hist.parse_new() に1本化してある。
   旧形式のリンクしか無い場合に備えて、旧形式の読み方（parse_file）も残す。
+  旧形式も investor_hist.parse_old_df() を使う（「前週｜今週」の2ブロックのうち今週を読む。
+  以前の first_number() は左の前週ブロックを拾っていた → 2026-10-23 修正）。
 """
 import json
 import re
@@ -20,7 +22,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from investor_hist import NEW_FILE_RE, is_new_format, new_week_meta, parse_new  # noqa: E402
+from investor_hist import (NEW_FILE_RE, is_new_format, new_week_meta, parse_new,  # noqa: E402
+                           parse_old_df, read_old_sheet)
 
 JST = timezone(timedelta(hours=9))
 INDEX_URL = "https://www.jpx.co.jp/markets/statistics-equities/investor-type/index.html"
@@ -59,80 +62,32 @@ def find_latest_files():
     return links[:2]  # 最新週と前週
 
 
-def first_number(row_vals):
-    """行の中から最初の大きな数値(売買代金・千円)を返す。カンマ入り文字列にも対応"""
-    for v in row_vals:
-        x = None
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            x = float(v)
-        elif isinstance(v, str):
-            s = v.replace(",", "").replace("△", "-").strip()
-            if re.fullmatch(r"-?\d+(\.\d+)?", s):
-                x = float(s)
-        if x is not None and abs(x) > 100000:  # 比率(%)や小さい値を除外
-            return x
-    return None
+def _items(flows):
+    """{key: {"sell","buy"}}(千円) → 画面用の item（億円）"""
+    disp = {key: d for _, key, d in CATEGORIES}
+    return {key: {"key": key, "label": disp[key],
+                  "sell_oku": round(f["sell"] / 100000),
+                  "buy_oku": round(f["buy"] / 100000),
+                  "net_oku": round((f["buy"] - f["sell"]) / 100000)}   # 千円 → 億円
+            for key, f in flows.items()}
 
 
 def parse_new_file(url, raw):
     """新形式。戻り値は parse_file と同じ (週ラベル, {key: item}, シート名)"""
     w = parse_new(raw)
     _, _, week_label = new_week_meta(url, w["code"])
-    disp = {key: d for _, key, d in CATEGORIES}
-    result = {}
-    for key, f in w["flows"].items():
-        result[key] = {
-            "key": key, "label": disp[key],
-            "sell_oku": round(f["sell"] / 100000),
-            "buy_oku": round(f["buy"] / 100000),
-            "net_oku": round((f["buy"] - f["sell"]) / 100000),   # 千円 → 億円
-        }
-    return week_label, result, w["sheet"]
+    return week_label, _items(w["flows"]), w["sheet"]
 
 
 def parse_file(url):
-    import pandas as pd
-    import io
     raw = fetch(url)
     if is_new_format(raw):
         return parse_new_file(url, raw)
-    sheet = "TSE Prime"
-    df = pd.read_excel(io.BytesIO(raw), sheet_name=sheet, header=None)
-
-    # 週ラベル(例: 2026年7月第4週 2026/7 week4  ( 7/21 - 7/24 ))
-    week_label = None
-    for i in range(min(8, len(df))):
-        for v in df.iloc[i].tolist():
-            s = str(v)
-            if "週" in s and "年" in s:
-                week_label = re.sub(r"\s+", " ", s).strip()
-                break
-        if week_label:
-            break
-
-    result = {}
-    n = len(df)
-    for i in range(n - 1):
-        label = str(df.iloc[i, 0]).replace("　", "").replace(" ", "")
-        for prefix, key, disp in CATEGORIES:
-            if key in result:
-                continue
-            if label.startswith(prefix.replace("　", "")):
-                # ★要確認(2026-10-23)★ 旧形式は「前週｜今週」の2列が並んでいて、first_number は
-                #   左の前週の列を拾っている（260902.xls で確認。9/7週のラベルに 8/31週の値が入る）。
-                #   旧形式の履歴(〜2026-09-11)は1週ずれている可能性がある。直すかは別途判断
-                sell = first_number(df.iloc[i].tolist()[1:])
-                buy = first_number(df.iloc[i + 1].tolist()[1:])
-                if sell and buy:
-                    net_oku = (buy - sell) / 100000  # 千円 → 億円
-                    result[key] = {
-                        "key": key, "label": disp,
-                        "sell_oku": round(sell / 100000),
-                        "buy_oku": round(buy / 100000),
-                        "net_oku": round(net_oku),
-                    }
-    return week_label, result, sheet
-
+    # 旧形式: 今週ブロックを読む（ファイル名の週コードとラベルの突き合わせは parse_old_df 側）
+    m = re.search(r"stock_val_1_(\d{6})\.xls", url)
+    df, sheet = read_old_sheet(raw, "TSE Prime")
+    w = parse_old_df(df, m.group(1) if m else None)
+    return w["label"], _items(w["flows"]), sheet
 
 def main():
     dst = sys.argv[1] if len(sys.argv) > 1 else "docs/investor_flow.json"
