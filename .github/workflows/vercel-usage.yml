@@ -1,0 +1,38 @@
+name: Vercel Usage Watch (関数のCPU)
+
+# 2026-10-23: kaburadar の OG 画像の関数が Vercel の CPU 枠（Fluid Active CPU）を使い切り、チーム全体が停止した。
+# 月の累計（チーム全プロジェクト）が3時間を超えたら ntfy で知らせる。毎日 09:10 JST（= 00:10 UTC）。
+# 1日に1回なので通知は多くても1日1通。
+# 必要な Secrets: VERCEL_TOKEN（Vercel のチーム team_w3H2B1scUBhauPvE1drtRVpA のトークン）・NTFY_TOPIC（既存）
+on:
+  schedule:
+    - cron: '10 0 * * *'
+  workflow_dispatch:
+    inputs:
+      test_notify:
+        description: 'テスト用: しきい値に関係なく ntfy を1通送る（1 を入れる）'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Watch Vercel function CPU
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST_NOTIFY: ${{ inputs.test_notify }}
+        run: python -X utf8 vercel_usage_watch.py
