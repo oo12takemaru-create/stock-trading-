@@ -1,0 +1,65 @@
+name: Heatmap US (kaburadar.jp)
+
+# 米国株ヒートマップ用データ → docs/heatmap_us.json（＋確定値の回だけ docs/heatmap_us_days/）
+# 起動文: kaburadar\起動文_実務_米国株ヒートマップ_2026-10-24.md
+#
+# ★本命は cron-worker（src/us_market.js）からの workflow_dispatch★
+#   米国東部時間で 9:45（場中）・12:30（場中）・16:15（引け後の確定値）・18:00（確定値の取り直し＝予備）。
+#   日本時間では冬時間 23:45 / 2:30 / 6:15 / 8:00、夏時間はそれぞれ1時間早い。米国の休場日は起こさない。
+# ★下の schedule は Worker が落ちたときの保険★（GitHub の schedule は数時間遅れるのが常。二重に走っても
+#   同じ取引日の上書きになるだけで害はない）。UTC で書くので夏冬どちらでも引け後に入る時刻にしてある。
+#   1回あたり約1分（518銘柄の日足＋株数）。
+on:
+  schedule:
+    - cron: '25 21 * * 1-5'   # 引け後（冬 16:25 ET / 夏 17:25 ET）
+    - cron: '50 23 * * 1-5'   # 引け後の予備
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: heatmap-us
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # main のルールセットを通すため deploy key で checkout する（heatmap.yml と同じ）
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas lxml
+
+      # S&P500・ナスダック100 の構成（Wikipedia）。取れない・件数がおかしいときは既存の CSV を使う
+      - name: Refresh index lists
+        run: python -X utf8 us_index_list.py || true
+
+      - name: Fetch US heatmap data
+        run: python -X utf8 heatmap_us.py
+
+      - name: Commit heatmap_us.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/heatmap_us.json data/sp500.csv data/ndx100.csv
+          [ -d docs/heatmap_us_days ] && git add -f docs/heatmap_us_days
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🗽 米国株ヒートマップのデータを更新"
+          git pull --rebase origin main
+          git push

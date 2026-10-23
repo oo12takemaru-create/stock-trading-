@@ -210,6 +210,19 @@ npx wrangler dev --test-scheduled
 | 07:40 | **ai-weekly-prep**（`mode=sun`）週末版AIの前段（2026-10-07〜） |
 | 08:00 | **ai-weekly-prep**（`mode=sun`・予備。成功していても叩く） |
 
+### 米国株ヒートマップ（2026-10-24〜・米国東部時間で持つ）
+
+| 米国東部（ET） | 日本時間（冬 / 夏） | 起動するもの |
+|---|---|---|
+| 09:45 | 23:45 / 22:45 | heatmap-us（場中の途中経過） |
+| 12:30 | 2:30 / 1:30 | heatmap-us（場中の途中経過） |
+| 16:15 | 6:15 / 5:15 | heatmap-us（**引け後の確定値**・日付アーカイブを積む） |
+| 18:00 | 8:00 / 7:00 | heatmap-us（確定値の取り直し＝予備） |
+
+時刻表は `src/us_market.js` の `US_PLAN`。ET の曜日と NYSE の休場日（同じファイルの `US_HOLIDAYS`。
+収集側 `us_bizday.py` と同じ表・`npm test` が食い違いを止める）で判定し、**東証の休場日とは無関係に動く**。
+夏時間の切替は Worker が計算する（3月第2日曜〜11月第1日曜）。cron は増やしていない（:15 :30 :45 :00 は既存の cron で発火する）。
+
 > AI の prep（朝刊・週末版）は 3本目の cron `"5,35,40 * * * *"` で起こす（:05 :35 :40）。
 > GitHub の schedule は 10/7 に 20:35 UTC → 23:59 UTC 起動と数時間遅れたため（schedule は保険として残してある）。
 > mode は `DISPATCH_INPUTS`（JST の曜日 → inputs）で渡す。休場日でも止めないものは `RUN_ON_HOLIDAYS`。
