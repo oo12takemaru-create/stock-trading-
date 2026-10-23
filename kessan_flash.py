@@ -38,6 +38,11 @@ TDnetの一覧（tdnet_list.py）から「決算短信」を拾い、XBRLのサ�
 ■ 配当の記録（2026-10-24〜）
   同じ zip から「配当の状況」を抜いて docs/dividend_hist/YYYY-MM.jsonl に追記する（kessan_div.py）。
   表示はまだしない。読み取りを直したときの履歴の読み直しは kessan_flash_reread.py
+
+■ suspect 欄（2026-10-24・Fable 判断）
+  8/26〜9/14 開示の229件は TDnet から消えていて読み直せない。そのうち旧い読み方で誤りが起きうる形の行
+  （売上はあるのに経常/純利益が空、または値があるのに前年比が空）の75件に suspect / suspect_why を付けた。
+  サイトはこの行を銘柄ページの「直近の業績」と title の「業績」から外す。値そのものは書き換えていない
 """
 import io
 import json
