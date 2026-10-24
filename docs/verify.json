@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-23T22:51:37+09:00",
+ "updated": "2026-10-24T16:39:06+09:00",
  "radar": {
   "index": "1306.T（TOPIX連動ETF）",
   "period": [
@@ -12,7 +12,7 @@
    "2026-03-31"
   ],
   "cut": "2026-05-24",
-  "cut_commit": "b5415cf5（v2.8.0）",
+  "cut_commit": "c1656782（検証エンジン v2.8.0。本番は 2026-10-24 の 49e9c06f でこれに統一）",
   "built": {
    "all": {
     "label": "全期間平均",
@@ -28,35 +28,35 @@
    "rows": [
     {
      "label": "BULLISH",
-     "n": 632,
-     "r1": -0.0,
-     "r5": 0.22,
-     "r20": 1.62,
-     "r20_med": 1.79,
-     "up20": 68.8,
-     "dd20": -2.48,
+     "n": 452,
+     "r1": -0.03,
+     "r5": 0.21,
+     "r20": 1.52,
+     "r20_med": 1.83,
+     "up20": 69.2,
+     "dd20": -2.54,
      "sankou": false
     },
     {
      "label": "NEUTRAL",
-     "n": 135,
-     "r1": -0.06,
-     "r5": 0.24,
-     "r20": 0.22,
-     "r20_med": 0.18,
-     "up20": 53.3,
-     "dd20": -2.69,
+     "n": 316,
+     "r1": -0.0,
+     "r5": 0.23,
+     "r20": 1.16,
+     "r20_med": 0.95,
+     "up20": 61.4,
+     "dd20": -2.48,
      "sankou": false
     },
     {
      "label": "BEARISH",
-     "n": 344,
-     "r1": 0.04,
-     "r5": 0.46,
-     "r20": 1.36,
+     "n": 343,
+     "r1": 0.05,
+     "r5": 0.48,
+     "r20": 1.37,
      "r20_med": 1.93,
-     "up20": 65.7,
-     "dd20": -2.93,
+     "up20": 65.9,
+     "dd20": -2.92,
      "sankou": false
     },
     {
@@ -87,25 +87,25 @@
    "rows": [
     {
      "label": "BULLISH",
-     "n": 81,
-     "r1": -0.02,
-     "r5": 0.16,
-     "r20": 0.88,
-     "r20_med": 0.84,
-     "up20": 72.8,
-     "dd20": -1.99,
+     "n": 38,
+     "r1": -0.24,
+     "r5": -0.26,
+     "r20": 0.41,
+     "r20_med": 0.71,
+     "up20": 65.8,
+     "dd20": -2.62,
      "sankou": false
     },
     {
      "label": "NEUTRAL",
-     "n": 3,
-     "r1": 0.59,
-     "r5": 3.16,
-     "r20": 5.49,
-     "r20_med": 5.58,
-     "up20": 100.0,
-     "dd20": 0.31,
-     "sankou": true
+     "n": 46,
+     "r1": 0.2,
+     "r5": 0.71,
+     "r20": 1.58,
+     "r20_med": 1.14,
+     "up20": 80.4,
+     "dd20": -1.33,
+     "sankou": false
     }
    ]
   },
@@ -124,35 +124,35 @@
    "rows": [
     {
      "label": "BULLISH",
-     "n": 713,
-     "r1": -0.0,
-     "r5": 0.21,
-     "r20": 1.54,
-     "r20_med": 1.64,
-     "up20": 69.3,
-     "dd20": -2.42,
+     "n": 490,
+     "r1": -0.04,
+     "r5": 0.17,
+     "r20": 1.44,
+     "r20_med": 1.66,
+     "up20": 69.0,
+     "dd20": -2.55,
      "sankou": false
     },
     {
      "label": "NEUTRAL",
-     "n": 138,
-     "r1": -0.05,
-     "r5": 0.3,
-     "r20": 0.34,
-     "r20_med": 0.25,
-     "up20": 54.3,
-     "dd20": -2.62,
+     "n": 362,
+     "r1": 0.02,
+     "r5": 0.29,
+     "r20": 1.21,
+     "r20_med": 0.99,
+     "up20": 63.8,
+     "dd20": -2.33,
      "sankou": false
     },
     {
      "label": "BEARISH",
-     "n": 344,
-     "r1": 0.04,
-     "r5": 0.46,
-     "r20": 1.36,
+     "n": 343,
+     "r1": 0.05,
+     "r5": 0.48,
+     "r20": 1.37,
      "r20_med": 1.93,
-     "up20": 65.7,
-     "dd20": -2.93,
+     "up20": 65.9,
+     "dd20": -2.92,
      "sankou": false
     },
     {
@@ -170,46 +170,257 @@
   },
   "worse": {
    "label": "判定が悪化した日",
-   "n": 58,
-   "r1": -0.13,
-   "r5": 0.49,
-   "r20": 1.7,
-   "r20_med": 1.85,
-   "up20": 62.1,
-   "dd20": -2.5,
+   "n": 86,
+   "r1": -0.12,
+   "r5": 0.48,
+   "r20": 1.54,
+   "r20_med": 1.72,
+   "up20": 62.8,
+   "dd20": -2.59,
    "sankou": false
   },
   "match": {
-   "same": 49,
-   "diff": 5,
-   "pct": 90.7,
+   "same": 17,
+   "diff": 37,
+   "pct": 31.5,
+   "diff_rule": 37,
+   "diff_timing": 0,
    "rows": [
     {
-     "d": "2026-08-04",
-     "published": "NEUTRAL",
-     "replay": "BULLISH"
+     "d": "2026-08-03",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-05",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-06",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-07",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-10",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-12",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
     },
     {
      "d": "2026-08-18",
      "published": "NEUTRAL",
-     "replay": "BULLISH"
+     "replay": "BULLISH",
+     "kind": "rule"
     },
     {
-     "d": "2026-09-09",
-     "published": "NEUTRAL",
-     "replay": "BULLISH"
+     "d": "2026-08-19",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
     },
     {
-     "d": "2026-09-10",
-     "published": "NEUTRAL",
-     "replay": "BULLISH"
+     "d": "2026-08-20",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-21",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-24",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-25",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-26",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-27",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-28",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-08-31",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-01",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-02",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-03",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-04",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-07",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-08",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-11",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-14",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-15",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-16",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-17",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-18",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-24",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-09-29",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-15",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-16",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-19",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-20",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-21",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
+    },
+    {
+     "d": "2026-10-22",
+     "published": "BULLISH",
+     "replay": "NEUTRAL",
+     "kind": "rule"
     },
     {
      "d": "2026-10-23",
      "published": "BULLISH",
-     "replay": "NEUTRAL"
+     "replay": "NEUTRAL",
+     "kind": "rule"
     }
    ]
+  },
+  "rule_change": {
+   "d": "2026-10-24",
+   "commit": "49e9c06f",
+   "rule": "bt-2026-10-24",
+   "published_file": "radar_history_published_v1.json",
+   "days": 61,
+   "changed": 41,
+   "pairs": {
+    "BULLISH→NEUTRAL": 40,
+    "NEUTRAL→BULLISH": 1
+   }
   }
  },
  "ai": {

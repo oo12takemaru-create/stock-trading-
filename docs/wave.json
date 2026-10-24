@@ -1,12 +1,12 @@
 {
- "updated": "2026-10-23T21:04:32+09:00",
+ "updated": "2026-10-24T16:39:59+09:00",
  "asof": "2026-10-23",
  "position": {
-  "regime": "BULLISH",
-  "streak": 27,
-  "streak_radar": 22,
-  "streak_replay": 57,
-  "regime_replay": "BULLISH",
+  "regime": "NEUTRAL",
+  "streak": 7,
+  "streak_radar": 7,
+  "streak_replay": 7,
+  "regime_replay": "NEUTRAL",
   "regime_asof": "2026-10-23",
   "n225": {
    "close": 62693.16,
@@ -24,11 +24,11 @@
    "dist": -5.47,
    "asof": "2026-10-23"
   },
-  "vix": 19.57,
+  "vix": 19.59,
   "gauge": {
    "lit": 3,
    "total": 5,
-   "asof": "2026-10-23"
+   "asof": "2026-10-24"
   },
   "shinyo": {
    "buy_oku": 66617.0,
@@ -40,7 +40,7 @@
    "t": "FOMC結果発表（10/27-28開催）",
    "iso": "2026-10-29T03:00:00+09:00",
    "time": "午前3:00",
-   "days": 6
+   "days": 5
   },
   "fushime": [
    {
@@ -105,7 +105,7 @@
     {
      "text": "温度計が BEARISH/PANIC を2営業日連続",
      "level": 2,
-     "today": "BULLISH",
+     "today": "NEUTRAL",
      "gap": 2,
      "unit": "営業日",
      "met": false
@@ -139,14 +139,14 @@
  ],
  "similar": {
   "cond": {
-   "regime": "BULLISH",
-   "streak_band": "21日以上",
+   "regime": "NEUTRAL",
+   "streak_band": "6–20日",
    "dist_band": "−10%超",
    "vix_band": "15–20"
   },
   "cut": "2026-05-24",
   "whole": {
-   "n": 2,
+   "n": 1,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -157,7 +157,7 @@
    "major": null
   },
   "built": {
-   "n": 1,
+   "n": 0,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -191,26 +191,15 @@
   },
   "cases": [
    {
-    "d": "2024-07-25",
-    "res": "down",
-    "res_d": "2024-08-02",
-    "k": 6,
-    "ret20": 1.51,
-    "dd20": -16.76,
-    "dist": -10.31,
-    "vix": 18.04,
-    "streak": 178
-   },
-   {
-    "d": "2026-07-17",
+    "d": "2026-07-28",
     "res": "up",
-    "res_d": "2026-08-12",
-    "k": 16,
-    "ret20": 4.52,
-    "dd20": -4.82,
-    "dist": -11.37,
-    "vix": 16.73,
-    "streak": 27
+    "res_d": "2026-08-05",
+    "k": 6,
+    "ret20": 5.62,
+    "dd20": -2.07,
+    "dist": -11.51,
+    "vix": 18.67,
+    "streak": 10
    }
   ],
   "alt_with_gauge": {
@@ -227,7 +216,7 @@
     "major": "down"
    },
    "whole": {
-    "n": 2,
+    "n": 1,
     "enough": false,
     "sankou": true,
     "up": null,
@@ -245,7 +234,7 @@
   "v1": {
    "rule": "初期値で固定（起動文の値）。上抜け＝判定日の直近高値（20営業日の終値の最高値）を上回る／崩れ＝直近高値から−5%以下 または 温度計 BEARISH/PANIC 2営業日連続。傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留",
    "whole": {
-    "n": 2,
+    "n": 1,
     "enough": false,
     "sankou": true,
     "up": null,
@@ -278,6 +267,7 @@
    "days": 1,
    "scored": 0
   },
+  "bt_dup": 1,
   "days": 6,
   "scored": 0,
   "judged": 0,
@@ -347,7 +337,8 @@
     "d": "2026-10-16",
     "change": "3分岐を判定日の終値を起点にした出来事に改定：上抜け＝+5%以上／崩れ＝−5%以下 または 温度計 BEARISH/PANIC 2営業日連続／横ばい＝どちらも起きない。直近高値・52週高値は節目として距離を出すだけにした。傾斜計3つ以上は引き金にしない（参考表示）。理由：高値基準は状態を引き金にしていて、初日から崩れ・横ばいがほぼ出なかった"
    }
-  ]
+  ],
+  "regime_rule": "bt"
  },
  "link": {
   "text": "型の全文と、実際にどう運用しているかはルールトレード →",

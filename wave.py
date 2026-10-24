@@ -72,6 +72,11 @@ SPACING = 20           # 同じ局面が続くときは20営業日おきに1件
 N_HIDE = 10            # これ未満は数字を出さない
 N_SANKOU = 30          # これ未満は「参考値」
 CUT = "2026-05-24"     # 作った期間と確かめる期間の境目（温度計の判定条件が最後に変わった日・verify.py と同じ）
+                       # 2026-10-24 本番を検証エンジンのルールに統一。検証エンジンの条件は 2026-05-24 から不変なので境目はそのまま
+# 入力の温度計の定義（2026-10-24〜 "bt"＝検証エンジンと同じルール・PR #716）。
+# これより前に書いた wave_history の行には regime_rule が無い（＝旧ルール "scanner"）。行は書き換えない。
+# 分岐の定義・しきい値は v2 のまま（比較対象＝条件なしの割合は統一の前後で同じ 26.2/23.0/50.8 だったので v2.1 は立てない）
+REGIME_RULE = "bt"
 BEAR = {"BEARISH", "PANIC"}
 
 STREAK_BANDS = [("1–5日", 1, 5), ("6–20日", 6, 20), ("21日以上", 21, 10 ** 9)]
@@ -380,6 +385,16 @@ def record_of(hist):
     # 通算は今のルール（version）の行だけで数える。前のルールの行は v_old に件数だけ
     old = [r for r in hist if r.get("version", 1) != RULE_VERSION]
     hist = [r for r in hist if r.get("version", 1) == RULE_VERSION]
+    # 2026-10-24 の温度計のルール統一で、同じ日に旧ルールの行と新ルール（regime_rule:"bt"）の行が並ぶ日がある。
+    # 1日1件で数える：先に記録した行（その日に出した地図）を数え、あとから足した行は bt_dup に件数だけ
+    seen, dedup, dup = set(), [], 0
+    for r in hist:
+        if r["d"] in seen:
+            dup += 1
+            continue
+        seen.add(r["d"])
+        dedup.append(r)
+    hist = dedup
     scored = [r for r in hist if r.get("res") is not None]
     judged = [r for r in scored if r.get("hit") is not None]
     hits = sum(1 for r in judged if r["hit"])
@@ -389,6 +404,7 @@ def record_of(hist):
         by[b] = {"n": len(xs), "hit": sum(1 for r in xs if r["hit"])}
     return {"version": RULE_VERSION,
             "v_old": {"days": len(old), "scored": sum(1 for r in old if r.get("res"))},
+            "bt_dup": dup,
             "days": len(hist), "scored": len(scored), "judged": len(judged), "hits": hits,
             "pct": round(hits / len(judged) * 100, 1) if judged else None,
             "by_major": by,
@@ -524,9 +540,10 @@ def main():
     for r in hist:
         r.setdefault("version", 1)
     changed = score_history(hist, df, pub)
-    if not any(r["d"] == asof and r.get("version") == RULE_VERSION for r in hist):
+    if not any(r["d"] == asof and r.get("version") == RULE_VERSION
+               and r.get("regime_rule", "scanner") == REGIME_RULE for r in hist):
         hist.append({
-            "d": asof, "version": RULE_VERSION, "regime": regime, "streak": streak, "n225": r2(close), "high": r2(high),
+            "d": asof, "version": RULE_VERSION, "regime_rule": REGIME_RULE, "regime": regime, "streak": streak, "n225": r2(close), "high": r2(high),
             "dist": r2(dist), "vix": vix, "lit": lit,
             "up_level": r2(up_lv), "down_level": r2(dn_lv), "bear_need": bear_need,
             "cond": cond,
@@ -563,7 +580,7 @@ def main():
             "n_hide": N_HIDE, "n_sankou": N_SANKOU, "years": YEARS,
             "streak_bands": [x[0] for x in STREAK_BANDS], "dist_bands": [x[0] for x in DIST_BANDS],
             "vix_bands": [x[0] for x in VIX_BANDS],
-            "fixed_on": RULE_HISTORY[-1]["d"], "history": RULE_HISTORY,
+            "fixed_on": RULE_HISTORY[-1]["d"], "history": RULE_HISTORY, "regime_rule": REGIME_RULE,
         },
         "link": rules["link"],
     }
