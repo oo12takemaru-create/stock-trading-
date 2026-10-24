@@ -10,6 +10,7 @@ from __future__ import annotations
 import pandas as pd
 
 import config
+import delisting
 import portfolio_engine as pe
 from preset_rules import PRESET_RULES
 from universe import JAPAN_STOCKS
@@ -60,6 +61,8 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
 
     all_trades = []
     tickers = sorted(panel["ticker"].unique())
+    # 上場廃止した銘柄の最終売買日（docs/delisted.json が正）。その日で履歴を終える
+    last_days = delisting.last_trading_days(tickers)
     for k, t in enumerate(tickers, 1):
         sub = panel[panel["ticker"] == t].sort_values("date")
         dates = pd.DatetimeIndex(sub["date"].to_numpy())
@@ -69,7 +72,8 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
             cols[c] = v.astype(bool) if v.dtype == bool else v.astype("float64")
         sector = JAPAN_STOCKS.get(t, ("", ""))[1]
         all_trades += pe.simulate_ticker(t, sector, cols, dates, PRESET_RULES,
-                                         mkt, sector_risk, start=start, end=end)
+                                         mkt, sector_risk, start=start, end=end,
+                                         last_day=last_days.get(t))
         if k % 100 == 0 or k == len(tickers):
             log("  %d/%d 銘柄  候補 %s 件" % (k, len(tickers), f"{len(all_trades):,}"))
 

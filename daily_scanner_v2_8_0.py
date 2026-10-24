@@ -1150,6 +1150,25 @@ def fetch_stock_data(ticker, days_back=400):
         return None
 
 
+def load_delisted_last_days():
+    """上場廃止した銘柄の最終売買日 {ticker: date}。(表, 読めなかった理由 or None) を返す。
+
+    ★2026-10-24（Fable 判断）★ 上場廃止した銘柄（株式移転・TOB など）は、最終売買日より後に
+    値が無い。今までは「取得失敗」に数えていて、本当の失敗と見分けられなかった。
+    表は docs/delisted.json、最終売買日の決め方は precompute/delisting.py の1か所
+    （前計算・バックテストと同じ答えを使う）。
+    読めなくてもスキャンは止めない（今までどおり「取得失敗」に入るだけ）。理由はレポートに出す。
+    """
+    try:
+        pre = str(Path(__file__).resolve().parent / "precompute")
+        if pre not in sys.path:
+            sys.path.append(pre)          # 末尾に足す（このフォルダの同名モジュールを隠さない）
+        import delisting
+        return {t: d.date() for t, d in delisting.last_trading_days(list(STOCKS)).items()}, None
+    except Exception as e:
+        return {}, "%s: %s" % (type(e).__name__, e)
+
+
 # ============================================================================
 # メインスキャン
 # ============================================================================
@@ -1209,10 +1228,19 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None, balance_linked
     scanned = 0
     failed = 0
     total = len(STOCKS)
+    # ★上場廃止した銘柄は対象から外す（「取得失敗」に数えない）★（2026-10-24）
+    #   取得失敗は本当の失敗だけを数える。外した銘柄は ended に名前と最終売買日を残す
+    last_days, delisted_error = load_delisted_last_days()
+    ended = []
 
     for ticker, (name, sector) in STOCKS.items():
         if progress_callback:
             progress_callback(scanned, total, name)
+
+        last_day = last_days.get(ticker)
+        if last_day is not None and last_day < now.date():
+            ended.append({"ticker": ticker, "name": name, "last_trade": last_day.isoformat()})
+            continue
 
         df = fetch_stock_data(ticker)
         if df is None or len(df) < 200:
@@ -1308,6 +1336,8 @@ def scan(capital=1_000_000, risk_pct=1.0, progress_callback=None, balance_linked
         "n225": n225_now,
         "scanned": scanned,
         "failed": failed,
+        "ended": ended,
+        "delisted_error": delisted_error,
         "total_stocks": total,
         "signals": signals,
         "capital": capital,
@@ -1435,6 +1465,13 @@ def generate_markdown_report(result, concise=False):
     lines.append(f"- 検証銘柄: {result['total_stocks']} 銘柄")
     lines.append(f"- 取得成功: {result['scanned']} 銘柄")
     lines.append(f"- 取得失敗: {result['failed']} 銘柄")
+    ended = result.get("ended") or []
+    if ended:
+        lines.append(f"- 上場廃止で対象外: {len(ended)} 銘柄（"
+                     + "、".join(f"{e['name']}({e['ticker'].replace('.T', '')}) 最終売買日{e['last_trade']}"
+                                for e in ended) + "）")
+    if result.get("delisted_error"):
+        lines.append(f"- ⚠️ 上場廃止の表（docs/delisted.json）を読めませんでした: {result['delisted_error']}")
     lines.append(f"- 運用資金: ¥{result['capital']:,.0f}")
     lines.append(f"- 1トレードリスク: {result['risk_pct']}%")
     lines.append("")

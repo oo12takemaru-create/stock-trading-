@@ -139,6 +139,31 @@ def report_skipped(skipped, all_dates, log=print):
     return alerts
 
 
+def report_ended(ended, log=print):
+    """上場廃止で履歴を終えた銘柄を、ログとジョブの要約に出す（知らせのメールは出さない）。
+
+    短い履歴（report_skipped）とは別の枠にする。こちらは「提供元が戻れば書く」ではなく、
+    最終売買日で終わっていて、もう新しい日が来ない銘柄。
+    """
+    if not ended:
+        return
+    lines = ["%s: 最終売買日 %s（取得 %d 行・%s）"
+             % (e["ticker"], e["last_trade"], e["rows"],
+                "最終売買日までを計算" if e["used"] else "新しい日の計算から外した")
+             for e in ended]
+    log("上場廃止で履歴を終えた銘柄（docs/delisted.json）: %d" % len(ended))
+    for line in lines:
+        log("  " + line)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write("## 上場廃止で履歴を終えた銘柄（docs/delisted.json）\n\n")
+            f.write("最終売買日より後の日は取りに行かず、書きません。短い履歴の知らせには数えません。\n\n")
+            for line in lines:
+                f.write("- %s\n" % line)
+            f.write("\n")
+
+
 def check_incoming(panel, recent, log=print, stored=None, first_write=None):
     """★正本に足す前に、受け取った値を疑う★（2026-10-11）
 
@@ -237,9 +262,14 @@ def main():
     # ★履歴が短い銘柄は、新しい日の行だけ飛ばして進める★（2026-10-17・Fable 案C）
     #   ここは END より後の日しか書かない経路なので、検証期間の母集団には触れない。
     #   飛ばした銘柄は report_skipped でログ・要約に出し、続けば本人に知らせる。
-    skipped = []
+    # ★上場廃止した銘柄は最終売買日で終える★（2026-10-24・Fable 判断）
+    #   docs/delisted.json にある銘柄は、最終売買日より後を取りに行かず、短い履歴の知らせにも
+    #   数えない（report_ended で要約に1行ずつ出すだけ）。
+    skipped, ended = [], []
     panel, market, _ = run_pipeline(years=args.years, refresh=True, log=log,
-                                    short_ok=True, skipped_report=skipped)
+                                    short_ok=True, skipped_report=skipped,
+                                    ended_report=ended)
+    report_ended(ended, log=log)
 
     all_dates = sorted(pd.DatetimeIndex(panel["date"].unique()))
     recent = all_dates[-args.days:]

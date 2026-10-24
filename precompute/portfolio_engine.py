@@ -18,6 +18,7 @@
   損切り  : 安値が損切り水準に触れた日の**終値**で手仕舞い（水準ではなく終値）
   手仕舞い: 各戦略の出口（下表）。決済できないまま期間が終わったら期末強制決済
             （**期間の末の日の終値**で閉じる。期間の末より後の価格は使わない・2026-10-17）
+            上場廃止した銘柄は最終売買日が期間の末（その日の終値で期末強制決済・2026-10-24）
 
   | 戦略 | 損切り | 利確 | 時間切れ |
   |---|---|---|---|
@@ -104,11 +105,12 @@ class Trade:
 
 def simulate_ticker(ticker: str, sector: str, cols: dict, dates: pd.DatetimeIndex,
                     rules: list[PresetRule], mkt: dict,
-                    sector_risk: dict, start=None, end=None) -> list[Trade]:
+                    sector_risk: dict, start=None, end=None, last_day=None) -> list[Trade]:
     """1銘柄について、規定値ルールを優先順に当てながらトレードを作る。
 
     cols: 列名 -> numpy 配列（daily_metrics の1銘柄ぶん。日付順）
     mkt : {"regime": {date: str}, "sp1": {date: float}, "sp3": {date: float}}
+    last_day: 上場廃止した銘柄の最終売買日（delisting.last_trading_days）。None なら無い。
     """
     n = len(dates)
     mult = sector_risk.get(sector, sector_risk["default"])
@@ -126,7 +128,12 @@ def simulate_ticker(ticker: str, sector: str, cols: dict, dates: pd.DatetimeInde
     #   毎日当たって公開が止まった（2026-10-13〜）。
     #   ここで end 以前に切っておけば、約定も決済も end を越えられない。
     #   end に残った建玉は、下の _run_exit の最後で end の日の終値で閉じる。
-    k = int(dates.searchsorted(end, side="right"))
+    # ★上場廃止した銘柄は、最終売買日で履歴を終える★（2026-10-24・Fable 判断）
+    #   最終売買日より後の行（提供元が埋めた「出来高0・四本値同じ」の行や、旧コードに流れた
+    #   後継の新会社の値）では約定も決済もしない。最終売買日に残った建玉は、上の期間の末と
+    #   同じ扱い（その日の終値で「期末強制決済」）にする。黙って消さない。
+    cut = end if last_day is None else min(end, pd.Timestamp(last_day))
+    k = int(dates.searchsorted(cut, side="right"))
     if k < n:
         dates = dates[:k]
         cols = {c: v[:k] for c, v in cols.items()}
