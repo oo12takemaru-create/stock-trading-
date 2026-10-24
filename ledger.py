@@ -118,14 +118,29 @@ def from_regime():
     out, prev, prev_it = [], None, None
     for it in items:
         rg = it.get("regime")
-        if prev and rg and rg != prev:
-            row = rec("regime", it["d"], "MKT",
-                      {"regime": rg, "prev": prev, "vix": it.get("vix"), "n225": it.get("n225")},
-                      f"regime|{it['d']}", what=f"地合いの段階の変化（{prev}→{rg}）")
-            if (prev_it is not None and prev_it.get("rule") != it.get("rule")
-                    and it.get("rule") == "bt-2026-10-24" and recalc.get(prev_it["d"]) == rg):
+        boundary = (prev_it is not None and prev_it.get("rule") != it.get("rule")
+                    and it.get("rule") == "bt-2026-10-24" and recalc.get(prev_it["d"]))
+        if boundary and rg:
+            # 境目の1日だけ、前日を「新ルールで計算し直した判定」とも比べる（2026-10-24 Fable 判断）
+            #   新ルールの前日と違う → 本当の変化として行を立てる（prev＝新ルールの前日・cause なし）
+            #   新ルールの前日と同じで、公開した前日とだけ違う → 見かけの転換（cause を付ける）
+            #   どちらとも同じ → 行なし
+            rprev = recalc[prev_it["d"]]
+            if rg != rprev:
+                out.append(rec("regime", it["d"], "MKT",
+                               {"regime": rg, "prev": rprev, "prev_published": prev,
+                                "vix": it.get("vix"), "n225": it.get("n225")},
+                               f"regime|{it['d']}", what=f"地合いの段階の変化（{rprev}→{rg}）"))
+            elif rg != prev:
+                row = rec("regime", it["d"], "MKT",
+                          {"regime": rg, "prev": prev, "vix": it.get("vix"), "n225": it.get("n225")},
+                          f"regime|{it['d']}", what=f"地合いの段階の変化（{prev}→{rg}）")
                 row["cause"] = "rule_change_2026-10-24"
-            out.append(row)
+                out.append(row)
+        elif prev and rg and rg != prev:
+            out.append(rec("regime", it["d"], "MKT",
+                           {"regime": rg, "prev": prev, "vix": it.get("vix"), "n225": it.get("n225")},
+                           f"regime|{it['d']}", what=f"地合いの段階の変化（{prev}→{rg}）"))
         if rg:
             prev, prev_it = rg, it
     return out
