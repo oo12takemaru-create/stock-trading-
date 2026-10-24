@@ -9,6 +9,10 @@ from datetime import datetime, timezone, timedelta
 
 from stale_guard import keep_newest
 
+# 温度計の判定ルールの印（2026-10-24 検証エンジンと同じに統一・PR #716）。
+# ルールを変えたらここを変え、radar_history.json の過去分の扱いを決める（消さずに _published_vN で残す）。
+RULE = "bt-2026-10-24"
+
 
 def main() -> None:
     src, dst = sys.argv[1], sys.argv[2]
@@ -32,6 +36,7 @@ def main() -> None:
         "vix": _num(d.get("vix")),
         "n225": _num(d.get("n225")),
         "signal_count": len(d.get("signals") or []),
+        "rule": RULE,
     }
 
     # スキャナーが走らなかった日に古い signal.json を読み、2週間前の地合いを
@@ -51,12 +56,14 @@ def main() -> None:
         today = out["updated"][:10]
         entry = {"d": today, "regime": out["regime"], "vix": out["vix"],
                  "n225": out["n225"], "sig": out["signal_count"],
-                 "halt": out["is_halt"]}
+                 "halt": out["is_halt"], "rule": RULE}
         items = [x for x in hist.get("items", []) if x.get("d") != today]
         items.append(entry)
         items = sorted(items, key=lambda x: x["d"])[-400:]
         with open(hist_path, "w", encoding="utf-8") as f:
-            json.dump({"items": items}, f, ensure_ascii=False, separators=(",", ":"))
+            # items 以外の欄（rule・rule_note など、差し替えの記録）はそのまま残す
+            json.dump({**{k: v for k, v in hist.items() if k != "items"}, "items": items},
+                      f, ensure_ascii=False, separators=(",", ":"))
         print(f"radar_history.json 更新: {len(items)}日分")
     except Exception as e:
         print(f"履歴更新スキップ: {e}")
