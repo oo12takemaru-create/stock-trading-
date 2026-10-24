@@ -12,6 +12,7 @@ import datetime as dt
 import pandas as pd
 
 import config
+import delisting
 import metrics
 import fetching
 import trading_calendar
@@ -45,10 +46,21 @@ MAX_SHORT_SKIP = 5
 def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
                  auto_adjust: bool = config.DEFAULT_AUTO_ADJUST,
                  refresh: bool = False, log=print,
-                 short_ok: bool = False, skipped_report: list | None = None):
+                 short_ok: bool = False, skipped_report: list | None = None,
+                 ended_report: list | None = None):
     """(daily_metrics, market_condition, sectors) を返す。
 
     daily_metrics はウォームアップぶんを落とし、直近 years 年ぶんだけにする。
+
+    ★上場廃止した銘柄は、最終売買日で履歴を終える★（2026-10-24・Fable 判断）
+        最終売買日は delisting.last_trading_days（docs/delisted.json が正）。
+        その日より後の日は取りに行かない（取得の窓を最終売買日で閉じ、念のため行も切る）。
+        どちらの経路でも、最終売買日より後の行（提供元が埋めた行・後継コードの値）は入らない。
+        short_ok=True（日次の新しい日）のときは、取れなかった・短かった廃止銘柄を
+        「短い履歴」にも「取得失敗」にも数えず、MAX_SHORT_SKIP の数にも入れない
+        （＝提供元が旧コードを空にしても止まらない）。
+        short_ok=False（検証の材料）は今までどおり「1銘柄でも欠けたら止める」。
+        ended_report（list）を渡すと、廃止銘柄ごとに {ticker, last_trade, rows, used} を入れて返す。
 
     short_ok … ★日次で「新しい日」だけを書く経路（update_metrics.py）専用★（2026-10-17・Fable 案C）
         取得した履歴が短い銘柄を、止めずに panel から外して進める。外した銘柄は
@@ -97,8 +109,24 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
         log("  ★取り直しに成功しました: %s" % ", ".join(gfail))
 
     log("[2/4] 個別株を取得")
-    prices, failed = get_prices(tickers, start, end, auto_adjust=auto_adjust,
-                                kind="prices", refresh=refresh, log=log)
+    # 上場廃止で履歴が終わっている銘柄 {ticker: 最終売買日}（今日より前に終わったものだけ）
+    ended = {t: d for t, d in delisting.last_trading_days(tickers).items()
+             if d < pd.Timestamp(end) - pd.Timedelta(days=1)}
+    # 取得の窓の終わり（yfinance の end は含まないので、最終売買日の翌日を渡す）
+    fetch_end = {t: (d + pd.Timedelta(days=1)).date() for t, d in ended.items()}
+    prices, failed = get_prices([t for t in tickers if t not in ended], start, end,
+                                auto_adjust=auto_adjust, kind="prices", refresh=refresh, log=log)
+    if ended:
+        log("  上場廃止で履歴が終わっている銘柄: %s（最終売買日より後は取りに行きません）"
+            % "、".join("%s=%s" % (t, d.date()) for t, d in sorted(ended.items())))
+        for last in sorted(set(ended.values())):
+            group = [t for t in tickers if ended.get(t) == last]
+            got, gfail = get_prices(group, start, fetch_end[group[0]], auto_adjust=auto_adjust,
+                                    kind="prices", refresh=refresh, log=log)
+            for t, df in got.items():
+                prices[t] = df[df.index <= last]     # キャッシュの切り出しは end を含むので切り直す
+            if not short_ok:
+                failed += list(gfail)                # 検証の材料は今までどおり取り直し→止める
     log("  取得できた銘柄: %d / %d" % (len(prices), len(tickers)))
 
     # ★1銘柄でも欠けたら止める★（2026-09-22）
@@ -117,7 +145,9 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
         log("  ★個別株の取得に失敗: %s → 単独で取り直します" % ", ".join(failed))
         still = []
         for t in failed:
-            df = fetching.refetch_one(t, start, end, auto_adjust, log=log)
+            df = fetching.refetch_one(t, start, fetch_end.get(t, end), auto_adjust, log=log)
+            if df is not None and t in ended:
+                df = df[df.index <= ended[t]]        # 最終売買日より後の行は入れない
             if df is None:
                 still.append(t)
             else:
@@ -147,10 +177,19 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
     holiday_days, holiday_tickers = set(), 0
 
     log("[3/4] 前計算列を算出")
-    frames, skipped = [], []
+    frames, skipped, ended_out = [], [], []
     for i, t in enumerate(tickers, 1):
         df = prices.get(t)
+        if t in ended and ended_report is not None:
+            ended_report.append({"ticker": t, "last_trade": str(ended[t].date()),
+                                 "rows": 0 if df is None else len(df),
+                                 "used": df is not None and len(df) >= 200})
         if df is None or len(df) < 200:
+            if short_ok and t in ended:
+                # ★上場廃止で終わった銘柄は「短い履歴」に数えない★ 新しい日はもう無いので、
+                #   外しても書く行は変わらない。MAX_SHORT_SKIP の数にも入れない
+                ended_out.append(t)
+                continue
             skipped.append(t)
             continue
         # ★分割の取りこぼしを直してから計算する★（2026-10-11・8227.T で見つけた）
@@ -167,6 +206,9 @@ def run_pipeline(tickers=None, years: int = config.DEFAULT_YEARS,
             log("  個別株: 東証の休場日の行を落としました（%d 銘柄・%d 日: %s）"
                 % (holiday_tickers, len(ds), "、".join(str(d.date()) for d in ds[:6])
                    + (" ほか" if len(ds) > 6 else "")))
+    if ended_out:
+        log("  上場廃止で履歴が終わった銘柄は新しい日の計算から外しました（短い履歴には数えない）: %s"
+            % "、".join("%s（最終売買日 %s）" % (t, ended[t].date()) for t in ended_out))
     # ★行数が足りない銘柄も、黙って落とさない★（2026-09-22）
     #   取得は成功したのに中身が短い、という形でも母集団は変わる。
     #   入口（取得失敗）だけ塞いでも、ここが開いていれば同じことが起きる。
