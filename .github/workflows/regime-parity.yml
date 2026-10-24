@@ -1,0 +1,40 @@
+name: Regime Parity (本番と検証エンジンの地合い判定の一致)
+
+# 2026-10-24: 本番スキャナーと検証エンジンの地合い判定が最初から別々に書かれていて、
+# 10年で468営業日、答えが食い違っていた。勝率・PF・最大DDは検証エンジンの判定で出した数字なので、
+# どちらかの判定を変えたPRは、ここで必ず止まるようにする。
+# 作り物のデータで回すので、外部への通信もデータ取得も無い（数秒で終わる）。
+# 日次の売買ワークフローには入れない（テストの失敗でシグナル配信が止まる＝欠落の側に倒れるのを避ける）。
+
+on:
+  pull_request:
+    paths:
+      - 'daily_scanner_v2_8_0.py'
+      - 'integrated_backtest_v2_8_0.py'
+      - 'tests/test_regime_parity.py'
+      - '.github/workflows/regime-parity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'daily_scanner_v2_8_0.py'
+      - 'integrated_backtest_v2_8_0.py'
+      - 'tests/test_regime_parity.py'
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -q -r requirements.txt
+
+      - name: Test regime parity (scanner == engine)
+        run: python -X utf8 tests/test_regime_parity.py
