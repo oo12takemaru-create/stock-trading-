@@ -58,11 +58,17 @@ def main():
     if d:
         files["radar.json"] = pick(d, ["regime", "signal_count", "is_halt", "n225", "vix", "updated"])
 
-    # 地合いの日次履歴。トップのヒーローが「7日連続」と前日比の矢印に使う。
-    # 元ファイルは400日まで伸びるので、必要な25日ぶんだけ積む（トップは1fetchを守る）。
+    # 地合いの日次履歴。トップのヒーローが「7日連続」・前日比の矢印・「◯月以降で最長」に使う。
+    # 「最長」はトップが受け取った items の全部から数え、文言の「◯月」は items の最初の日から出す。
+    # 直近25日だけ積んでいたときは「9月以降で最長」と、実際の記録（8/2〜）より短い範囲で最長と
+    # 言ってしまっていた（2026-10-24 Fable 判断で全件から数える）。
+    # 元ファイルは400日まで伸びるので、直近25日は全部の欄・それより前は日付と判定だけ積む
+    # （トップは1fetchを守る。古い行は連続日数と最長にしか使わない）。
     d = load("radar_history.json")
     if d and d.get("items"):
-        files["radar_history.json"] = {"items": d["items"][-25:]}
+        it = sorted(d["items"], key=lambda x: x.get("d", ""))
+        old = [{"d": x.get("d"), "regime": x.get("regime")} for x in it[:-25]]
+        files["radar_history.json"] = {"items": old + it[-25:]}
 
     d = load("gauge.json")
     if d:

@@ -13,6 +13,9 @@
 ■ 価格が取れないまま 120暦日たった行は final=true（r は null のまま・"note" を付ける）
   上場廃止・コード変更などで永久に埋まらない行が、毎日の取得対象に残り続けないように。
 
+■ cause の付いた行は採点も統計もしない（2026-10-24〜）
+  例: cause:"rule_change_2026-10-24" ＝ 温度計のルール統一による見かけの段階変化。行は残す（追記のみ）
+
 ■ summary.json は内部確認用（サイトには出さない）
   判定元ごとの件数・r20 が出た件数・r20 の平均・r20 がプラスだった割合。
 """
@@ -97,9 +100,13 @@ def score_row(r, px, today):
 
 def summary(files, today):
     agg = defaultdict(lambda: {"n": 0, "n_r20": 0, "sum": 0.0, "up": 0})
+    excluded = defaultdict(int)
     for rows in files.values():
         for r in rows:
             if r.get("fix_of"):
+                continue
+            if r.get("cause"):
+                excluded[r["cause"]] += 1
                 continue
             a = agg[r["source"]]
             a["n"] += 1
@@ -114,13 +121,14 @@ def summary(files, today):
                   "r20_up_rate": round(a["up"] / a["n_r20"] * 100, 1) if a["n_r20"] else None}
     return {"updated": datetime.now(JST).isoformat(timespec="seconds"),
             "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
-            "total": sum(v["count"] for v in out.values()), "sources": out}
+            "total": sum(v["count"] for v in out.values()), "sources": out,
+            "excluded": dict(excluded)}
 
 
 def main():
     files = load()
     today = datetime.now(JST).date()
-    todo = [r for rows in files.values() for r in rows if not r.get("final")]
+    todo = [r for rows in files.values() for r in rows if not r.get("final") and not r.get("cause")]
     print(f"台帳 {sum(len(v) for v in files.values())}件 / 採点待ち {len(todo)}件")
     if todo:
         start = (date.fromisoformat(min(r["date"] for r in todo)) - timedelta(days=10)).isoformat()
