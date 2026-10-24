@@ -582,73 +582,80 @@ def prepare_indicators(df):
 # ============================================================================
 
 def detect_market_regime(global_data, date):
-    """BULLISH / NEUTRAL / BEARISH / PANIC の4環境判定"""
+    """BULLISH / NEUTRAL / BEARISH / PANIC の4環境判定
+
+    ★2026-10-24 検証エンジン(integrated_backtest_v2_8_0.py)と同じルールに統一(本人決定)★
+      これまでの勝率・PF・最大DDはすべて検証エンジンのルールで出した数字。
+      本番だけ BULLISH の条件が緩く(日経50日線・1ヶ月騰落を見ていなかった)、
+      2016〜2026/10 の 2,640営業日のうち 468日で「本番BULLISH／検証NEUTRAL」と食い違っていた。
+      → 本番は検証済みの仕組みと別の戦略の組み合わせで動いていた。
+
+      PANIC   : VIX>30 かつ 日経の1ヶ月騰落<-10%
+      BEARISH : 日経<200日線 または VIX>25
+      BULLISH : 日経>200日線 かつ 日経>50日線 かつ S&P500>200日線 かつ VIX<20 かつ 日経の1ヶ月騰落>0
+      それ以外: NEUTRAL
+
+      1ヶ月騰落は「22営業日前の終値比」(検証エンジンと同じ。以前の本番は30暦日前で、ここもずれていた)。
+      データが足りないときの扱いも検証エンジンと同じ(BEARISHは「200日線の上」とみなし、BULLISHは成立させない)。
+      tests/test_regime_parity.py が検証エンジンとの全日一致を確かめる。どちらかを変えたら必ず両方を直すこと。
+    """
     try:
+        ts = pd.Timestamp(date)
+        sig = {}
+
         n225 = global_data.get("^N225")
+        if n225 is not None and len(n225):
+            sub = n225[n225.index <= ts]
+            if len(sub) >= 200:
+                c = sub["Close"]
+                close = float(c.iloc[-1])
+                ma200 = float(c.rolling(200).mean().iloc[-1])
+                ma50 = float(c.rolling(50).mean().iloc[-1])
+                sig["n225_above_200ma"] = close > ma200
+                sig["n225_above_50ma"] = close > ma50
+                if len(sub) >= 22:
+                    sig["n225_1m_change"] = (close / float(c.iloc[-22]) - 1) * 100
+
         sp500 = global_data.get("^GSPC")
-        vix = global_data.get("^VIX")
+        if sp500 is not None and len(sp500):
+            sub = sp500[sp500.index <= ts]
+            if len(sub) >= 200:
+                c = sub["Close"]
+                sig["sp500_above_200ma"] = float(c.iloc[-1]) > float(c.rolling(200).mean().iloc[-1])
 
-        if n225 is None or sp500 is None or vix is None:
-            return "NEUTRAL", "データ不足"
+        vix_df = global_data.get("^VIX")
+        if vix_df is not None and len(vix_df):
+            sub = vix_df[vix_df.index <= ts]
+            if not sub.empty:
+                sig["vix"] = float(sub["Close"].iloc[-1])
 
-        n225_today = None
-        sp500_today = None
-        vix_today = None
+        vix = sig.get("vix", 20)
+        chg = sig.get("n225_1m_change", 0)
+        missing = [name for name, key in (("日経", "n225_above_200ma"), ("S&P500", "sp500_above_200ma"),
+                                          ("VIX", "vix")) if key not in sig]
+        note = f"（データ不足: {'・'.join(missing)}）" if missing else ""
 
-        for df in [n225]:
-            idx = df.index.searchsorted(pd.Timestamp(date))
-            if idx > 0:
-                n225_today = df.iloc[idx-1] if idx >= len(df) else df.iloc[idx]
-                break
-        for df in [sp500]:
-            idx = df.index.searchsorted(pd.Timestamp(date))
-            if idx > 0:
-                sp500_today = df.iloc[idx-1] if idx >= len(df) else df.iloc[idx]
-                break
-        for df in [vix]:
-            idx = df.index.searchsorted(pd.Timestamp(date))
-            if idx > 0:
-                vix_today = df.iloc[idx-1] if idx >= len(df) else df.iloc[idx]
-                break
+        if vix > 30 and chg < -10:
+            return "PANIC", f"VIX={vix:.1f} & 日経1ヶ月{chg:+.1f}%{note}"
 
-        if n225_today is None or sp500_today is None or vix_today is None:
-            return "NEUTRAL", "データ不足"
+        if not sig.get("n225_above_200ma", True) or vix > 25:
+            return "BEARISH", f"日経<200MA or VIX={vix:.1f}{note}"
 
-        n225_close = float(n225_today["Close"])
-        sp500_close = float(sp500_today["Close"])
-        vix_close = float(vix_today["Close"])
+        if (sig.get("n225_above_200ma", False) and sig.get("n225_above_50ma", False)
+                and sig.get("sp500_above_200ma", False) and vix < 20 and chg > 0):
+            return "BULLISH", f"日経>200MA・>50MA・1ヶ月{chg:+.1f}%, S&P>200MA, VIX={vix:.1f}"
 
-        # 200日MAとの関係
-        n225_ma200 = n225["Close"].rolling(200).mean()
-        sp500_ma200 = sp500["Close"].rolling(200).mean()
-
-        n225_ma_idx = n225_ma200.index.searchsorted(pd.Timestamp(date))
-        sp_ma_idx = sp500_ma200.index.searchsorted(pd.Timestamp(date))
-
-        n225_ma = float(n225_ma200.iloc[min(n225_ma_idx, len(n225_ma200)-1)])
-        sp500_ma = float(sp500_ma200.iloc[min(sp_ma_idx, len(sp500_ma200)-1)])
-
-        # 1ヶ月変化率
-        n225_1m_idx = n225.index.searchsorted(pd.Timestamp(date) - timedelta(days=30))
-        if n225_1m_idx < len(n225):
-            n225_1m_ago = float(n225["Close"].iloc[n225_1m_idx])
-            n225_1m_change = (n225_close - n225_1m_ago) / n225_1m_ago * 100
-        else:
-            n225_1m_change = 0
-
-        # PANIC判定
-        if vix_close > 30 and n225_1m_change < -10:
-            return "PANIC", f"VIX={vix_close:.1f} & 日経1ヶ月{n225_1m_change:+.1f}%"
-
-        # BEARISH判定
-        if n225_close < n225_ma or vix_close > 25:
-            return "BEARISH", f"日経<200MA or VIX={vix_close:.1f}"
-
-        # BULLISH判定
-        if n225_close > n225_ma and sp500_close > sp500_ma and vix_close < 20:
-            return "BULLISH", f"日経・S&P両方>200MA, VIX={vix_close:.1f}"
-
-        return "NEUTRAL", f"中立"
+        # 中立の理由: BULLISH のどの条件が欠けたかを書く(表示と検証の手がかり)
+        why = []
+        if not sig.get("n225_above_50ma", False):
+            why.append("日経<50MA")
+        if chg <= 0:
+            why.append(f"日経1ヶ月{chg:+.1f}%")
+        if not sig.get("sp500_above_200ma", False):
+            why.append("S&P<200MA")
+        if vix >= 20:
+            why.append(f"VIX={vix:.1f}")
+        return "NEUTRAL", ("中立（" + "・".join(why) + "）" if why else "中立") + note
 
     except Exception as e:
         return "NEUTRAL", f"判定エラー: {e}"
