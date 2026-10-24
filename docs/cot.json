@@ -1,73 +1,73 @@
 {
- "updated": "2026-10-17T10:09:00+09:00",
- "report_date": "2026-10-13",
+ "updated": "2026-10-24T09:30:50+09:00",
+ "report_date": "2026-10-20",
  "source": "CFTC Commitments of Traders (legacy, futures only, non-commercial)",
  "items": [
   {
    "key": "jpy",
    "label": "日本円",
-   "date": "2026-10-13",
-   "long": 191256,
-   "short": 141049,
-   "net": 50207,
-   "net_prev": 62325,
-   "change": -12118,
-   "open_interest": 373502
+   "date": "2026-10-20",
+   "long": 200186,
+   "short": 130308,
+   "net": 69878,
+   "net_prev": 50207,
+   "change": 19671,
+   "open_interest": 379141
   },
   {
    "key": "sp500",
    "label": "S&P500 (E-mini)",
-   "date": "2026-10-13",
-   "long": 224804,
-   "short": 365799,
-   "net": -140995,
-   "net_prev": -154070,
-   "change": 13075,
-   "open_interest": 1931607
+   "date": "2026-10-20",
+   "long": 215885,
+   "short": 358556,
+   "net": -142671,
+   "net_prev": -140995,
+   "change": -1676,
+   "open_interest": 1935470
   },
   {
    "key": "nasdaq",
    "label": "ナスダック100 (mini)",
-   "date": "2026-10-13",
-   "long": 83525,
-   "short": 35002,
-   "net": 48523,
-   "net_prev": 58123,
-   "change": -9600,
-   "open_interest": 279515
+   "date": "2026-10-20",
+   "long": 86099,
+   "short": 35373,
+   "net": 50726,
+   "net_prev": 48523,
+   "change": 2203,
+   "open_interest": 272462
   },
   {
    "key": "nikkei",
    "label": "日経平均先物(円建て)",
-   "date": "2026-10-13",
-   "long": 5687,
-   "short": 2979,
-   "net": 2708,
-   "net_prev": 814,
-   "change": 1894,
-   "open_interest": 23701
+   "date": "2026-10-20",
+   "long": 5413,
+   "short": 3168,
+   "net": 2245,
+   "net_prev": 2708,
+   "change": -463,
+   "open_interest": 25143
   },
   {
    "key": "gold",
    "label": "金",
-   "date": "2026-10-13",
-   "long": 245300,
-   "short": 37421,
-   "net": 207879,
-   "net_prev": 210335,
-   "change": -2456,
-   "open_interest": 396345
+   "date": "2026-10-20",
+   "long": 237142,
+   "short": 37277,
+   "net": 199865,
+   "net_prev": 207879,
+   "change": -8014,
+   "open_interest": 402279
   },
   {
    "key": "wti",
    "label": "WTI原油",
-   "date": "2026-10-13",
-   "long": 62619,
-   "short": 85522,
-   "net": -22903,
-   "net_prev": -12446,
-   "change": -10457,
-   "open_interest": 754570
+   "date": "2026-10-20",
+   "long": 58652,
+   "short": 82647,
+   "net": -23995,
+   "net_prev": -22903,
+   "change": -1092,
+   "open_interest": 755018
   }
  ]
 }
