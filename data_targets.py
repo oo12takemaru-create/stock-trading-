@@ -27,6 +27,9 @@ TARGETS = [
     # ★2026-10-09 入口強化★ 日経225・グロース（heatmap.yml）と業種別（movers-daily.yml）
     ("docs/heatmap_225.json",   "日経225ヒートマップ", 0),
     ("docs/heatmap_growth.json", "グロースヒートマップ", 0),
+    # ★2026-10-24 寄与度とウエート★ 係数（n225_coef.py・heatmap.yml の毎回）。検算の結果を毎回書くので updated は毎回進む。
+    #   検算が合わない日は healthcheck_content.py の「日経225の寄与度」が知らせる
+    ("data/n225_coef.json",     "日経225の寄与度の係数", 0),
     ("docs/heatmap_sector.json", "業種別ヒートマップ", 0),
     # ★2026-10-24 米国株ヒートマップ★（heatmap-us.yml・cron-worker が米国東部の 9:45/12:30/16:15/18:00 に起こす）
     #   許容1営業日。米国の休場日（us_bizday.py）は続いても1日なので、休場の前後の場中の回が updated を進める

@@ -120,6 +120,24 @@ def ck_heatmap(d, ctx):
     return None
 
 
+def ck_n225_contrib(d, ctx):
+    """日経225の寄与度（2026-10-24）。Σ寄与度と日経平均の前日比の差が ±3円を超えて表示を止めた回を知らせる。
+    updated は進むので鮮度では捕まらない。係数（data/n225_coef.json）の割り戻しの失敗と、基準の月末が古すぎるのも見る"""
+    nk = d.get("nk")
+    if nk is None:
+        return "nk（寄与度の要約）が無い＝寄与度を計算していない"
+    if not nk.get("ok"):
+        return f"寄与度を止めている: {nk.get('why')}（{nk.get('td')}・Σ{nk.get('sum')}円 / 前日比{nk.get('chg')}円）"
+    co = ctx.at("data/n225_coef.json") or {}
+    if co.get("refit_note"):
+        r = co["refit_note"]
+        return f"係数の割り戻し直しに失敗（{r.get('from')}〜: {r.get('why')}）"
+    asof = (co.get("base") or {}).get("asof")
+    if asof and (ctx.ref - datetime.fromisoformat(asof).date()).days > 45:
+        return f"係数の基準の月末が {asof}（45日より前）＝月末ウエートを取り込めていない"
+    return None
+
+
 SHINYO_JUMP = 15.0     # 全体の買い残の前日比がこれ（%）を超えたら知らせる
 
 
@@ -221,6 +239,7 @@ CHECKS = [
     ("docs/ai_analysis.json",  "AI朝刊",                 ck_ai),
     ("docs/board.json",        "トップの要約",           ck_board),
     ("docs/heatmap.json",      "ヒートマップ",           ck_heatmap),
+    ("docs/heatmap_225.json",  "日経225の寄与度",        ck_n225_contrib),
     ("docs/karauri.json",      "空売り残高",             count_check("stocks", 700, "銘柄")),
     ("docs/tenbagger.json",    "十倍株スキャナー",       count_check("items", 10, "銘柄")),
     ("docs/investor_flow.json", "投資部門別",            count_check("items", 4, "主体")),
