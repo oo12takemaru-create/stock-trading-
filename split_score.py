@@ -56,7 +56,7 @@ CHUNK = 40
 MIN_SHOW, MIN_FIRM = 10, 30
 HALF = "2023-01-01"            # 前半／後半の境目
 A_WIN = (1, 5, 20, 60)
-SKIP_SECTIONS = {"不動産投信(REIT)", "ETF", "ETN(JDR)", "ETF(JDR)", "<外国株>"}
+SKIP_SECTIONS = {"不動産投信(REIT)", "ETF", "ETN(JDR)", "ETF(JDR)", "<外国株>", "TOKYO PRO Market"}
 
 
 def log(*a):

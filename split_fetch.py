@@ -50,8 +50,20 @@ JPX_PAGES = (["/markets/statistics-equities/monthly/index.html"]
 RECENT_DAYS = 90          # 「直近90日に発表された分割」
 LOOKBACK_BD = 3           # 毎回取り直す TDnet の営業日数
 PDF_KINDS = {"split", "correction", "cancel"}
-JPX_SKIP = {"不動産投信(REIT)", "ETF", "ETN(JDR)", "ETF(JDR)", "<外国株>"}
+# 東証の内国株だけを扱う（2026-10-24 Fable 判断4）。REIT・ETF・外国株に加え、TOKYO PRO Market も外す
+JPX_SKIP = {"不動産投信(REIT)", "ETF", "ETN(JDR)", "ETF(JDR)", "<外国株>", "TOKYO PRO Market"}
+LISTED = DOCS / "jpx_listed_codes.json"      # 東証の内国株の一覧（jukyu_events.py が毎週書く・ETF/REIT/TPM を含まない）
+
+
+def listed_codes():
+    """いま東証に上場している内国株のコード。読めなければ None（＝絞らない）"""
+    try:
+        c = set(json.loads(LISTED.read_text(encoding="utf-8"))["codes"])
+        return c if len(c) > 3000 else None
+    except Exception:
+        return None
 SLEEP = 1.0
+LISTED_SET = None
 
 
 def log(*a):
@@ -221,12 +233,19 @@ def read_jpx(state, only_new_page=False):
 
 
 # ─────────────────────────── まとめる（読む側）
-def build_events(rows):
+def build_events(rows, listed=None):
     """履歴の行 → 分割1件ごとのまとまり。キーは (銘柄, 基準日)。
 
     TDnet の決議の行が元。訂正の行は、同じ銘柄の直近60日の決議に「書かれていた項目だけ」上書きする。
     中止の行は status を「中止」にする。JPX の行は同じ (銘柄, 基準日) に権利落ち日を足し、
     無ければ JPX だけの1件（発表日なし）として立てる。"""
+    # 東証の内国株だけ（判断4）。TDnet の開示は、いまの東証内国株の一覧にあるコードだけ
+    # （札証単独・TOKYO PRO Market を外す）。JPX の行は区分の見出しで外す（上場廃止した内国株は残す）
+    if listed is None:
+        listed = listed_codes()
+    rows = [r for r in rows
+            if not (r["src"] == "jpx" and r.get("section") in JPX_SKIP)
+            and not (r["src"] == "tdnet" and listed is not None and r["code"] not in listed)]
     td = sorted([r for r in rows if r["src"] == "tdnet"], key=lambda r: (r["d"], r.get("time") or "", r["id"]))
     ev, by_code = {}, {}
     for r in td:
@@ -321,7 +340,9 @@ def main():
                                  if TDLIST.exists() else set(st) | set(got_days))
     STATE.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    ev = build_events(rows)
+    global LISTED_SET
+    LISTED_SET = listed_codes()
+    ev = build_events(rows, LISTED_SET)
     now = datetime.now(JST)
     today = now.date().isoformat()
     lo = (now.date() - timedelta(days=RECENT_DAYS)).isoformat()
@@ -337,7 +358,8 @@ def main():
             {k: e[k] for k in ("ann", "ratio", "record", "kenri", "ex", "effective", "status") if e.get(k)})
     other = [slim(dict(code=r["code"], name=r.get("name"), ann=r["d"], title=r["title"], pdf=r.get("pdf"),
                        status=r["kind"]))
-             for r in rows if r["src"] == "tdnet" and r["kind"] in ("gratis", "reverse") and r["d"] >= lo]
+             for r in rows if r["src"] == "tdnet" and r["kind"] in ("gratis", "reverse") and r["d"] >= lo
+             and (LISTED_SET is None or r["code"] in LISTED_SET)]
     tdays = state.get("tdnet_days", [])
     ok = [e for e in ev if "tdnet" in e["src"]]
     out = {
