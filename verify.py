@@ -27,8 +27,14 @@ ORDER = ["BULLISH", "NEUTRAL", "BEARISH", "PANIC"]
 RANK = {"BULLISH": 3, "NEUTRAL": 2, "BEARISH": 1, "PANIC": 0}
 
 # ロジックの判定条件が最後に変わった日（git の履歴で確認・報告に根拠コミットを書いた）
+# 温度計: 2026-10-24 に本番の判定を検証エンジン（integrated_backtest_v2_8_0）と同じルールに統一した
+#   （PR #716・49e9c06f）。検証エンジンの判定条件は v2.8.0（2026-05-24・c1656782）から変わっていないので、
+#   境目は 2026-05-24 のまま。根拠のコミットだけ検証エンジン側に直した。
 CUT = {"radar": "2026-05-24", "score3": "2026-09-05", "gauge": "2026-08-11"}
-CUT_COMMIT = {"radar": "b5415cf5（v2.8.0）", "score3": "5a4104d4", "gauge": "e5a63d56"}
+CUT_COMMIT = {"radar": "c1656782（検証エンジン v2.8.0。本番は 2026-10-24 の 49e9c06f でこれに統一）",
+              "score3": "5a4104d4", "gauge": "e5a63d56"}
+RADAR_RULE_CHANGE = {"d": "2026-10-24", "commit": "49e9c06f", "rule": "bt-2026-10-24",
+                     "published_file": "radar_history_published_v1.json"}
 
 ATT = {"attack", "lean_attack"}
 DEF = {"defense", "lean_defense"}
@@ -94,21 +100,39 @@ def radar_table():
                         and RANK[x["regime"]] < RANK[x["prev"]], axis=1)]
 
     # 実際に出した判定との一致（確認項目1）
+    # 2026-10-24 に radar_history.json の過去分を新ルールの再計算に差し替えたので、
+    # 「サイトに出した判定」は当時のまま保存した published_v1 ＋ それ以後の記録で比べる（radar_published.py）。
+    # 合わなかった日は理由を2つに分ける:
+    #   rule   … 当時の判定ルール（2026-10-24 より前）と今のルールの違い（再計算した値は今の呼び直しと同じ）
+    #   timing … 判定を動かした時点でその日の終値が確定していなかった等（ルール変更では説明できない差）
     same = diff = 0
     diffs = []
+    rule_changed = {"days": 0, "changed": 0, "pairs": {}}
     try:
-        hm = {x["d"]: x["regime"]
-              for x in json.loads((DOCS / "radar_history.json").read_text(encoding="utf-8"))["items"]}
+        from radar_published import published_items
+        hm = {x["d"]: x["regime"] for x in published_items(DOCS)}
+        rc = {x["d"]: x["regime"]
+              for x in json.loads((DOCS / "radar_history.json").read_text(encoding="utf-8"))["items"]
+              if x.get("recalc")}
+        for k, v in rc.items():
+            if k in hm:
+                rule_changed["days"] += 1
+                if hm[k] != v:
+                    rule_changed["changed"] += 1
+                    pk = f"{hm[k]}→{v}"
+                    rule_changed["pairs"][pk] = rule_changed["pairs"].get(pk, 0) + 1
         for d in df.index:
             k = str(d.date())
             if k in hm:
-                if hm[k] == df.loc[d, "regime"]:
+                rp = df.loc[d, "regime"]
+                if hm[k] == rp:
                     same += 1
                 else:
                     diff += 1
-                    diffs.append({"d": k, "published": hm[k], "replay": df.loc[d, "regime"]})
-    except Exception:
-        pass
+                    kind = "rule" if (k in rc and rc[k] == rp) else "timing"
+                    diffs.append({"d": k, "published": hm[k], "replay": rp, "kind": kind})
+    except Exception as e:
+        print(f"公開した判定との突き合わせをスキップ: {e}", file=sys.stderr)
 
     return {
         "index": "1306.T（TOPIX連動ETF）",
@@ -122,7 +146,10 @@ def radar_table():
         "worse": agg(worse, "判定が悪化した日"),
         "match": {"same": same, "diff": diff,
                   "pct": round(same / (same + diff) * 100, 1) if same + diff else None,
+                  "diff_rule": sum(1 for x in diffs if x["kind"] == "rule"),
+                  "diff_timing": sum(1 for x in diffs if x["kind"] == "timing"),
                   "rows": diffs},
+        "rule_change": {**RADAR_RULE_CHANGE, **rule_changed},
     }
 
 

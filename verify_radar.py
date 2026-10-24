@@ -114,8 +114,10 @@ def main():
     print(json.dumps(out, ensure_ascii=False, indent=1, default=float))
 
     # 出した判定との突き合わせ（直近60日）
-    hist = json.loads((REPO / "docs" / "radar_history.json").read_text(encoding="utf-8"))
-    hm = {x["d"]: x["regime"] for x in hist["items"]}
+    # 2026-10-24 に radar_history.json の過去分を新ルールの再計算に差し替えた。
+    # 「出した判定」は当時のまま保存した published_v1 ＋ それ以後の記録（radar_published.py）
+    from radar_published import published_items
+    hm = {x["d"]: x["regime"] for x in published_items(REPO / "docs")}
     same = diff = 0; diffs = []
     for d in list(df.index)[-80:]:
         k = str(d.date())

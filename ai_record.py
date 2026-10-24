@@ -194,8 +194,10 @@ def main():
     # ── 地合い判定（翌営業日リターンで採点。当日だと先読みになるため）──
     reg_rows = []
     try:
-        rh = json.loads((HERE / "docs" / "radar_history.json").read_text(encoding="utf-8"))
-        items = rh if isinstance(rh, list) else rh.get("items", rh.get("history", []))
+        # 採点するのは当時サイトに出した判定。2026-10-24 に radar_history.json の過去分を
+        # 新ルールの再計算に差し替えたので、当時の判定は published_v1 から読む（radar_published.py）
+        from radar_published import published_items
+        items = published_items(HERE / "docs")
         for it in items:
             d = it.get("d")
             if d and it.get("regime") and d in nxt:
