@@ -114,6 +114,11 @@ TARGETS = [
     # ★2026-10-24 追加★ ストップ高・ストップ安（movers-daily.yml の stophigh.py・平日18:07 JST）。
     #   stophigh.html の元。prices.json と同じジョブなので当日更新
     ("docs/stophigh.json",      "ストップ高・ストップ安", 0),
+    # ★2026-10-24 追加★ 制限値幅の拡大の記録（stophigh.py が毎営業日に読む）。取り込み元は JPX の2つ:
+    #   マーケットニュース「制限値幅の拡大」（RSS https://www.jpx.co.jp/rss/markets_news.xml・約1か月で消える）と
+    #   制限値幅のページ（06.html）の「本日(1)または(2)に該当した銘柄」CSV（その日の分だけ置かれる）。
+    #   止まると拡大の日を通常の値幅で判定してしまい、RSS から消えた分は取り返せない
+    ("docs/stophigh_kakudai.json", "制限値幅の拡大の記録", 0),
     ("docs/splits.json",        "株式分割の予定",     1),
     ("docs/split_stats.json",   "株式分割の答え合わせ", 2),
 ]

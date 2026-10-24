@@ -506,7 +506,7 @@ def dump_ohlc(uni, data):
         OHLC_CACHE.parent.mkdir(exist_ok=True)
         keep = {}
         for t, sub in data.items():
-            cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in sub]
+            cols = [c for c in ("Open", "High", "Low", "Close", "Adj Close", "Volume") if c in sub]
             keep[t] = sub[cols].iloc[-OHLC_KEEP:].copy()
         tmp = OHLC_CACHE.with_suffix(".tmp")
         with open(tmp, "wb") as f:
