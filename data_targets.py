@@ -111,6 +111,9 @@ TARGETS = [
     # ★2026-10-24 追加★ 株式分割（split-daily.yml・平日19:23 JST）。split.html と銘柄ページの「株式分割」欄の元。
     #   予定の一覧は基準日・権利付き最終日を出すので、止まると日付の近い分割が抜ける。split_stats は株価の取得に
     #   失敗しても splits.json は出す作りなので、別々に見る
+    # ★2026-10-24 追加★ ストップ高・ストップ安（movers-daily.yml の stophigh.py・平日18:07 JST）。
+    #   stophigh.html の元。prices.json と同じジョブなので当日更新
+    ("docs/stophigh.json",      "ストップ高・ストップ安", 0),
     ("docs/splits.json",        "株式分割の予定",     1),
     ("docs/split_stats.json",   "株式分割の答え合わせ", 2),
 ]

@@ -380,6 +380,7 @@ def main():
     data = fetch_all(tickers)
     t_fetch = time.time() - t0
     log(f"取得: {len(data)}/{len(tickers)}銘柄  {t_fetch:.0f}秒")
+    dump_ohlc(uni, data)
 
     # 取引日 = 最終行の日付の最頻値。そこに届いていない銘柄は当日の足が無い（停止・取得漏れ）
     last_dates = Counter(sub.index[-1].date() for sub in data.values())
@@ -393,6 +394,14 @@ def main():
     d_prev = prev_dates.most_common(1)[0][0].isoformat() if prev_dates else ""
     d_today = trade_date.isoformat()
     log(f"取引日: {d_today}（前営業日 {d_prev}）")
+
+    # ★2026-10-24★ 前回より古い取引日では書かない。10/24 00:24 JST の遅れた予備の回で、Yahoo の日足の
+    # 最終行が 10/22 になっており（10/23 の足が一時的に消えていた）、10/23 の prices.json / movers.json を
+    # 10/22 の値で上書きしていた（翌朝のサイト再生成に 10/22 の株価が出た）
+    old_td = (load_json(PRICES, {}) or {}).get("trade_date") or ""
+    if old_td and d_today < old_td:
+        log(f"::warning::取得した取引日 {d_today} が前回の prices.json（{old_td}）より古い。書き出さずに終了")
+        sys.exit(0)
 
     old = (load_json(PRICES, {}) or {}).get("items") or {}
     items, stale, missing = {}, 0, 0
@@ -483,6 +492,28 @@ def main():
     write_json(HIST / "index.json", {"updated": now, "dates": dates})
 
     log(f"所要時間: {time.time() - t0:.0f}秒（取得 {t_fetch:.0f}秒）")
+
+
+OHLC_CACHE = ROOT / ".cache" / "ohlc_recent.pkl"
+OHLC_KEEP = 30
+
+
+def dump_ohlc(uni, data):
+    """直近30本の日足を同じジョブの stophigh.py に渡す（同じ銘柄を Yahoo からもう一度取らないため）。
+    コミットしない（.gitignore）。失敗しても prices / movers は止めない"""
+    try:
+        import pickle
+        OHLC_CACHE.parent.mkdir(exist_ok=True)
+        keep = {}
+        for t, sub in data.items():
+            cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in sub]
+            keep[t] = sub[cols].iloc[-OHLC_KEEP:].copy()
+        tmp = OHLC_CACHE.with_suffix(".tmp")
+        with open(tmp, "wb") as f:
+            pickle.dump({"saved": datetime.now(JST).isoformat(timespec="seconds"), "uni": uni, "data": keep}, f)
+        tmp.replace(OHLC_CACHE)
+    except Exception as e:
+        log(f"日足のキャッシュを書けなかった（stophigh.py は自分で取る）: {e}")
 
 
 def backfill_tdnet(td, trade_date):
