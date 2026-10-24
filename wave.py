@@ -386,15 +386,15 @@ def record_of(hist):
     old = [r for r in hist if r.get("version", 1) != RULE_VERSION]
     hist = [r for r in hist if r.get("version", 1) == RULE_VERSION]
     # 2026-10-24 の温度計のルール統一で、同じ日に旧ルールの行と新ルール（regime_rule:"bt"）の行が並ぶ日がある。
-    # 1日1件で数える：先に記録した行（その日に出した地図）を数え、あとから足した行は bt_dup に件数だけ
-    seen, dedup, dup = set(), [], 0
+    # 1日1件で数える：bt の行があればそれを優先し、外した行は bt_dup に件数だけ（行は消さない・読む側で選ぶ）
+    # 2026-10-16〜10-22 は旧ルールの行しかないので、その行を数える（2026-10-24 Fable 判断）
+    best = {}
     for r in hist:
-        if r["d"] in seen:
-            dup += 1
-            continue
-        seen.add(r["d"])
-        dedup.append(r)
-    hist = dedup
+        cur = best.get(r["d"])
+        if cur is None or (r.get("regime_rule") == REGIME_RULE and cur.get("regime_rule") != REGIME_RULE):
+            best[r["d"]] = r
+    dup = len(hist) - len(best)
+    hist = [r for r in hist if best.get(r["d"]) is r]
     scored = [r for r in hist if r.get("res") is not None]
     judged = [r for r in scored if r.get("hit") is not None]
     hits = sum(1 for r in judged if r["hit"])

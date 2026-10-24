@@ -105,17 +105,29 @@ def from_regime():
     2026-10-24 に radar_history.json の過去分を新ルールの再計算に差し替えた。台帳は
     「その時点で出した判定」の記録なので、再計算の行ではなく当時公開した判定
     （radar_history_published_v1.json ＋ それ以後の radar_history.json）で拾う。
+
+    ルールが変わった境目（当時のルールの最後の日 → 新しいルールの最初の日）の段階変化は、
+    前の日を新しいルールで計算し直した判定（radar_history.json の recalc 行）と同じなら
+    ルール変更による見かけの転換。行は書く（追記のみ・公開した判定が実際に変わった日）が
+    cause:"rule_change_<日>" を付け、台帳の統計と採点（ledger_score.py）からは外す（2026-10-24 Fable 判断）。
     """
     from radar_published import published_items
     items = published_items(DOCS)
-    out, prev = [], None
+    recalc = {x["d"]: x.get("regime")
+              for x in (jload(DOCS / "radar_history.json", {}) or {}).get("items", []) if x.get("recalc")}
+    out, prev, prev_it = [], None, None
     for it in items:
         rg = it.get("regime")
         if prev and rg and rg != prev:
-            out.append(rec("regime", it["d"], "MKT",
-                           {"regime": rg, "prev": prev, "vix": it.get("vix"), "n225": it.get("n225")},
-                           f"regime|{it['d']}", what=f"地合いの段階の変化（{prev}→{rg}）"))
-        prev = rg or prev
+            row = rec("regime", it["d"], "MKT",
+                      {"regime": rg, "prev": prev, "vix": it.get("vix"), "n225": it.get("n225")},
+                      f"regime|{it['d']}", what=f"地合いの段階の変化（{prev}→{rg}）")
+            if (prev_it is not None and prev_it.get("rule") != it.get("rule")
+                    and it.get("rule") == "bt-2026-10-24" and recalc.get(prev_it["d"]) == rg):
+                row["cause"] = "rule_change_2026-10-24"
+            out.append(row)
+        if rg:
+            prev, prev_it = rg, it
     return out
 
 
