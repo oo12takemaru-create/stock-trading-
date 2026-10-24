@@ -20,6 +20,12 @@
   取れない値はキーごと出さない（サイトでは null と同じ扱い。null を337回書くと容量だけ増える）
   サイトは karauri.json（約330KB）を別に読まなくてよくなる
 
+■ 2026-10-24 日経225の寄与度とウエート（heatmap_225.json だけ・n225_coef.py）
+  ct  寄与度（円）＝（当日の株価 − 前日終値）× 係数 ÷ 除数。係数・除数は株レーダーが月末ウエートから割り戻した値
+  wt  ウエート（%）＝ 株価 × 係数 ÷ Σ(株価 × 係数)。毎回計算（日経の CSV の値は載せない）
+  先頭に nk（ok・Σ寄与度 sum・日経平均の前日比 chg・差 diff・係数の基準日 base）。
+  ★Σ寄与度と日経平均の前日比の差が ±3円を超えた回は ct・wt を出さない（nk.ok=false と理由だけ）★
+
 使い方: python heatmap_fetch.py docs/heatmap.json
 依存: yfinance, pandas
 """
@@ -226,14 +232,28 @@ def extra_maps(yf, shares, facts, asof):
     meta = {}
     for c in nk + gr:
         meta[c + ".T"] = (name(c, c), (u.get(c) or ("", "その他", ""))[1] or "その他")
-    tickers = sorted(meta)
+    tickers = sorted(meta) + ["^N225"]      # 日経平均は寄与度の検算に使う（タイルにはしない）
     df = yf.download(tickers, period="400d", progress=False, auto_adjust=False, group_by="ticker", threads=True)
     for key, codes, dst, floor in (("日経225", nk, "docs/heatmap_225.json", 200),
                                    ("グロース", gr, "docs/heatmap_growth.json", 200)):
         td = {}
         items = make_items(df, [c + ".T" for c in codes], meta, shares, td)
         enrich(items, facts)
-        write_map(dst, items, td, f"ヒートマップ（{key}）", floor, asof)
+        head = dict(asof)
+        if key == "日経225":
+            # 寄与度とウエート（2026-10-24・n225_coef.py）。検算が ±3円を超えた回は items に足さず、nk に印だけ
+            try:
+                import n225_coef
+                head["nk"] = n225_coef.apply(items, df)
+                nkh = head["nk"]
+                print(f"寄与度: {'出す' if nkh.get('ok') else '止める'}（{nkh.get('td')} Σ{nkh.get('sum')}円 / 前日比{nkh.get('chg')}円"
+                      f" / 差{nkh.get('diff')}円{' / ' + nkh['why'] if nkh.get('why') else ''}）")
+                if not nkh.get("ok"):
+                    print(f"::warning::日経225の寄与度を止めた: {nkh.get('why')}", file=sys.stderr)
+            except Exception as e:
+                head["nk"] = {"ok": False, "why": "計算できなかった"}
+                print(f"::warning::寄与度を計算できなかった: {e}", file=sys.stderr)
+        write_map(dst, items, td, f"ヒートマップ（{key}）", floor, head)
 
 
 def main():
