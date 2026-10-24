@@ -116,5 +116,17 @@ eq([(x["code"], x["kind"], x["ratio"], x["section"]) for x in rs],
    "JPX一覧")
 eq(X.market_group("JASDAQスタンダード"), "スタンダード（旧二部・JASDAQスタンダード）", "市場の系統")
 
+# ── 東証の内国株だけ（札証単独・TOKYO PRO Market を外す・判断4）
+import split_fetch as SF   # noqa: E402
+rows = [
+    {"src": "tdnet", "id": "1", "d": "2026-10-14", "code": "3374", "title": "株式分割", "kind": "split",
+     "ratio": 2, "record": "2026-11-30"},
+    {"src": "tdnet", "id": "2", "d": "2026-09-15", "code": "9027", "title": "株式分割", "kind": "split",
+     "ratio": 4, "record": "2026-09-30"},                       # 札証単独
+    {"src": "jpx", "code": "1234", "ex": "2025-09-29", "record": "2025-09-30", "ratio": 2, "section": "TOKYO PRO Market"},
+    {"src": "jpx", "code": "2222", "ex": "2016-03-29", "record": "2016-03-31", "ratio": 3, "section": "市場第一部"},
+]
+eq(sorted(e["code"] for e in SF.build_events(rows, listed={"3374", "2222"})), ["2222", "3374"], "東証内国株だけ")
+
 print("OK" if not NG else f"NG {NG}件")
 sys.exit(1 if NG else 0)
