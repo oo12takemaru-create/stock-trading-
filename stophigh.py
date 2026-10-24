@@ -11,8 +11,16 @@
     close_high … 終値が上限（終値ストップ高）   touch_high … 高値だけ上限に届いた（一時ストップ高）
     close_low  … 終値が下限（終値ストップ安）   touch_low  … 安値だけ下限に届いた（一時ストップ安）
 
+■ 制限値幅の拡大（2026-10-24 追加）
+  JPX のマーケットニュース「制限値幅の拡大」（RSS markets_news.xml）から拡大の日と拡大後のストップ高・安を読み、
+  その日はその値段で判定する（行に kakudai:true）。制限値幅のページの「本日(1)(2)に該当した銘柄」CSV もためる。
+  どちらも docs/stophigh_kakudai.json（追記のみ・毎営業日）。拡大が続く日は値段が公表されないので判定しない。
+  RSS に残るのは約1か月なので、それより前（過去分の大半）の拡大は「通常の制限値段の外」として判定から外れている。
+
 ■ 判定しない日（推測で埋めない）
   - 株式分割の権利落ち日（docs/splits.json の by_code / upcoming / recent の ex）。基準値段が調整されるため
+  - 配当落ちの日（yfinance の Adj Close÷Close が前の日と変わった日）。JPX は配当落ちの日の基準値段を
+    予想配当の分だけ下げる（東証公式 株式サポーター Q20）が、その額を持っていないため
   - 前営業日または当日の出来高が0（基準値段が最終気配のことがある・当日は気配だけで約定なし）
   - 前の足が「前営業日」でない（売買停止明け・新規上場の初日）
   - 高値が上限を超える／安値が下限を下回る（制限値幅の拡大・株式併合や無償割当の調整・データの誤り。
@@ -141,9 +149,10 @@ def stop_prices(base, t500):
     return up10 / 10, lo
 
 
-def classify(base, o, h, l, c, t500):
-    """('close_high'|'touch_high'|'close_low'|'touch_low'|None, 上限, 下限) / 範囲外は ('out', …)"""
-    up, lo = stop_prices(base, t500)
+def classify(base, o, h, l, c, t500, lim=None):
+    """('close_high'|'touch_high'|'close_low'|'touch_low'|None, 上限, 下限) / 範囲外は ('out', …)
+    lim=(上限, 下限) を渡すとその値段で判定する（制限値幅が拡大された日・JPX のマーケットニュースの値段）"""
+    up, lo = lim if lim else stop_prices(base, t500)
     h10, l10, c10 = to10(h), to10(l), to10(c)
     if h10 > to10(up) or (lo is not None and l10 < to10(lo)):
         return "out", up, lo
@@ -249,7 +258,7 @@ def load_bars(backfill):
                 sub = df[t] if isinstance(df.columns, pd.MultiIndex) else df
                 sub = sub.dropna(subset=["Close"])
                 if len(sub) >= 2:
-                    got[t] = sub[["Open", "High", "Low", "Close", "Volume"]]
+                    got[t] = sub[[c for c in ("Open", "High", "Low", "Close", "Adj Close", "Volume") if c in sub]]
             except Exception:
                 continue
         return got
@@ -295,6 +304,109 @@ def trade_calendar(bars):
 
 
 # ─────────────────────────────────────────────
+#  制限値幅の拡大（JPX）
+# ─────────────────────────────────────────────
+KAKUDAI = DOCS / "stophigh_kakudai.json"
+JPX_RSS = "https://www.jpx.co.jp/rss/markets_news.xml"
+JPX_06 = "https://www.jpx.co.jp/equities/trading/domestic/06.html"
+
+
+def http_text(url, enc="utf-8"):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+        return r.read().decode(enc, "replace")
+
+
+def num(s):
+    return float(s.replace(",", ""))
+
+
+def parse_kakudai_news(html_, url):
+    """マーケットニュース「制限値幅の拡大：N銘柄」1本 → [{d, c, side, w, base, up, lo, news, src}]
+    例: （株）オンデック　株式（コード　7360） 制限値幅（上限）：600円（下限は通常どおり150円）
+        基準値段：861円、ストップ高：1,461円、ストップ安：711円 ／ 翌営業日（20日）"""
+    import html as H
+    import re
+    t = H.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>", " ", html_, flags=re.S)))
+    t = re.sub(r"\s+", " ", t)
+    m = re.search(r"/(\d{8})-\d+\.html", url)
+    if not m:
+        return []
+    nd = datetime.strptime(m.group(1), "%Y%m%d").date()
+    dm = re.search(r"翌営業日（(\d{1,2})日）", t)
+    if not dm:
+        return []
+    day = int(dm.group(1))
+    eff = None
+    for k in range(1, 12):                 # ニュースの日より後で、日がその数字の最初の日
+        x = nd + timedelta(days=k)
+        if x.day == day:
+            eff = x.isoformat()
+            break
+    out = []
+    for b in re.finditer(r"コード\s*([0-9][0-9A-Z]{3})\s*）(.*?)(?=コード\s*[0-9][0-9A-Z]{3}\s*）|（注1）|$)", t):
+        code, body = b.group(1), b.group(2)
+        side = re.search(r"制限値幅（([^）]+)）：\s*([\d,]+)円", body)
+        v = re.search(r"基準値段：\s*([\d,.]+)円.*?ストップ高：\s*([\d,.]+)円.*?ストップ安：\s*([\d,.]+)円", body)
+        if not (side and v and eff):
+            continue
+        out.append({"d": eff, "c": code, "side": side.group(1), "w": num(side.group(2)),
+                    "base": num(v.group(1)), "up": num(v.group(2)), "lo": num(v.group(3)),
+                    "news": nd.isoformat(), "src": url})
+    return out
+
+
+def update_kakudai():
+    """JPX の2つの公表を docs/stophigh_kakudai.json にためる（追記のみ・取れなければ前回のまま）。
+      items: マーケットニュース「制限値幅の拡大」（RSS markets_news.xml に約1か月）。拡大後のストップ高・安の値段
+      csv:   制限値幅のページの「本日(1)または(2)のいずれかに該当した銘柄」（その日の分だけ置かれる CSV）
+    返り値: {(拡大の日, code): item}"""
+    import re
+    st = load_json(KAKUDAI, {}) or {}
+    items, seen, rows = st.get("items") or [], set(st.get("seen") or []), st.get("csv") or []
+    try:
+        xml = http_text(JPX_RSS)
+        for it in re.findall(r"<item>(.*?)</item>", xml, re.S):
+            ti = re.search(r"<title>(.*?)</title>", it, re.S)
+            li = re.search(r"<link>(.*?)</link>", it, re.S)
+            if not ti or not li or "制限値幅の拡大" not in ti.group(1) or "ETF" in ti.group(1):
+                continue
+            url = li.group(1).strip()
+            if url in seen:
+                continue
+            got = parse_kakudai_news(http_text(url), url)
+            if got:
+                items += got
+                seen.add(url)
+                log(f"制限値幅の拡大: {url} → {[(g['d'], g['c'], g['up'], g['lo']) for g in got]}")
+            else:
+                log(f"::warning::制限値幅の拡大のニュースを読めなかった: {url}")
+    except Exception as e:
+        log(f"JPX マーケットニュースを読めなかった（前回の記録で続行）: {e}")
+    try:
+        h = http_text(JPX_06)
+        m = re.search(r'href="(/equities/trading/domestic/[^"]+/\d{4}\.csv)"', h)
+        if m:
+            raw = urllib.request.urlopen(urllib.request.Request("https://www.jpx.co.jp" + m.group(1), headers=UA),
+                                         timeout=60).read().decode("cp932", "replace")
+            have = {(r["d"], r["c"]) for r in rows}
+            for line in raw.splitlines()[1:]:
+                f = [x.strip() for x in line.split(",")]
+                if len(f) >= 4 and re.fullmatch(r"\d{4}/\d{2}/\d{2}", f[0]):
+                    d = f[0].replace("/", "-")
+                    if (d, f[1]) not in have:
+                        rows.append({"d": d, "c": f[1], "type": f[2], "days": f[3]})
+    except Exception as e:
+        log(f"JPX の拡大要件の CSV を読めなかった（前回の記録で続行）: {e}")
+    write_json(KAKUDAI, {"updated": datetime.now(JST).isoformat(timespec="seconds"),
+                         "source": {"news": JPX_RSS, "csv": JPX_06},
+                         "note": ("items＝JPX マーケットニュース「制限値幅の拡大」の拡大の日・拡大後のストップ高・安。"
+                                  "csv＝制限値幅のページの「本日(1)または(2)のいずれかに該当した銘柄」（種別 1:ストップ高 2:ストップ安 "
+                                  "3:ストップ高気配 4:ストップ安気配・連続日数）。どちらも毎営業日に読んで足すだけ（追記のみ）"),
+                         "items": items, "seen": sorted(seen), "csv": rows})
+    return {(i["d"], i["c"]): i for i in items}
+
+
+# ─────────────────────────────────────────────
 #  履歴（追記のみ）
 # ─────────────────────────────────────────────
 def read_hist():
@@ -325,8 +437,13 @@ def merge(rows):
     """ev に fu / td を重ねる。{(d, c): event}"""
     ev = {}
     for r in rows:
+        k = (r.get("d"), r.get("c"))
         if r.get("t") == "ev":
-            ev.setdefault((r["d"], r["c"]), dict(r))
+            # 値幅拡大の日の判定（kakudai）は、通常の値幅で先に書いた行より優先する
+            if k not in ev or r.get("kakudai"):
+                ev[k] = dict(r)
+        elif r.get("t") == "void":
+            ev.pop(k, None)                # 値幅拡大が後から分かり、ストップではなかった
     for r in rows:
         k = (r["d"], r["c"])
         if k not in ev:
@@ -398,6 +515,10 @@ def main():
 
     old = read_hist()
     have_ev = {(r["d"], r["c"]) for r in old if r.get("t") == "ev"}
+    have_kk = {(r["d"], r["c"]) for r in old if r.get("t") == "void" or (r.get("t") == "ev" and r.get("kakudai"))}
+    kakudai = update_kakudai()
+    log(f"制限値幅の拡大の記録: {len(kakudai)}件")
+    new_void = []
     have_fu = {(r["d"], r["c"]) for r in old if r.get("t") == "fu"}
 
     sh_raw = load_json(DOCS / "shinyo_meigara.json", {}) or {}
@@ -408,6 +529,8 @@ def main():
 
     new_ev, skipped, out_samples = [], Counter(), []
     series = {}       # code -> {date: (o,h,l,c,v)}
+    adj_ratio = {}    # (code, date) -> Adj Close ÷ Close（配当の調整係数。前の日と変われば、その日が配当落ちの日）
+    have_void = {(r["d"], r["c"]) for r in old if r.get("t") == "void"}
     for code, df in bars.items():
         rows = []
         for ts, r in df.iterrows():
@@ -418,18 +541,56 @@ def main():
                 continue
             if any(math.isnan(x) for x in (o, h, l, c)):
                 continue
+            try:
+                a = float(r["Adj Close"])
+                ar = a / c if c > 0 and not math.isnan(a) else None
+            except Exception:
+                ar = None
             rows.append((ts.date().isoformat(), o, h, l, c, 0.0 if math.isnan(v) else v))
+            adj_ratio[(code, rows[-1][0])] = ar
         series[code] = {x[0]: x[1:] for x in rows}
+        def exdiv(code_, d0, d1):
+            r0, r1 = adj_ratio.get((code_, d0)), adj_ratio.get((code_, d1))
+            return r0 is not None and r1 is not None and abs(r0 / r1 - 1) > 1e-5
+
+        expanded = False        # 前の日が「値幅拡大の日で、ストップの値段でしか約定しなかった」＝今日も拡大が続く
         for i in range(1, len(rows)):
             d, o, h, l, c, v = rows[i]
             pd_, _, _, _, pc, pv = rows[i - 1]
+            kk = kakudai.get((d, code))
+            was_expanded, expanded = expanded, False
             if d not in pos or pos[d] == 0 or cal[pos[d] - 1] != pd_:
                 continue                     # 前の足が前営業日でない（停止明け・上場初日）
-            if (d, code) in have_ev:
-                continue
             if pc <= 0:
                 continue
-            kind, up, lo = classify(pc, o, h, l, c, code in t500)
+            if kk:
+                # JPX が拡大後のストップ高・安を公表した日は、その値段で判定する
+                kind, up, lo = classify(pc, o, h, l, c, code in t500, lim=(kk["up"], kk["lo"]))
+                only_stop = to10(o) == to10(h) == to10(l) == to10(c) and kind in ("close_high", "close_low")
+                expanded = only_stop or v <= 0
+                if (d, code) in have_kk:
+                    continue
+                if (d, code) in have_ev and kind in (None, "out"):
+                    new_void.append({"t": "void", "d": d, "c": code, "why": "値幅拡大の日（JPX公表の値段ではストップでない）"})
+                    continue
+            elif exdiv(code, pd_, d):
+                # 配当落ちの日は、基準値段が前日の終値から予想配当の分だけ下がる（JPX「東証公式 株式サポーター」Q20）。
+                # 予想配当の額を持っていないので判定しない。先に書いた行は void で消す
+                if (d, code) in have_ev and (d, code) not in have_void:
+                    new_void.append({"t": "void", "d": d, "c": code, "why": "配当落ちの日（基準値段が配当分だけ調整される）"})
+                if classify(pc, o, h, l, c, code in t500)[0]:
+                    skipped["dividend"] += 1
+                continue
+            elif was_expanded:
+                # 拡大が続いている日（JPX は続く日の値段を改めて出さない）。幅が分からないので判定しない
+                expanded = v <= 0 or to10(o) == to10(h) == to10(l) == to10(c)
+                if (d, code) not in have_ev:
+                    skipped["kakudai_cont"] += 1
+                continue
+            else:
+                if (d, code) in have_ev:
+                    continue
+                kind, up, lo = classify(pc, o, h, l, c, code in t500)
             if kind is None:
                 continue
             # 件数は「判定に当たったのに出さなかった」ものだけ数える
@@ -450,6 +611,9 @@ def main():
             e = {"t": "ev", "d": d, "c": code, "n": m.get("n", ""), "s": m.get("s", ""), "k": kind,
                  "base": pc, "up": up, "lo": lo, "o": o, "h": h, "l": l, "cl": c,
                  "chg": pct(c, pc), "vr": vr, "val": round(c * v / 1e6), "t500": code in t500}
+            if kk:
+                e["kakudai"] = True
+                e["kakudai_src"] = kk["src"]
             if d == latest:
                 # 信用倍率・空売り残高は「その時点の既存の値」。過去の日に今の値は付けない
                 i_ = sh.get(code)
@@ -467,7 +631,7 @@ def main():
     log(f"新しい判定: {len(new_ev)}件（{dict(Counter(e['k'] for e in new_ev))}）・判定しない {dict(skipped)}")
 
     # ── 翌日・5日後（5営業日そろったら1行）
-    allev = merge(old + new_ev)
+    allev = merge(old + new_ev + new_void)
     new_fu = []
     partial = {}
     for (d, code), e in allev.items():
@@ -516,8 +680,9 @@ def main():
         if add or (d, code) not in have_td:
             new_td.append({"t": "td", "d": d, "c": code, "items": add})
 
-    append(new_ev + new_fu + new_td)
-    log(f"追記: ev {len(new_ev)} / fu {len(new_fu)} / td {len(new_td)}")
+    append(new_ev + new_void + new_fu + new_td)
+    log(f"追記: ev {len(new_ev)}（うち値幅拡大 {sum(1 for e in new_ev if e.get('kakudai'))}）"
+        f"/ void {len(new_void)} / fu {len(new_fu)} / td {len(new_td)}")
 
     # ── 公開用のまとめ
     rows = read_hist()
@@ -568,8 +733,10 @@ def main():
         "updated": now, "trade_date": latest, "prev_date": cal[-2] if len(cal) > 1 else None,
         "source": "東証の日足（yfinance・movers と同じ取得）から機械的に判定。開示は TDnet の表題",
         "rule": RULE_SRC, "t500_src": t500_src,
-        "note": ("基準値段＝前営業日の終値。株式分割の権利落ち日、前営業日か当日の出来高が0の日、"
-                 "高値・安値が通常の制限値段の外に出た日（制限値幅の拡大・株式併合などの調整・データの誤りを見分けられない）は判定していない。"
+        "note": ("基準値段＝前営業日の終値。制限値幅が拡大された日は JPX のマーケットニュースの拡大後のストップ高・安で判定（kakudai）。"
+                 "株式分割の権利落ち日、前営業日か当日の出来高が0の日、拡大が続いている日（拡大後の値段が公表されない）、"
+                 "高値・安値が通常の制限値段の外に出た日（株式併合などの調整・データの誤り・記録より前の値幅拡大を見分けられない）は判定していない。"
+                 "過去分は現在上場している銘柄だけで、上場廃止になった銘柄は含まれていない。"
                  "TOPIX500 構成銘柄は現在の一覧で呼値の単位を決めている（過去の入れ替えは反映していない）。"),
         "since": min(days) if days else None,
         "hist_from": cal[0] if backfill else None,

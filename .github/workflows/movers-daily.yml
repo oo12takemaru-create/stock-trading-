@@ -87,7 +87,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
+          git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_kakudai.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
