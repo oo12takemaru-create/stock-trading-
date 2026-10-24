@@ -1,0 +1,81 @@
+name: Split Daily (kaburadar.jp)
+
+# 株式分割（起動文 kaburadar\起動文_実務_株式分割_2026-10-24.md）
+#   split_fetch.py : TDnet の開示（表題に「株式分割」）と JPX「新株落・権利落等一覧」（月次）
+#                    → docs/splits.json（予定・直近90日・銘柄別）／docs/splits_hist/YYYY.jsonl（追記のみ）
+#   split_score.py : 発表後・権利落ち日前後の値動き（TOPIX＝1306.T 比）→ docs/split_stats.json
+#
+# 平日 19:23 JST（= 10:23 UTC）。TDnet の一覧を読む決算速報（18:30 の回）の後ろ。
+# サイトの再生成（20:30 JST）より前に終わればよい。所要は数分（株価は窓がそろっていない分だけ取る）。
+on:
+  schedule:
+    - cron: '23 10 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'TDnet を遡って取り込む開始日（YYYY-MM-DD・空なら直近3営業日）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: split-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（buyback-daily.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -q pymupdf yfinance pandas scipy
+
+      # 「会社分割」を株式分割と取り違えない・基準日の文と日程表の食い違いを入れない・権利付き最終日
+      - name: Test split parts
+        run: python -X utf8 tests/test_split.py
+
+      - name: Test business days
+        run: python -X utf8 tests/test_bizday.py
+
+      - name: Fetch splits (TDnet / JPX)
+        env:
+          SINCE: ${{ github.event.inputs.since }}
+        run: |
+          git pull --rebase origin main   # 決算速報が貯めた最新の tdnet_list.json を使う
+          if [ -n "$SINCE" ]; then python -X utf8 split_fetch.py --since "$SINCE"; else python -X utf8 split_fetch.py; fi
+
+      # 株価が取れない日も splits.json（予定の一覧）は出す
+      - name: Score splits
+        run: python -X utf8 split_score.py || echo "::warning::split_score.py が失敗（splits.json は公開する）"
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/splits.json docs/split_stats.json docs/splits_hist/
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "✂️ 株式分割の予定と答え合わせを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1
