@@ -100,9 +100,14 @@ def rec(source, date, code, cond, nk, time=None, what=""):
 
 # ──────────────────────────────────────── 判定元ごとの拾い方
 def from_regime():
-    """温度計の段階が前日と変わった日（radar_history.json・遡って全部）"""
-    items = sorted((jload(DOCS / "radar_history.json", {}) or {}).get("items", []),
-                   key=lambda x: x.get("d", ""))
+    """温度計の段階が前日と変わった日（当時公開した判定・遡って全部）
+
+    2026-10-24 に radar_history.json の過去分を新ルールの再計算に差し替えた。台帳は
+    「その時点で出した判定」の記録なので、再計算の行ではなく当時公開した判定
+    （radar_history_published_v1.json ＋ それ以後の radar_history.json）で拾う。
+    """
+    from radar_published import published_items
+    items = published_items(DOCS)
     out, prev = [], None
     for it in items:
         rg = it.get("regime")
