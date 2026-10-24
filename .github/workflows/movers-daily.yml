@@ -2,6 +2,7 @@ name: Movers Daily (kaburadar.jp)
 
 # 東証全銘柄の日足 → docs/prices.json（全銘柄の値動き）
 #                 → docs/movers.json / docs/movers_hist/（±5%動いた銘柄と「その日あったこと」）
+#                 → docs/stophigh.json / docs/stophigh_hist/（ストップ高・ストップ安と翌日の値動き・stophigh.py）
 # 企画書: kaburadar\企画書_100万PV_銘柄エンジン3本_2026-10-03.md §2エンジン③・§4
 #
 # 平日 18:07 JST (= 09:07 UTC)。キリの良い分は Actions が混むので避ける（heatmap.yml と同じ考え方）。
@@ -68,6 +69,14 @@ jobs:
         if: steps.done.outputs.skip != '1'
         run: python -X utf8 movers_daily.py
 
+      # ストップ高・ストップ安（2026-10-24 起動文_実務_ストップ高と値幅制限）。movers_daily.py が書いた
+      # .cache/ohlc_recent.pkl（直近30本の日足）を読むので Yahoo には取りに行かない。
+      # 規則（制限値幅・呼値の単位）のテストが通らなければ判定しない。失敗しても prices / movers の公開は止めない
+      - name: Stop high / stop low
+        if: steps.done.outputs.skip != '1'
+        run: |
+          python -X utf8 tests/test_stophigh.py && python -X utf8 stophigh.py || echo "::warning::stophigh.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -78,7 +87,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f docs/prices.json docs/movers.json docs/movers_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
+          git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

@@ -133,3 +133,5 @@ investor_cache/
 !docs/shorts.json
 !docs/sellers.json
 !data/sellers.csv
+# movers_daily.py → stophigh.py に同じジョブの中で日足を渡す（コミットしない）
+.cache/
