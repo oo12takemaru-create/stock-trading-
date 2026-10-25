@@ -598,6 +598,12 @@ def detect_market_regime(global_data, date):
       1ヶ月騰落は「22営業日前の終値比」(検証エンジンと同じ。以前の本番は30暦日前で、ここもずれていた)。
       データが足りないときの扱いも検証エンジンと同じ(BEARISHは「200日線の上」とみなし、BULLISHは成立させない)。
       tests/test_regime_parity.py が検証エンジンとの全日一致を確かめる。どちらかを変えたら必ず両方を直すこと。
+
+    ★2026-10-24 終値が空(NaN)の行は読み飛ばす★
+      yfinance は寄り付き前・取得の途中で、その日の行を終値が空のまま付けてくることがある
+      (signals_log.csv で n225 が空欄の回=朝66回・夕49回)。空の行が最後にあると、
+      200日線との比較が「割っている」側に倒れて、強気の相場を BEARISH と答えてしまう。
+      検証エンジンの過去データには空の行が無いので、ここで落とせば答えが揃う。
     """
     try:
         ts = pd.Timestamp(date)
@@ -606,6 +612,7 @@ def detect_market_regime(global_data, date):
         n225 = global_data.get("^N225")
         if n225 is not None and len(n225):
             sub = n225[n225.index <= ts]
+            sub = sub[sub["Close"].notna()]
             if len(sub) >= 200:
                 c = sub["Close"]
                 close = float(c.iloc[-1])
@@ -619,6 +626,7 @@ def detect_market_regime(global_data, date):
         sp500 = global_data.get("^GSPC")
         if sp500 is not None and len(sp500):
             sub = sp500[sp500.index <= ts]
+            sub = sub[sub["Close"].notna()]
             if len(sub) >= 200:
                 c = sub["Close"]
                 sig["sp500_above_200ma"] = float(c.iloc[-1]) > float(c.rolling(200).mean().iloc[-1])
@@ -626,6 +634,7 @@ def detect_market_regime(global_data, date):
         vix_df = global_data.get("^VIX")
         if vix_df is not None and len(vix_df):
             sub = vix_df[vix_df.index <= ts]
+            sub = sub[sub["Close"].notna()]
             if not sub.empty:
                 sig["vix"] = float(sub["Close"].iloc[-1])
 

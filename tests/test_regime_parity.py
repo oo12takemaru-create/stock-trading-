@@ -86,5 +86,35 @@ for drop in ("^N225", "^GSPC", "^VIX"):
 g3, idx3 = make_market(seed=23)
 compare(g3, idx3, "別の乱数")
 
+# 5. 終値が空(NaN)の行（2026-10-24 追加）
+#    yfinance は寄り付き前などに、その日の行を終値が空のまま付けてくる。
+#    本番はそれを読み飛ばして「最後に値がある日」で判定し、空の行が無い検証エンジンと同じ答えになること。
+#    （修正前は、日経の最後に空の行があると強気の相場を BEARISH と答えていた）
+def with_nan_row(g, key, when):
+    g2 = dict(g)
+    d = g[key].copy()
+    d.loc[when, "Close"] = np.nan
+    g2[key] = d.sort_index()
+    return g2
+
+
+nxt = idx[-1] + pd.offsets.BDay(1)
+for key in ("^N225", "^GSPC", "^VIX"):
+    for d in idx[-60:]:   # 直近60日それぞれを「最終日」とみなして、その翌営業日に空の行を付ける
+        when = d + pd.offsets.BDay(1)
+        sub = {k: v[v.index <= d] for k, v in g.items()}
+        a = SCAN.detect_market_regime(with_nan_row(sub, key, when), when.date())[0]
+        b = ENGINE.detect_market_regime(sub, when)[0]
+        ok(a == b, f"{key} 最後に空の行 {when.date()}: 本番={a} 検証={b}")
+
+# 途中に空の行が1本混ざっていても、その行を除いた検証エンジンと同じ答えになる
+mid = idx[400]
+for key in ("^N225", "^GSPC", "^VIX"):
+    gm = with_nan_row(g, key, mid)                       # 本番は空の行つき
+    gc = {k: (v.drop(mid) if k == key else v) for k, v in g.items()}  # 検証は空の行なし
+    diff = [d.date() for d in idx[350:520:3]
+            if d != mid and SCAN.detect_market_regime(gm, d.date())[0] != ENGINE.detect_market_regime(gc, d)[0]]
+    ok(not diff, f"{key} 途中に空の行: {len(diff)}日で不一致 例={diff[:3]}")
+
 print("NG" if NG else "OK", f"(不一致 {NG})")
 sys.exit(1 if NG else 0)
