@@ -127,7 +127,10 @@
     "bullish_n225_1m_change_gt": 0.0,
     "n225_ma_long": 200,
     "n225_ma_short": 50,
-    "n225_1m_lookback_bars": 22,
+    "n225_1m_lookback_bars": 21,
+    "_n225_1m_lookback_bars": "何本前の終値と比べるか。検証エンジン integrated_backtest_v2_8_0.py の close / Close.iloc[-22]（iloc[-1] が当日）と同じ＝21本前。地合い（PANIC・BULLISH）と HALT の両方に効く。2026-10-25 に 22 から直した",
+    "scanner_n225_1m_lookback_bars": 22,
+    "_scanner_n225_1m_lookback_bars": "監査用の regime_scanner（2026-10-25 までの正本の地合い）を同じ答えで作り続けるためだけの値。売買の判定には使わない",
     "sp500_ma_long": 200,
     "vix_default_when_missing": 20.0
   },

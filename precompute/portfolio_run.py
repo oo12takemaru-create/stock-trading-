@@ -125,7 +125,8 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
             "universe": "daily_scanner_v2_8_0.py の STOCKS（%d銘柄。データが揃うぶんで計算）"
                         % len(JAPAN_STOCKS),
             "tickers_used": len(tickers),
-            "regime": "日次スキャナ版",
+            # 2026-10-25 まで「日次スキャナ版」。検証エンジンと同じ判定に揃えた（metrics.classify_regime）
+            "regime": "検証エンジン版",
             "price": "判定・約定とも終値（当日終値で条件成立→翌営業日の終値で約定）",
             "stop": "安値が水準に触れた日の終値",
             "position": "現物・同時保有%d銘柄まで・1トレードのリスク1%%・複利" % max_positions,
@@ -133,7 +134,7 @@ def run(panel: pd.DataFrame, market: pd.DataFrame,
             # ↓ 機械可読の同じ内容（export_portfolio_json.py が §12 スキーマに使う）。
             #   上の日本語は人が読む用。文言を変えてもここが変わらなければ公開JSONは壊れない。
             "universe_total": len(JAPAN_STOCKS),
-            "regime_key": "scanner",
+            "regime_key": "engine",
             "exec_key": "close",
             "stop_key": "low_touch_close",
             "max_positions": max_positions,
