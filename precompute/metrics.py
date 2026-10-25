@@ -253,6 +253,98 @@ def _align(series, dates):
     return s.reindex(idx).ffill().reindex(pd.DatetimeIndex(dates))
 
 
+def n225_change_pct(close, bars):
+    """日経の1ヶ月騰落（%）＝ bars 本前の終値との比。
+
+    検証エンジン integrated_backtest_v2_8_0.py detect_market_regime の
+    `close / df_sub["Close"].iloc[-22] - 1`（iloc[-1] が当日）と同じにするには bars=21。
+    （2026-10-25 まで 22 を渡していて、1本ずれていた。thresholds.json の説明を参照）"""
+    return (close / close.shift(int(bars)) - 1) * 100
+
+
+def classify_regime(nikkei_close, nikkei_ma_50, nikkei_ma_200, sp500_close, sp500_ma_200,
+                    vix, n225_1m_change, enough_n, enough_s, scanner=False):
+    """4段階の地合い（BULLISH / NEUTRAL / BEARISH / PANIC）を日ごとに返す（numpy の object 配列）。
+
+    ★式はここ1か所だけ★ 前計算（compute_market_condition）と、正本の列から作り直す道具
+    （tools/rewrite_market_regime.py）の両方がここを通る。
+
+    scanner=False … 検証エンジン integrated_backtest_v2_8_0.py detect_market_regime と同じ（正本）
+        PANIC   : VIX>30 かつ 日経1ヶ月騰落<-10
+        BEARISH : 日経<200日線（履歴不足なら「上」とみなす） または VIX>25
+        BULLISH : 日経>200日線 かつ 日経>50日線 かつ S&P500>200日線 かつ VIX<20 かつ 日経1ヶ月騰落>0
+    scanner=True  … 2026-10-25 まで正本だった旧スキャナー版（監査用 regime_scanner）
+        BULLISH に「日経>50日線」と「1ヶ月騰落>0」が無い。PANIC・BEARISH は同じ。
+
+    入力はすべて同じ index の Series。vix・n225_1m_change の欠けは
+    エンジンと同じく vix=20・騰落=0 とみなす。enough_n / enough_s は 200本の履歴があるか。
+    """
+    r = REGIME_RULES
+    enough_n = enough_n.astype(bool)
+    enough_s = enough_s.astype(bool)
+    vix = vix.fillna(float(r["vix_default_when_missing"]))
+    # engine は日経の履歴が200本ある日だけ1ヶ月騰落を作る（無ければ 0 とみなす）。HALT は22本で作るので別
+    chg = n225_1m_change.where(enough_n).fillna(0.0)
+    above200 = (nikkei_close > nikkei_ma_200).fillna(False) & enough_n
+    above50 = (nikkei_close > nikkei_ma_50).fillna(False) & enough_n
+    sp_above200 = (sp500_close > sp500_ma_200).fillna(False) & enough_s
+    # engine: signals.get("n225_above_200ma", True) -> 履歴不足なら「上」とみなす
+    above200_for_bearish = above200.where(enough_n, True)
+
+    if scanner:
+        is_bullish = above200 & sp_above200 & (vix < float(r["bullish_vix_lt"]))
+    else:
+        is_bullish = (above200 & above50 & sp_above200
+                      & (vix < float(r["bullish_vix_lt"]))
+                      & (chg > float(r["bullish_n225_1m_change_gt"])))
+    is_bearish = (~above200_for_bearish) | (vix > float(r["bearish_vix_gt"]))
+    is_panic = ((vix > float(r["panic_vix_gt"]))
+                & (chg < float(r["panic_n225_1m_change_lt"])))
+
+    regime = pd.Series("NEUTRAL", index=vix.index, dtype=object)
+    regime[is_bullish.to_numpy()] = "BULLISH"
+    regime[is_bearish.to_numpy()] = "BEARISH"
+    # engine は PANIC -> BEARISH -> BULLISH の順に return するので PANIC が最優先
+    regime[is_panic.to_numpy()] = "PANIC"
+    return regime.to_numpy()
+
+
+def halt_states(vix, n225_1m_change):
+    """HALT（engine check_halt_conditions + precompute_halt_only_states）。
+
+    vix・n225_1m_change は日付順の Series（日本の営業日だけ）。冷却期間は行で数える。
+    戻り値: (is_halt の list, halt_reason の list)
+    """
+    hv = float(HALT_RULES["halt_vix"])
+    hd = float(HALT_RULES["halt_n225_drop"])
+    cooldown = int(HALT_RULES["halt_cooldown"])
+    raw_vix_halt = (vix > hv).fillna(False)
+    raw_n225_halt = (n225_1m_change < -hd).fillna(False)
+    raw_halt = raw_vix_halt | raw_n225_halt
+
+    states, reasons = [], []
+    state, reason, clear = "NORMAL", None, 0
+    vix_vals = vix.to_numpy()
+    chg_vals = n225_1m_change.to_numpy()
+    rv = raw_vix_halt.to_numpy()
+    rh = raw_halt.to_numpy()
+    for i in range(len(rh)):
+        if rh[i]:
+            state, clear = "HALT", 0
+            if rv[i]:
+                reason = "VIX=%.1f > %.0f（極度のパニック）" % (vix_vals[i], hv)
+            else:
+                reason = "日経1ヶ月%.1f%%下落（急落）" % chg_vals[i]
+        else:
+            if state == "HALT":
+                clear += 1
+                if clear >= cooldown:
+                    state, reason = "NORMAL", None
+        states.append(state)
+        reasons.append(reason)
+    return [s == "HALT" for s in states], reasons
+
+
 def compute_market_condition(global_data, dates, panel=None):
     """日本市場の営業日 dates について相場環境を判定する。"""
     r = REGIME_RULES
@@ -272,15 +364,17 @@ def compute_market_condition(global_data, dates, panel=None):
         md["nikkei_ma_50"] = _align(c.rolling(int(r["n225_ma_short"])).mean(), dates)
         md["nikkei_ma_75"] = _align(c.rolling(75).mean(), dates)
         md["nikkei_ma_200"] = _align(c.rolling(int(r["n225_ma_long"])).mean(), dates)
-        # engine L897: change_1m = close / Close[-22] - 1
-        md["nikkei_1m_change"] = _align(
-            (c / c.shift(int(r["n225_1m_lookback_bars"])) - 1) * 100, dates)
+        # engine L898: change_1m = close / Close.iloc[-22] - 1（iloc[-1] が当日＝21本前）
+        md["nikkei_1m_change"] = _align(n225_change_pct(c, r["n225_1m_lookback_bars"]), dates)
+        # 監査用 regime_scanner だけが使う（2026-10-25 までの正本と同じ答えを出すため）
+        md["_n225_1m_change_scanner"] = _align(
+            n225_change_pct(c, r["scanner_n225_1m_lookback_bars"]), dates)
         # 十分な履歴が無い日は engine の len(df_sub) >= 200 ガードに相当させる
         bars = _align(pd.Series(np.arange(1, len(c) + 1), index=c.index), dates)
         md["_n225_enough"] = (bars >= int(r["n225_ma_long"])).fillna(False)
     else:
         for col in ("nikkei_close", "nikkei_ma_25", "nikkei_ma_50", "nikkei_ma_75",
-                    "nikkei_ma_200", "nikkei_1m_change"):
+                    "nikkei_ma_200", "nikkei_1m_change", "_n225_1m_change_scanner"):
             md[col] = np.nan
         md["_n225_enough"] = False
 
@@ -307,76 +401,23 @@ def compute_market_condition(global_data, dates, panel=None):
     else:
         md["vix"] = np.nan
 
-    # -- 4段階判定（engine L920-940 をそのまま）--
-    vix = md["vix"].fillna(float(r["vix_default_when_missing"]))
-    chg = md["nikkei_1m_change"].fillna(0.0)
-    enough_n = md["_n225_enough"].astype(bool)
-    enough_s = md["_sp_enough"].astype(bool)
-    above200 = (md["nikkei_close"] > md["nikkei_ma_200"]).fillna(False) & enough_n
-    above50 = (md["nikkei_close"] > md["nikkei_ma_50"]).fillna(False) & enough_n
-    sp_above200 = (md["sp500_close"] > md["sp500_ma_200"]).fillna(False) & enough_s
-    # engine: signals.get("n225_above_200ma", True) -> 履歴不足なら「上」とみなす
-    above200_for_bearish = above200.where(enough_n, True)
-
-    regime = pd.Series("NEUTRAL", index=dates, dtype=object)
-    is_bullish = (above200 & above50 & sp_above200
-                  & (vix < float(r["bullish_vix_lt"]))
-                  & (chg > float(r["bullish_n225_1m_change_gt"])))
-    regime[is_bullish.to_numpy()] = "BULLISH"
-    is_bearish = (~above200_for_bearish) | (vix > float(r["bearish_vix_gt"]))
-    regime[is_bearish.to_numpy()] = "BEARISH"
-    # engine は PANIC -> BEARISH -> BULLISH の順に return するので PANIC が最優先
-    is_panic = ((vix > float(r["panic_vix_gt"]))
-                & (chg < float(r["panic_n225_1m_change_lt"])))
-    regime[is_panic.to_numpy()] = "PANIC"
-    md["regime_engine"] = regime.to_numpy()
-
-    # -- ★同じリポジトリの中で regime の実装が2つあり、判定が食い違う --
-    #   engine  integrated_backtest_v2_8_0.py L920-940
-    #       BULLISH = 日経>200MA かつ 日経>50MA かつ S&P>200MA かつ VIX<20 かつ 1ヶ月変化>0
-    #   scanner daily_scanner_v2_8_0.py L646-649   ← signals_log.csv を書いている側
-    #       BULLISH = 日経>200MA かつ S&P>200MA かつ VIX<20   （50MA条件と1ヶ月変化条件が無い）
-    #   PANIC / BEARISH の条件は両者同じ。
-    #   決着（1-B・2026-09-05）: 起動文 §1「現行スキャナーの地合い判定を全期間ぶん再計算」と
-    #   引き継ぎ書v2 §3.1「環境判定ロジックは現行scannerのMARKET REGIME判定を流用」に従い、
-    #   ★scanner 版を regime（正本）とする。engine 版は regime_engine として残す。
-    regime_s = pd.Series("NEUTRAL", index=dates, dtype=object)
-    s_bull = (above200 & sp_above200 & (vix < float(r["bullish_vix_lt"])))
-    regime_s[s_bull.to_numpy()] = "BULLISH"
-    regime_s[is_bearish.to_numpy()] = "BEARISH"
-    regime_s[is_panic.to_numpy()] = "PANIC"
-    md["regime"] = regime_s.to_numpy()   # ★正本。起動文 §1 が指す「現行スキャナーの地合い判定」
+    # -- 4段階判定（engine L920-940。式は classify_regime の1か所）--
+    # ★2026-10-25 本人決定: 正本 regime を検証エンジン版にした★
+    #   それまでは旧スキャナー版（BULLISH に 50日線と1ヶ月騰落の条件が無い）を正本にしていた
+    #   （1-B・2026-09-05 の決着）。本番スキャナーが #716 で検証エンジンと同じ判定になったので、
+    #   公開の10年もそれに揃える。旧スキャナー版は監査用に regime_scanner として残す。
+    #   regime_engine は regime と同じ値の別名として書き続ける（読む側が無いことを確かめたうえで、
+    #   列を消す DDL を今回の切り替えに混ぜないため。消すなら別の PR で）。
+    nikkei_cols = (md["nikkei_close"], md["nikkei_ma_50"], md["nikkei_ma_200"],
+                   md["sp500_close"], md["sp500_ma_200"], md["vix"])
+    md["regime"] = classify_regime(*nikkei_cols, md["nikkei_1m_change"],
+                                   md["_n225_enough"], md["_sp_enough"])
+    md["regime_engine"] = md["regime"].to_numpy()
+    md["regime_scanner"] = classify_regime(*nikkei_cols, md["_n225_1m_change_scanner"],
+                                           md["_n225_enough"], md["_sp_enough"], scanner=True)
 
     # -- HALT（engine check_halt_conditions + precompute_halt_only_states）--
-    hv = float(HALT_RULES["halt_vix"])
-    hd = float(HALT_RULES["halt_n225_drop"])
-    cooldown = int(HALT_RULES["halt_cooldown"])
-    raw_vix_halt = (md["vix"] > hv).fillna(False)
-    raw_n225_halt = (md["nikkei_1m_change"] < -hd).fillna(False)
-    raw_halt = raw_vix_halt | raw_n225_halt
-
-    states, reasons = [], []
-    state, reason, clear = "NORMAL", None, 0
-    vix_vals = md["vix"].to_numpy()
-    chg_vals = md["nikkei_1m_change"].to_numpy()
-    rv = raw_vix_halt.to_numpy()
-    rh = raw_halt.to_numpy()
-    for i in range(len(dates)):
-        if rh[i]:
-            state, clear = "HALT", 0
-            if rv[i]:
-                reason = "VIX=%.1f > %.0f（極度のパニック）" % (vix_vals[i], hv)
-            else:
-                reason = "日経1ヶ月%.1f%%下落（急落）" % chg_vals[i]
-        else:
-            if state == "HALT":
-                clear += 1
-                if clear >= cooldown:
-                    state, reason = "NORMAL", None
-        states.append(state)
-        reasons.append(reason)
-    md["is_halt"] = [s == "HALT" for s in states]
-    md["halt_reason"] = reasons
+    md["is_halt"], md["halt_reason"] = halt_states(md["vix"], md["nikkei_1m_change"])
 
     # -- breadth（ユニバース238銘柄から算出。市場全体ではない点に注意）--
     if panel is not None and len(panel):
@@ -407,6 +448,9 @@ def compute_market_condition(global_data, dates, panel=None):
 
 MARKET_COLUMNS = [
     "date", "regime", "regime_engine", "nikkei_close", "nikkei_dev_25",
+    # ★regime_scanner は 2026-10-25 に足した列（監査用）。Supabase に列が無いと upsert が 400 で落ちる。
+    #   先に tools/sql/2026-10-25_market_condition_regime_scanner.sql を SQL Editor で流すこと
+    "regime_scanner",
     "nikkei_dev_75", "vix",
     "is_halt", "halt_reason", "breadth_ratio", "new_high", "new_low",
     # 追加列（設計書 §3 には無いが MOMENTUM の米国フィルタ再現などに必要）
