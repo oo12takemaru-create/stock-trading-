@@ -1,48 +1,48 @@
 {
- "target_date": "2026-10-23",
- "generated_at": "2026-10-26T21:03:27+09:00",
+ "target_date": "2026-10-26",
+ "generated_at": "2026-10-27T18:02:57+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
-  {
-   "judge": "signal",
-   "code": "9984",
-   "name": "ソフトバンクG",
-   "sector": "投資会社",
-   "kairi": -25.36
-  },
   {
    "judge": "signal",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -23.21
+   "kairi": -25.29
   },
   {
    "judge": "signal",
-   "code": "6594",
-   "name": "ニデック",
-   "sector": "モーター",
-   "kairi": -21.81
+   "code": "9984",
+   "name": "ソフトバンクG",
+   "sector": "投資会社",
+   "kairi": -24.52
+  },
+  {
+   "judge": "signal",
+   "code": "7735",
+   "name": "SCREEN HD",
+   "sector": "半導体製造装置",
+   "kairi": -20.67
   }
  ],
- "asof": "2026-10-26",
+ "asof": "2026-10-27",
  "stale": false,
- "signals_today_date": "2026-10-26",
+ "signals_today_date": "2026-10-27",
  "is_halt": false,
- "signals_today_count": 2,
+ "signals_today_count": 1,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 2,
+  "BNF-LITE": 1,
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-10-26",
+  "scan_date": "2026-10-27",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
-  "code": "3436",
-  "name": "SUMCO",
-  "sector": "半導体シリコン",
-  "reason": "乖離率-23.2%",
+  "code": "5802",
+  "name": "住友電工",
+  "sector": "電線",
+  "reason": "乖離率-19.1%",
   "carried_over": true
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
