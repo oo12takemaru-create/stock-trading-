@@ -92,7 +92,7 @@ const PLAN = {
   // ※ :05 / :35 は3本目の cron（"5,35,40 * * * *"）で発火する。
   "05:35": ["ai-morning-prep.yml"],
   "06:05": ["ai-morning-prep.yml"],
-  "06:30": ["ai-analysis.yml"],
+  // 06:30 ai-analysis.yml（旧・API課金版のAI朝刊）は 2026-10-28 に停止。朝刊は Claude Code routine（ai-morning-prep→routine→ingest）で作る。
   "07:00": ["pipeline-morning.yml"], // 前営業日ぶんが無ければ失敗させる関門
   // 関門（07:00）の後・会員通知（07:30）の前に置く（§23 相談⑫(3)）。
   // cron-job.org の Morning Digest を止めるための受け皿。
