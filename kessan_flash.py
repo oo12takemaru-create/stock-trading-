@@ -349,6 +349,14 @@ def extract(zip_bytes):
         "fc_op": mil(f(OP[std], fcc)),
         "fc_np": mil(f(np_key, fcc)),
     }
+    # 通期予想の1株当たり当期純利益（円）。銘柄カルテの「予想PER」の元（2026-10-29 第2波F）。
+    # 日本基準 NetIncomePerShare、IFRS・米国基準は接尾辞つき。希薄化後・配当・純資産は除く。無ければ None
+    rec["fc_eps"] = None
+    for (name, ctx), v in fs.items():
+        if (ctx == fcc and "PerShare" in name and v.get("shown") is not None
+                and not any(w in name for w in ("Dividend", "Diluted", "NetAssets", "Equity"))):
+            rec["fc_eps"] = round(v["shown"] * (10 ** (v["scale"] or 0)), 2)
+            break
     # 会社が出した期末日から「2027/03」を作る（実績の期）
     fy = txt(f("FiscalYearEnd", "CurrentYearInstant"))
     rec["fy"] = f"{fy[:4]}/{fy[5:7]}" if fy and len(fy) >= 7 else None

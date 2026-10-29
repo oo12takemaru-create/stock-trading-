@@ -34,7 +34,7 @@ HERE = Path(__file__).parent
 KARTE = HERE / "docs" / "kessan_react_hist"
 BASE = "https://www.release.tdnet.info/inbs/"
 EXTRACT_KEYS = ("q", "cons", "std", "sales", "op", "ord", "np", "sales_yoy", "op_yoy", "np_yoy",
-                "fc_sales", "fc_op", "fc_np", "fy", "fc_rev_flag", "fc_src", "fc_range")
+                "fc_sales", "fc_op", "fc_np", "fy", "fc_rev_flag", "fc_src", "fc_range", "fc_eps")
 KARTE_KEYS = ("q", "fy", "sales_yoy", "op_yoy", "np_yoy", "progress_op", "fc_rev", "fc_rev_flag",
               "fc_range", "verdict")
 
