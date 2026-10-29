@@ -16,6 +16,9 @@
 ■ docs/board_activity.json（サイトには出さない）: 銘柄ごとの雑談の件数（直近7日・30日）と、出ている予想の数。
   11月の「注目度の高い銘柄」の材料
 
+■ 毎日の一問（2026-10-29 追加）: 日経平均の終値が前の営業日より上か下かを採点して kr_daily_q に書く（下の daily()）。
+  表がまだ無い（SQL 未適用）ときは警告だけ出して、予想の採点は止めない
+
 平日 19:30 JST に cron-worker から dispatch（ledger-daily と同じ枠）。
 使い方:
   python -X utf8 board_score.py             採点して書き込む
@@ -216,6 +219,103 @@ def activity():
     print(f"board_activity.json {len(out)}銘柄")
 
 
+# ─────────────────────────────── 毎日の一問「今日の日経平均は上がる？下がる？」（2026-10-29 起動文 第1波 担当A）
+# 問題の日 d の日経平均の終値が、前の営業日の終値より上なら up・下なら down・同じなら draw。
+# 暦は jp_bizday（サイトの api/board.js に同じ計算を写してある）。終値は ledger_score.py と同じ出所（yfinance の ^N225）。
+# 臨時休場などで d の終値が5日たっても無ければ void（成績に入れない）。票数は締切時点のものを kr_daily_q に残す。
+DAILY_START = date(2026, 11, 2)    # #1（api/board.js の DAILY_START と同じ。2026-10-29 Fable 判断で 11/2 に）
+DAILY_VOID_DAYS = 5
+
+
+def daily_no(d):
+    import jp_bizday
+    n, cur = 0, DAILY_START
+    while cur <= d:
+        n += jp_bizday.is_bizday(cur)
+        cur += timedelta(days=1)
+    return n
+
+
+def prev_bizday(d):
+    import jp_bizday
+    cur = d - timedelta(days=1)
+    while not jp_bizday.is_bizday(cur):
+        cur -= timedelta(days=1)
+    return cur
+
+
+def n225_closes(start):
+    import yfinance as yf
+    df = yf.download("^N225", start=start, progress=False, auto_adjust=False, threads=False)
+    cl = df["Close"]
+    if hasattr(cl, "columns"):      # 1銘柄でも列が2段になる版がある
+        cl = cl.iloc[:, 0]
+    return {k.strftime("%Y-%m-%d"): float(v) for k, v in cl.dropna().items()}
+
+
+def daily_count(d, side):
+    base, key = env()
+    req = urllib.request.Request(f"{base}/rest/v1/kr_daily_votes?select=id&d=eq.{d}&side=eq.{side}&limit=1",
+                                 headers={"apikey": key, "Authorization": "Bearer " + key, "Prefer": "count=exact"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        m = re.search(r"/(\d+)$", r.headers.get("Content-Range") or "")
+    return int(m.group(1)) if m else 0
+
+
+def daily_score_days(closes, days, today):
+    """採点する日ごとに kr_daily_q に書く行を返す（取得と分けてある＝手元で試せる）"""
+    rows, keys = [], sorted(closes)
+    for d in days:
+        ds = d.isoformat()
+        if ds in closes:
+            prev = [k for k in keys if k < ds]
+            if not prev:
+                continue
+            p, c = round(closes[prev[-1]], 2), round(closes[ds], 2)
+            if prev[-1] != prev_bizday(d).isoformat():
+                print(f"::warning::{ds} の前の終値が {prev[-1]} の値（暦の前営業日 {prev_bizday(d)} の値が配信に無い）")
+            rows.append({"d": ds, "no": daily_no(d), "prev_close": p, "close": c,
+                         "result": "draw" if c == p else ("up" if c > p else "down")})
+        elif (today - d).days > DAILY_VOID_DAYS:
+            rows.append({"d": ds, "no": daily_no(d), "prev_close": None, "close": None, "result": "void"})
+    return rows
+
+
+def daily(dry=False):
+    import jp_bizday
+    settled, today = last_settled_day(), datetime.now(JST).date()
+    if settled < DAILY_START:
+        print("毎日の一問: まだ始まっていない")
+        return
+    done = {r["d"] for r in get_all("kr_daily_q", "select=d&result=not.is.null")}
+    days, cur = [], DAILY_START
+    while cur <= settled:
+        if jp_bizday.is_bizday(cur) and cur.isoformat() not in done:
+            days.append(cur)
+        cur += timedelta(days=1)
+    print(f"毎日の一問: 採点待ち {len(days)}日")
+    if not days:
+        return
+    closes = n225_closes((days[0] - timedelta(days=14)).isoformat())
+    for row in daily_score_days(closes, days, today):
+        row.update(up_n=daily_count(row["d"], "up"), down_n=daily_count(row["d"], "down"),
+                   scored_at=datetime.now(timezone.utc).isoformat())
+        print(f"  #{row['no']} {row['d']} 日経平均 {row['prev_close']} → {row['close']} = {row['result']}"
+              f"（上{row['up_n']}・下{row['down_n']}）" + ("（dry-run・書き込みなし）" if dry else ""))
+        if not dry:
+            call("kr_daily_q?on_conflict=d", "POST", row, prefer="return=minimal,resolution=merge-duplicates")
+
+
+def daily_safe(dry=False):
+    # 表（kr_daily_votes / kr_daily_q）を本人が Supabase に入れる前は失敗する。掲示板の予想の採点は止めない
+    try:
+        daily(dry)
+    except SystemExit as e:
+        print(f"::warning::毎日の一問の採点をとばした: {e}")
+    except Exception as e:
+        print(f"::warning::毎日の一問の採点をとばした: {type(e).__name__}: {e}")
+
+
 # ─────────────────────────────── 自己テスト（本番データに残さない）
 def site(path):
     req = urllib.request.Request(SITE + path, headers={"User-Agent": "kaburadar-board-selftest", "Cache-Control": "no-cache"})
@@ -285,3 +385,4 @@ if __name__ == "__main__":
         run(dry="--dry-run" in a)
         if "--dry-run" not in a:
             activity()
+        daily_safe(dry="--dry-run" in a)

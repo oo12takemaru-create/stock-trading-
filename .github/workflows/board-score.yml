@@ -3,6 +3,7 @@ name: Board Score (掲示板の予想の採点)
 # 株レーダー掲示板の予想を採点する（board_score.py）。起動文: kaburadar\起動文_実務_掲示板_予想と雑談_2026-10-11.md
 #   起点 = 投稿の翌営業日の始値、終点 = 期限日の終値。採点が付いた予想は銘柄ページから消え、投稿者の成績に残る。
 #   あわせて docs/board_activity.json（銘柄ごとの雑談の件数。サイトには出さない）を書き出す。
+#   あわせて「毎日の一問」（日経平均は前の営業日より上か下か）を採点して Supabase の kr_daily_q に書く（2026-10-29 第1波 担当A）。
 #
 # 平日 19:30 JST に cron-worker（Cloudflare）から dispatch する（ledger-daily と同じ枠）。
 # GitHub の schedule は保険（遅れて走っても、採点は終値が確定した日しか使わないので害はない）。
