@@ -223,7 +223,7 @@ def activity():
 # 問題の日 d の日経平均の終値が、前の営業日の終値より上なら up・下なら down・同じなら draw。
 # 暦は jp_bizday（サイトの api/board.js に同じ計算を写してある）。終値は ledger_score.py と同じ出所（yfinance の ^N225）。
 # 臨時休場などで d の終値が5日たっても無ければ void（成績に入れない）。票数は締切時点のものを kr_daily_q に残す。
-DAILY_START = date(2026, 10, 30)   # #1（api/board.js の DAILY_START と同じ）
+DAILY_START = date(2026, 11, 2)    # #1（api/board.js の DAILY_START と同じ。2026-10-29 Fable 判断で 11/2 に）
 DAILY_VOID_DAYS = 5
 
 
