@@ -124,6 +124,9 @@ TARGETS = [
     ("docs/stophigh_kakudai.json", "制限値幅の拡大の記録", 0),
     ("docs/splits.json",        "株式分割の予定",     1),
     ("docs/split_stats.json",   "株式分割の答え合わせ", 2),
+    # ★2026-10-29 追加（第2波F）★ PER の過去の幅（edinet-eps.yml・毎朝08:37 JST）。銘柄カルテの「PER 過去5期の幅」の元。
+    #   有報は年1回だが、分割の反映と updated は毎朝進む
+    ("docs/eps_hist.json",      "PERの過去の幅（有報のEPS）", 2),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。

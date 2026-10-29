@@ -1,0 +1,78 @@
+name: EDINET EPS (有報の EPS と PER の過去の幅)
+
+# 有価証券報告書の「主要な経営指標等の推移」から5期分の EPS を取り込み、期末の株価で各期の PER を出す
+#   → docs/eps/_state.json・docs/eps/records.json（記録）/ docs/eps_hist.json（銘柄カルテの「PER 過去5期の幅」の元）
+# 起動文: kaburadar\起動文_実務_第2波_競合から取り込む_2026-10-29.md の担当F（計画の12）
+#
+# ■ 起動
+#   schedule（毎日 08:37 JST）。edinet-daily（07:47）と時間をずらす（同じ API キー）
+#   二重に走っても docID で読み済みを弾くので害は無い
+#
+# ■ 遡及（初回）
+#   書類一覧を400日ぶん見て（1日1回の呼び出し・約5分）、全社の直近の有報を新しい順に読む。
+#   1件 約2秒。1回40分まで＝約1,100社ずつ。約4日で全社（約3,800社）がそろう。進みは docs/eps/records.json
+on:
+  schedule:
+    - cron: '37 23 * * *'
+  workflow_dispatch:
+    inputs:
+      max_minutes:
+        description: '有報の読み込みに使う分数'
+        required: false
+        default: '40'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edinet-eps
+  cancel-in-progress: false
+
+jobs:
+  eps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（heatmap.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install
+        run: pip install yfinance pandas
+
+      - name: Pull latest
+        run: git pull --rebase origin main
+
+      - name: Ingest EDINET 有報の EPS
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
+        run: |
+          M="${{ github.event.inputs.max_minutes }}"
+          python -X utf8 edinet_eps.py --backfill-days 400 --max-minutes "${M:-40}"
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/eps docs/eps_hist.json
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📐 有報の EPS と PER の過去の幅を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
