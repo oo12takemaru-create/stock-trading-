@@ -1,6 +1,6 @@
 {
- "target_date": "2026-10-27",
- "generated_at": "2026-10-28T21:03:22+09:00",
+ "target_date": "2026-10-28",
+ "generated_at": "2026-10-29T18:03:14+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,26 +8,26 @@
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -20.56
+   "kairi": -15.37
   },
   {
    "judge": "signal",
    "code": "9984",
    "name": "ソフトバンクG",
    "sector": "投資会社",
-   "kairi": -19.82
+   "kairi": -15.14
   },
   {
-   "judge": "signal",
-   "code": "7735",
-   "name": "SCREEN HD",
-   "sector": "半導体製造装置",
-   "kairi": -17.39
+   "judge": "watch",
+   "code": "5802",
+   "name": "住友電工",
+   "sector": "電線",
+   "kairi": -14.1
   }
  ],
- "asof": "2026-10-28",
+ "asof": "2026-10-29",
  "stale": false,
- "signals_today_date": "2026-10-28",
+ "signals_today_date": "2026-10-29",
  "is_halt": false,
  "signals_today_count": 0,
  "signals_today_by_strategy": {
