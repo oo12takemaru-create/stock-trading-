@@ -276,6 +276,7 @@ def build_one(code, rec, spl, today):
     for p in per:
         r = prod_ratio(spl, p["e"], sub)                  # その期の末日〜提出日の分割
         eps = p["eps"]
+        div = after
         if p is last or r == 1.0:
             mode = "そのまま"
         else:
@@ -289,8 +290,13 @@ def build_one(code, rec, spl, today):
                 mode = "直し済み"
             else:
                 eps = eps / r
+                div = r * after
                 mode = f"当時の株数→÷{r:g}"
-        rows.append({"e": p["e"], "eps": eps / after})
+        row = {"e": p["e"], "eps": eps / after}
+        if div != 1.0:
+            row["raw"] = p["eps"]          # 有報に書いてある値（サイトで「有報の記載は○円」と出す）
+            row["div"] = round(div, 4)
+        rows.append(row)
         how.append(mode + (f"・提出後の分割÷{after:g}" if after != 1.0 else ""))
     px = rec.get("px") or {}
     out = []
