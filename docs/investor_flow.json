@@ -1,59 +1,59 @@
 {
- "updated": "2026-10-23T21:18:19+09:00",
- "week": "2026年10月第2週 2026/10 week2 ( 10/13 - 10/16 )",
+ "updated": "2026-10-29T16:31:21+09:00",
+ "week": "2026年10月第3週 2026/10 week3 ( 10/19 - 10/23 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
- "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002havh-att/stock_1_w_20261013_20261016.xlsx",
+ "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002k0uf-att/stock_1_w_20261019_20261023.xlsx",
  "sheet": "TSE Prime",
  "items": [
   {
    "key": "foreigners",
    "label": "海外投資家",
-   "sell_oku": 247126,
-   "buy_oku": 243692,
-   "net_oku": -3435,
-   "prev_net_oku": 14475
+   "sell_oku": 260361,
+   "buy_oku": 260665,
+   "net_oku": 304,
+   "prev_net_oku": -3435
   },
   {
    "key": "individuals",
    "label": "個人投資家",
-   "sell_oku": 75171,
-   "buy_oku": 77305,
-   "net_oku": 2134,
-   "prev_net_oku": 475
+   "sell_oku": 89206,
+   "buy_oku": 88529,
+   "net_oku": -678,
+   "prev_net_oku": 2134
   },
   {
    "key": "trust_banks",
    "label": "信託銀行（年金など）",
-   "sell_oku": 6315,
-   "buy_oku": 5551,
-   "net_oku": -764,
-   "prev_net_oku": -327
+   "sell_oku": 8470,
+   "buy_oku": 6242,
+   "net_oku": -2228,
+   "prev_net_oku": -764
   },
   {
    "key": "inv_trusts",
    "label": "投資信託",
-   "sell_oku": 4091,
-   "buy_oku": 5472,
-   "net_oku": 1381,
-   "prev_net_oku": -1457
+   "sell_oku": 5620,
+   "buy_oku": 6031,
+   "net_oku": 412,
+   "prev_net_oku": 1381
   },
   {
    "key": "business",
    "label": "事業法人（自社株買いなど）",
-   "sell_oku": 2266,
-   "buy_oku": 3899,
-   "net_oku": 1633,
-   "prev_net_oku": 1770
+   "sell_oku": 3044,
+   "buy_oku": 4087,
+   "net_oku": 1043,
+   "prev_net_oku": 1633
   },
   {
    "key": "proprietary",
    "label": "証券自己（プロップ）",
-   "sell_oku": 40882,
-   "buy_oku": 40786,
-   "net_oku": -96,
-   "prev_net_oku": -12565
+   "sell_oku": 40354,
+   "buy_oku": 41068,
+   "net_oku": 714,
+   "prev_net_oku": -96
   }
  ]
 }
