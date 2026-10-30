@@ -60,11 +60,17 @@ jobs:
       - name: Append daily history
         run: python heatmap_hist.py
 
+      # 回ごとの値（前日比）を docs/heatmap_intraday/YYYY-MM-DD.json に追記（「今日の再生」の元・2026-10-30）。
+      # 失敗しても heatmap.json の公開は止めない
+      - name: Append intraday frame
+        run: python heatmap_intraday.py || echo "回ごとの記録に失敗（heatmap.json はそのまま公開）"
+
       - name: Commit heatmap.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/heatmap.json docs/heatmap_225.json docs/heatmap_growth.json docs/heatmap_hist data/n225.csv data/n225_coef.json
+          [ -d docs/heatmap_intraday ] && git add -fA docs/heatmap_intraday
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
