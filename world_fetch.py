@@ -255,6 +255,20 @@ def main():
     force_final = "--final" in sys.argv
     tickers = sorted({t for t, *_ in ITEMS} | {x[5]["alt"] for x in ITEMS if x[5].get("alt")} | set(FX_JPY.values()))
     df = yf.download(tickers, period="420d", progress=False, auto_adjust=False, group_by="ticker", threads=True)
+    # 並列で取ると yfinance の内部キャッシュが「database is locked」で1つ2つ落とすことがある（10/30 の ETH-USD）。
+    # 取れなかったものだけ1つずつ取り直す
+    miss = [t for t in tickers if series(df, t) is None]
+    if miss:
+        import pandas as pd
+        print(f"取り直し: {miss}")
+        for t in miss:
+            try:
+                one_df = yf.download([t], period="420d", progress=False, auto_adjust=False, group_by="ticker", threads=False)
+                if series(one_df, t) is not None:
+                    df = df.drop(columns=t, level=0, errors="ignore")
+                    df = pd.concat([df, one_df[[t]]], axis=1, sort=True)
+            except Exception as e:
+                print(f"  {t}: 取り直しも失敗 {e}")
     items = [one(df, t, n, g, k, cur, ex, now.date()) for t, n, g, k, cur, ex in ITEMS]
     ok = sum(i["ok"] for i in items)
     if ok < FLOOR:
