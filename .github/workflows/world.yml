@@ -1,0 +1,66 @@
+name: World Map (kaburadar.jp)
+
+# 世界の値動きの地図 → docs/world.json（＋7時の確定版だけ docs/world_days/）・答え合わせ docs/world_stats.json
+# 起動文: kaburadar\起動文_実務_世界の値動きの地図_2026-10-30.md
+#
+# ★本命は cron-worker（src/world.js）からの workflow_dispatch★
+#   JST 07:00（確定版・火〜土）・16:00（アジアの引け後・月〜金）・23:00（欧州の途中・米国の寄り後・月〜金）。
+#   東証の休場日とは無関係に動かす（海外は動くため）。確定版の日付アーカイブは world_fetch.py が
+#   「S&P500 の取引日が前の記録と同じなら積まない」で冪等にしている。
+# ★下の schedule は Worker が落ちたときの保険★（GitHub の schedule は数時間遅れるのが常。
+#   遅れて朝の回が 11時を過ぎると「16時の回」扱いになり、日付アーカイブは積まれない＝次の朝の回で積む）。
+#   1回あたり約1分（日足 約45銘柄。答え合わせは週1回だけ約10年分を取り直す）。
+on:
+  schedule:
+    - cron: '0 22 * * 1-5'    # 07:00 JST 火〜土（確定版）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: world
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # main のルールセットを通すため deploy key で checkout する（heatmap.yml と同じ）
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Fetch world map data
+        run: python -X utf8 world_fetch.py
+
+      # 週1回（前回から6日たっていなければ何もしない）。失敗しても地図の更新は止めない
+      - name: Recompute next-day Nikkei stats (weekly)
+        run: python -X utf8 world_stats.py || echo "答え合わせの再計算に失敗（前の world_stats.json のまま）"
+
+      - name: Commit world.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/world.json
+          [ -f docs/world_stats.json ] && git add -f docs/world_stats.json
+          [ -d docs/world_days ] && git add -f docs/world_days
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🌏 世界の値動きの地図のデータを更新"
+          git pull --rebase origin main
+          git push
