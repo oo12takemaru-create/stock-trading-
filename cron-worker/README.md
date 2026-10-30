@@ -187,7 +187,7 @@ npx wrangler dev --test-scheduled
 | 08:00 | daily-signal | 朝 |
 | 08:30 | morning-digest / kessan-react-daily | 朝の逆指値メール |
 | 09:00〜15:45 | **realtime-signal** | ザラ場15分毎（1日28回） |
-| 09:00 / 10:30 / 12:00 / 14:30 / 16:00 | heatmap | 値動き |
+| 09:00〜16:00 の30分おき（12:00 を除く14回） | heatmap | 値動き（2026-10-30〜） |
 | 12:00 | daily-signal | 昼 |
 | 16:30 | investor-flow | **木曜だけ**（JPX の公表が木曜） |
 | 18:00 | **pipeline-daily** | 夕シグナル→free-scanner→radar→派生→前計算→点検 |
