@@ -15,6 +15,10 @@
   平日6回走るので同じ取引日を何度も書くが、毎回上書きなので最後の実行が残る（冪等）。
 
 ■ heatmap_fetch.py は無変更。このスクリプトは読むだけ。
+
+■ 2026-10-30 今日の3行（サイトの日付アーカイブ heatmap/YYYY-MM-DD.html に焼く）
+  "ix": {"2026-10-30": {"n225": {"p","c"}, "topix": {"p","c","etf":"1306"}}} を足す（heatmap.json の ix をそのまま）。
+  ix が入る前の日（2026-10-30 まで）は、無い日だけ1回 yfinance の日足（^N225・1306.T）から埋める（埋まれば二度と取らない）。
 """
 import json
 import sys
@@ -31,6 +35,30 @@ def r(v, n):
         return round(float(v), n)
     except (TypeError, ValueError):
         return None
+
+
+IX_TICKERS = {"n225": "^N225", "topix": "1306.T"}     # heatmap_fetch.py と同じ（TOPIX は連動ETFで代用）
+
+
+def fill_ix(store):
+    """ix が無い日だけ、日足から日経平均・TOPIX（1306）の前日比を埋める。失敗しても何もしない"""
+    miss = [k for k in store.get("rows") or {} if k not in (store.get("ix") or {})]
+    if not miss:
+        return
+    try:
+        import yfinance as yf
+        for k, t in IX_TICKERS.items():
+            h = yf.Ticker(t).history(period="6mo", auto_adjust=False)["Close"].dropna()
+            ds = [x.strftime("%Y-%m-%d") for x in h.index]
+            for n in range(1, len(ds)):
+                if ds[n] in miss and float(h.iloc[n - 1]) > 0:
+                    v = {"p": round(float(h.iloc[n]), 2), "c": round((float(h.iloc[n]) / float(h.iloc[n - 1]) - 1) * 100, 2)}
+                    if k == "topix":
+                        v["etf"] = "1306"
+                    store.setdefault("ix", {}).setdefault(ds[n], {})[k] = v
+        print(f"ix を埋めた: {len([m for m in miss if m in store.get('ix', {})])}/{len(miss)}日")
+    except Exception as e:
+        print(f"ix を埋められない（そのまま）: {e}", file=sys.stderr)
 
 
 def main():
@@ -61,6 +89,11 @@ def main():
     new_day = day not in store["rows"]
     store["rows"][day] = rows
     store["rows"] = {k: store["rows"][k] for k in sorted(store["rows"])}
+    if d.get("ix"):
+        store.setdefault("ix", {})[day] = d["ix"]
+    fill_ix(store)
+    if store.get("ix"):
+        store["ix"] = {k: store["ix"][k] for k in sorted(store["ix"])}
     out.write_text(json.dumps(store, ensure_ascii=False, separators=(",", ":")),
                    encoding="utf-8")
     kb = out.stat().st_size / 1024
