@@ -26,6 +26,11 @@
   先頭に nk（ok・Σ寄与度 sum・日経平均の前日比 chg・差 diff・係数の基準日 base）。
   ★Σ寄与度と日経平均の前日比の差が ±3円を超えた回は ct・wt を出さない（nk.ok=false と理由だけ）★
 
+■ 2026-10-30 今日の3行（起動文_実務_ヒートマップの再生と今日の3行_2026-10-30.md）
+  ix  日経平均とTOPIXの前日比。{"n225":{"p":終値,"c":前日比%},"topix":{"p","c","etf":"1306"}}。3本とも同じ値。
+      TOPIX は指数そのものが yfinance で取れないため、連動ETF（1306.T）の値で代用（世界の値動きの地図と同じ）。
+      株価の取引日が trade_date と違う指数は出さない。取れなければキーごと出さない（サイトは「—」）
+
 使い方: python heatmap_fetch.py docs/heatmap.json
 依存: yfinance, pandas
 """
@@ -180,6 +185,31 @@ def load_facts():
     return facts, asof
 
 
+IX_TICKERS = {"n225": "^N225", "topix": "1306.T"}     # TOPIX は連動ETFで代用（指数そのものが取れない）
+
+
+def index_moves(df, trade_date):
+    """日経平均とTOPIXの前日比（今日の3行・2026-10-30）。取引日が trade_date と違う・取れないものは出さない"""
+    import pandas as pd
+    out = {}
+    for k, t in IX_TICKERS.items():
+        try:
+            sub = (df[t] if isinstance(df.columns, pd.MultiIndex) else df).dropna(subset=["Close"])
+            if len(sub) < 2 or sub.index[-1].strftime("%Y-%m-%d") != trade_date:
+                continue
+            last, prev = float(sub["Close"].iloc[-1]), float(sub["Close"].iloc[-2])
+            if prev <= 0:
+                continue
+            out[k] = {"p": round(last, 2), "c": round((last / prev - 1) * 100, 2)}
+            if k == "topix":
+                out[k]["etf"] = "1306"
+        except Exception as e:
+            print(f"指数 {t} を取れない: {e}", file=sys.stderr)
+    if out:
+        print("指数: " + " / ".join(f"{k} {v['c']:+.2f}%" for k, v in out.items()))
+    return out
+
+
 def enrich(items, facts):
     for i in items:
         i.update(facts.get(i["t"]) or {})
@@ -264,8 +294,8 @@ def main():
     shares = load_shares()
     facts, asof = load_facts()
     tickers = list(STOCKS.keys())
-    # 52週高値とMA200の計算に約1年分が必要（400暦日≒270営業日）
-    df = yf.download(tickers, period="400d", progress=False, auto_adjust=False,
+    # 52週高値とMA200の計算に約1年分が必要（400暦日≒270営業日）。指数2本（今日の3行）は同じ回で取る
+    df = yf.download(tickers + list(IX_TICKERS.values()), period="400d", progress=False, auto_adjust=False,
                      group_by="ticker", threads=True)
     trade_dates = {}
     items = make_items(df, tickers, STOCKS, shares, trade_dates)
@@ -273,6 +303,9 @@ def main():
         print(f"取得数が少なすぎる: {len(items)}", file=sys.stderr)
         sys.exit(1)
     enrich(items, facts)
+    ix = index_moves(df, max(trade_dates, key=trade_dates.get) if trade_dates else None)
+    if ix:
+        asof = dict(asof, ix=ix)
     # 既に出ている取引日より古ければ書かない（stale_guard 参照）
     write_map(dst, items, trade_dates, "ヒートマップ", 200, asof)
 
