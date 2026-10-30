@@ -1,0 +1,68 @@
+name: Pages Deploy (docs → GitHub Pages)
+
+# GitHub Pages を「ブランチから公開（legacy）」から「GitHub Actions で公開」に切り替えたときの公開役（2026-10-30）
+#
+# なぜ:
+#   legacy は main への push のたびに Pages 側でビルドし「1時間10回」の目安が掛かる。
+#   場中は push が1時間13〜15回あり、10/30 は公開100回のうち30回が Page build failed だった。
+#   公式: "This limit does not apply if you build and publish your site with a custom GitHub Actions workflow."
+#
+# 中身: docs/ を丸ごと（.nojekyll も含む）そのまま公開する。ビルドはしない（今と同じ見え方）。
+#
+# 起こし方:
+#   - main への push で docs/** が変わったとき。
+#     main に push しているのは各ワークフローの DEPLOY_KEY（ssh）と PR のマージだけ
+#     （GITHUB_TOKEN の push は main のルールセットに弾かれて main に入らない）。
+#     GITHUB_TOKEN の push だけが on: push を起こさない仕様なので、main に入ったコミットは全部ここを起こす。
+#   - 手動（workflow_dispatch）。切り替え直後や、公開が失敗したときのやり直し用。
+#
+# 重なったとき: concurrency で同時に1本。待ちは最新の1つだけ残る（cancel-in-progress: false なので
+#   公開中の回は止めない）。待っていた古い回が捨てられても、残った回が新しい docs を出すので取りこぼしは無い。
+#
+# 戻し方（legacy に戻す）:
+#   gh api -X PUT repos/oo12takemaru-create/stock-trading-/pages --input - <<< '{"build_type":"legacy","source":{"branch":"main","path":"/docs"}}'
+#   戻したらこのワークフローは deploy で失敗するだけ（害はない）。必要なら無効化する。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout (docs だけ・履歴なし)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: docs
+
+      - name: 中身の点検
+        run: |
+          test -f docs/index.html || test -f docs/heatmap.json || { echo "::error::docs/ が空に見える"; exit 1; }
+          echo "files: $(find docs -type f | wc -l)  size: $(du -sh docs | cut -f1)  sha: ${GITHUB_SHA::8}"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
