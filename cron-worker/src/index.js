@@ -50,11 +50,22 @@ const REF = "main"; // workflow_dispatch は既定ブランチのものしか動
  */
 const PLAN = {
   // ── ザラ場（平日）──
+  // ヒートマップは場中30分おき・1日14回（2026-10-30）。GitHub Pages を Actions で公開する方式に
+  //   切り替えて「1時間10回」の目安が外れたので増やした。12:00（昼休み）は置かない。
+  //   heatmap.yml の GitHub の schedule（保険）は増やさない。
   "09:00": ["heatmap.yml"],
+  "09:30": ["heatmap.yml"],
+  "10:00": ["heatmap.yml"],
   "10:30": ["heatmap.yml"],
-  "12:00": ["daily-signal.yml", "heatmap.yml"], // 昼の回
-  "12:30": ["board.yml"],
+  "11:00": ["heatmap.yml"],
+  "11:30": ["heatmap.yml"],
+  "12:00": ["daily-signal.yml"], // 昼の回
+  "12:30": ["heatmap.yml", "board.yml"],
+  "13:00": ["heatmap.yml"],
+  "13:30": ["heatmap.yml"],
+  "14:00": ["heatmap.yml"],
   "14:30": ["heatmap.yml"],
+  "15:00": ["heatmap.yml"],
   // ※ JST 15:00 に daily-signal を置かない。slot 判定は JST 15時以降を
   //   一律に「夕」とするので、18:00 の回と**同じタイトルの Issue が
   //   2本立つ**。夕は 18:00（pipeline-daily の先頭）が担当する。
@@ -64,7 +75,7 @@ const PLAN = {
   //   GitHub の schedule は 3〜7時間遅れるのが実測で確定（10/6 の値動きは深夜に走って中身が古かった）。
   //   各ワークフローの schedule は保険として残してある（二重に走っても各自の冪等ガードが効く）。
   // 決算速報（TDnet）。15:30・16:30・18:30 の3回が正常（NO_DEDUP）
-  "15:30": ["kessan-flash.yml"],
+  "15:30": ["kessan-flash.yml", "heatmap.yml"],
   "16:00": ["heatmap.yml"],
   "16:30": ["kessan-flash.yml", "board.yml"],
   // 銘柄別の信用残（JPX の日次公表・16:00目安）。17:30 は予備＝17:00 が成功していたら起こさない
@@ -183,7 +194,7 @@ const INTRADAY = {
  */
 export const NO_DEDUP = new Set([
   INTRADAY.workflow,  // ザラ場15分毎（1日約28回）
-  "heatmap.yml",      // ザラ場の値動き（1日5回）
+  "heatmap.yml",      // ザラ場の値動き（1日14回・場中30分おき）
   "daily-signal.yml", // 朝・昼・夕の3回が正常（夕は pipeline-daily の中）
   // AI の prep は本命＋予備の2回とも叩く（push -f で上書き・routine 側で重複を弾く）。
   // 1回目が成功していても2回目を止めない（Fable 判断 2026-10-07）。
