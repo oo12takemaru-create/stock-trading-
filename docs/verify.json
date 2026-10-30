@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-30T19:01:18+09:00",
+ "updated": "2026-10-31T00:22:46+09:00",
  "radar": {
   "index": "1306.T（TOPIX連動ETF）",
   "period": [
@@ -425,25 +425,25 @@
  },
  "ai": {
   "period": [
-   "2026-08-28",
-   "2026-10-30"
+   "2026-08-27",
+   "2026-10-29"
   ],
   "days": 40,
   "cut": "2026-09-05",
   "cut_commit": "5a4104d4",
   "main": {
    "label": "AI朝刊（公開値）",
-   "hit": 18,
-   "judged": 32,
-   "pct": 56.2,
+   "hit": 17,
+   "judged": 31,
+   "pct": 54.8,
    "sankou": false
   },
   "comparisons": [
    {
     "label": "機械の3軸だけ（AIの修正前）",
-    "hit": 16,
-    "judged": 32,
-    "pct": 50.0,
+    "hit": 15,
+    "judged": 31,
+    "pct": 48.4,
     "sankou": false
    },
    {
@@ -455,16 +455,16 @@
    },
    {
     "label": "前日と同じ判定",
-    "hit": 15,
-    "judged": 31,
-    "pct": 48.4,
+    "hit": 14,
+    "judged": 30,
+    "pct": 46.7,
     "sankou": false
    },
    {
     "label": "温度計の判定そのまま",
-    "hit": 13,
-    "judged": 32,
-    "pct": 40.6,
+    "hit": 14,
+    "judged": 33,
+    "pct": 42.4,
     "sankou": false
    }
   ],
@@ -505,18 +505,11 @@
      "a": "neutral",
      "ret": -0.05,
      "ok": true
-    },
-    {
-     "d": "2026-10-30",
-     "m": "lean_defense",
-     "a": "defense",
-     "ret": -2.12,
-     "ok": true
     }
    ],
-   "ok": 3,
-   "n": 6,
-   "pct": 50.0
+   "ok": 2,
+   "n": 5,
+   "pct": 40.0
   }
  },
  "score3_backfill": {
