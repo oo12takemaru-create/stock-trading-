@@ -33,6 +33,8 @@
 import { isTradingDay, isKnownYear, ymd } from "./holidays.js";
 // 米国株ヒートマップ（2026-10-24）。ET の時刻表・NYSE の休場日で別に判定する（PLAN には書かない）
 import { usTargetsFor, US_PLAN, US_KNOWN_YEARS } from "./us_market.js";
+// 世界の値動きの地図（2026-10-30）。JST の曜日だけで判定し、東証の休場日とは無関係に動かす（PLAN には書かない）
+import { worldTargetsFor, WORLD_PLAN } from "./world.js";
 
 const REPO = "oo12takemaru-create/stock-trading-";
 const REF = "main"; // workflow_dispatch は既定ブランチのものしか動かない
@@ -192,6 +194,8 @@ export const NO_DEDUP = new Set([
   "board.yml",        // トップの要約は各データの更新に合わせて1日5回作り直すのが正常
   // 米国株ヒートマップ（2026-10-24）。ET の 9:45/12:30/16:15/18:00 の4回が正常（us_market.js）
   "heatmap-us.yml",
+  // 世界の値動きの地図（2026-10-30）。JST 7:00/16:00/23:00 の3回が正常（world.js）
+  "world.yml",
 ]);
 
 /**
@@ -489,13 +493,16 @@ export default {
     // 米国株ヒートマップ（ET の時刻表・NYSE の休場日。東証の休場日とは無関係に動かす）
     const us = usTargetsFor(new Date(event.scheduledTime));
     if (us.why && !us.targets.length) console.log(`ET ${us.et}: ${us.why}なので米国の分は起こさない`);
+    // 世界の値動きの地図（JST の曜日だけ。東証の休場日でも起こす）
+    const world = worldTargetsFor(new Date(event.scheduledTime));
+    const extra = [...us.targets, ...world.targets];
 
     // 会員向けの朝の通知（HTTP）。ワークフローの起動とは別枠なので、
     // PLAN が空でも動くように targets の判定より前に置く。
     // 休場日は送らない（gate も走っていない）。
     const isMorningNotify = MORNING_NOTIFY.at === key && isTradingDay(jst);
 
-    if (targets.length === 0 && !isMorningNotify && us.targets.length === 0) {
+    if (targets.length === 0 && !isMorningNotify && extra.length === 0) {
       console.log(`JST ${key}: 予定なし`);
       return;
     }
@@ -505,7 +512,7 @@ export default {
       ctx.waitUntil(
         notify(
           "[ルールトレード] cron Worker に GH_PAT がありません",
-          `JST ${key} に ${[...targets, ...us.targets].join(", ")} を起動しようとしましたが、\n` +
+          `JST ${key} に ${[...targets, ...extra].join(", ")} を起動しようとしましたが、\n` +
             "GH_PAT が未設定のため何もできませんでした。\n" +
             "npx wrangler secret put GH_PAT で登録してください。",
           env,
@@ -527,8 +534,8 @@ export default {
     const runnable = (marketOpen
       ? targets
       : targets.filter((w) => RUN_ON_HOLIDAYS.has(w)))
-      // 米国の分は東証の休場日でも起こす（休場は us_market.js が NYSE の表で判定済み）
-      .concat(us.targets.filter((w) => !targets.includes(w)));
+      // 米国の分は東証の休場日でも起こす（休場は us_market.js が NYSE の表で判定済み）。世界の地図も同じ（world.js）
+      .concat(extra.filter((w, i) => !targets.includes(w) && extra.indexOf(w) === i));
 
     if (runnable.length === 0) {
       console.log(`JST ${key}: 休場日（${today}）なので何もしない`);
@@ -539,7 +546,7 @@ export default {
       console.warn(`休場日表に ${today.slice(0, 4)} 年が無い。祝日でも動きます`);
     }
 
-    console.log(`JST ${key}（${[why, us.why].filter(Boolean).join("＋")}）: ${runnable.length} 本を起動します`);
+    console.log(`JST ${key}（${[why, us.why, world.why].filter(Boolean).join("＋")}）: ${runnable.length} 本を起動します`);
 
     const backupHere = BACKUP_AT[key] || new Set();
     const results = [];
@@ -605,6 +612,7 @@ export default {
       dispatch_inputs: DISPATCH_INPUTS,
       run_on_holidays: [...RUN_ON_HOLIDAYS],
       us: { this_minute: usTargetsFor(new Date()), plan_et: US_PLAN, known_years: US_KNOWN_YEARS },
+      world: { this_minute: worldTargetsFor(new Date()), plan_jst: WORLD_PLAN },
     };
     return new Response(JSON.stringify(body, null, 2), {
       headers: { "Content-Type": "application/json; charset=utf-8" },
