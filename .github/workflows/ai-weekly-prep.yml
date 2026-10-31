@@ -16,17 +16,17 @@ name: AI Weekly Prep (data → prompt branch)
 #
 on:
   schedule:
-    # 2026-10-10 週末版を土曜1本に統合（日曜版の定期実行は止めた）
-    - cron: '40 22 * * 5'     # 22:40 UTC(金) = 7:40 JST(土)
-    - cron: '0 23 * * 5'      # 23:00 UTC(金) = 8:00 JST(土)
+    # 2026-11-07〜 土曜＝今週の振り返り（sat）／日曜＝来週の地図（sun）の2本に戻した（本命は cron-worker の dispatch）
+    - cron: '40 22 * * 5,6'   # 22:40 UTC(金・土) = 7:40 JST(土・日)
+    - cron: '0 23 * * 5,6'    # 23:00 UTC(金・土) = 8:00 JST(土・日)
   workflow_dispatch:
     inputs:
       mode:
-        description: 'sat=週末版（答え合わせ＋来週の地図） / sun=旧日曜版'
+        description: 'sat=土曜・今週の振り返り / sun=日曜・来週の地図'
         required: true
         default: 'sat'
-      legacy_sun:
-        description: '旧日曜版をあえて作るときだけ true（2026-10-10 に週末版へ統合済み）'
+      force_sun:
+        description: '日曜版の初回（2026-11-08）より前に、あえて日曜版を作るときだけ true'
         required: false
         default: 'false'
 
@@ -57,7 +57,7 @@ jobs:
         id: mode
         env:
           INPUT_MODE: ${{ github.event.inputs.mode }}
-          LEGACY_SUN: ${{ github.event.inputs.legacy_sun }}
+          FORCE_SUN: ${{ github.event.inputs.force_sun }}
         run: |
           M="$INPUT_MODE"
           if [ -z "$M" ]; then
@@ -67,10 +67,12 @@ jobs:
             fi
           fi
           case "$M" in sat|sun) ;; *) echo "::error::mode 不正: $M"; exit 1 ;; esac
-          # 日曜版は週末版（土曜）に統合した（2026-10-10）。cron-worker は日曜も mode=sun で起こしてくるので、
-          # ここで何もせず終える。どうしても旧日曜版を作るときは legacy_sun=true で手動実行する
-          if [ "$M" = "sun" ] && [ "$LEGACY_SUN" != "true" ]; then
-            echo "日曜版は週末版に統合済み → 何もしない"; echo "mode=skip" >> "$GITHUB_OUTPUT"; exit 0
+          # 2026-11-07〜 土日の2本（土=今週の振り返り / 日=来週の地図）。日曜版の初回は 11/8。
+          # 10/31（土）に出た週末版（来週の地図）を、その週末の日曜版として扱うため、11/1（日）は作らない
+          # （同じ週に見立てが2つ出て、二重に採点しないように）
+          D=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          if [ "$M" = "sun" ] && [ "$D" \< "2026-11-08" ] && [ "$FORCE_SUN" != "true" ]; then
+            echo "日曜版の初回は 2026-11-08 → 何もしない"; echo "mode=skip" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "mode=$M" >> "$GITHUB_OUTPUT"
           echo "モード: $M"
