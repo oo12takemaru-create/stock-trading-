@@ -3,6 +3,8 @@ name: AI Weekly Ingest (routine → main)
 # 2026-10-05〜 週末版AIの本番経路（平日朝刊の ai-morning-ingest.yml と同じ型）。
 #   文章は Claude Code の定期実行（routine）が書き、ブランチ ai-weekly/YYYY-MM-DD-<mode> に
 #   ai_answer.json（AIの回答JSONだけ）を push する。mode は sat|sun（別名 review|outlook）。
+#   2026-11-07〜 sat=土曜・今週の振り返り（ai_weekly.json の sat）/ sun=日曜・来週の地図（weekend）。
+#   どちらも docs/ai_weekly_days/<週末の土曜>-sat|sun.json に記録を積む。
 #   この push をトリガに、main を deploy key で checkout し、回答を取り込んで
 #   検証（禁止語・必須キー）→ 採点表などの組み立て → main へコミット → ブランチ削除 を行う。
 #   採点（rows / stats）は weekly.py がここで機械的に計算する。routine には書かせない。
@@ -99,6 +101,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/ai_weekly.json
+          # 2026-11-07〜 記録（kaburadar の weekly/YYYY-MM-DD.html の元）
+          git add -f docs/ai_weekly_days
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
