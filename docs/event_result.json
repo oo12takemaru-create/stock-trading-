@@ -1,9 +1,9 @@
 {
- "updated": "2026-10-14T12:28:36+00:00",
+ "updated": "2026-11-01T23:18:18+00:00",
  "price_source": "^N225 日足（Yahoo Finance）",
  "period": {
   "from": "2010-01-04",
-  "to": "2026-10-14"
+  "to": "2026-10-30"
  },
  "year_from": 2013,
  "windows": {
@@ -247,20 +247,20 @@
      }
     ],
     "水準が取れず除外": 0,
-    "反応日が取れず除外": 10
+    "反応日が取れず除外": 9
    },
-   "n_all": 109,
+   "n_all": 110,
    "range": {
-    "base_mean_pct": 1.218,
+    "base_mean_pct": 1.221,
     "利上げ": {
      "n": 21,
      "mean_pct": 1.219,
      "ratio": 1.0
     },
     "据え置き": {
-     "n": 77,
-     "mean_pct": 1.32,
-     "ratio": 1.08
+     "n": 78,
+     "mean_pct": 1.325,
+     "ratio": 1.09
     },
     "利下げ": {
      "n": 10,
@@ -279,27 +279,27 @@
       "min_pct": -2.84,
       "p_mean": 0.9992,
       "p_up": 1.0,
-      "base_mean_pct": 0.07,
+      "base_mean_pct": 0.067,
       "base_up_rate": 53.6,
-      "diff_mean_pt": -0.07,
+      "diff_mean_pt": -0.067,
       "diff_up_pt": -1.2,
-      "p_vs_base": 0.8009,
+      "p_vs_base": 0.808,
       "verdict": "効いていない"
      },
      "据え置き": {
-      "n": 77,
-      "mean_pct": -0.212,
-      "median_pct": -0.163,
-      "up_rate": 45.5,
+      "n": 78,
+      "mean_pct": -0.195,
+      "median_pct": -0.131,
+      "up_rate": 46.2,
       "max_pct": 2.47,
       "min_pct": -3.61,
-      "p_mean": 0.2078,
-      "p_up": 0.4944,
-      "base_mean_pct": 0.07,
+      "p_mean": 0.2422,
+      "p_up": 0.5716,
+      "base_mean_pct": 0.067,
       "base_up_rate": 53.6,
-      "diff_mean_pt": -0.282,
-      "diff_up_pt": -8.1,
-      "p_vs_base": 0.0985,
+      "diff_mean_pt": -0.262,
+      "diff_up_pt": -7.4,
+      "p_vs_base": 0.1207,
       "verdict": "効いていない"
      },
      "利下げ": {
@@ -311,11 +311,11 @@
       "min_pct": -0.9,
       "p_mean": 0.1591,
       "p_up": 0.1094,
-      "base_mean_pct": 0.07,
+      "base_mean_pct": 0.067,
       "base_up_rate": 53.6,
-      "diff_mean_pt": 0.431,
+      "diff_mean_pt": 0.434,
       "diff_up_pt": 26.4,
-      "p_vs_base": 0.2199,
+      "p_vs_base": 0.2174,
       "verdict": "件数不足"
      }
     },
@@ -329,27 +329,27 @@
       "min_pct": -4.51,
       "p_mean": 0.1706,
       "p_up": 0.6636,
-      "base_mean_pct": 0.067,
+      "base_mean_pct": 0.065,
       "base_up_rate": 53.5,
-      "diff_mean_pt": -0.552,
+      "diff_mean_pt": -0.55,
       "diff_up_pt": -10.6,
-      "p_vs_base": 0.1223,
+      "p_vs_base": 0.1234,
       "verdict": "効いていない"
      },
      "据え置き": {
-      "n": 77,
-      "mean_pct": 0.101,
-      "median_pct": 0.06,
-      "up_rate": 54.5,
+      "n": 78,
+      "mean_pct": 0.073,
+      "median_pct": 0.058,
+      "up_rate": 53.8,
       "max_pct": 4.83,
       "min_pct": -5.81,
-      "p_mean": 0.6111,
-      "p_up": 0.4944,
-      "base_mean_pct": 0.067,
+      "p_mean": 0.7137,
+      "p_up": 0.5716,
+      "base_mean_pct": 0.065,
       "base_up_rate": 53.5,
-      "diff_mean_pt": 0.034,
-      "diff_up_pt": 1.0,
-      "p_vs_base": 0.8625,
+      "diff_mean_pt": 0.008,
+      "diff_up_pt": 0.3,
+      "p_vs_base": 0.9685,
       "verdict": "効いていない"
      },
      "利下げ": {
@@ -361,11 +361,11 @@
       "min_pct": -2.84,
       "p_mean": 0.8613,
       "p_up": 1.0,
-      "base_mean_pct": 0.067,
+      "base_mean_pct": 0.065,
       "base_up_rate": 53.5,
-      "diff_mean_pt": -0.155,
+      "diff_mean_pt": -0.153,
       "diff_up_pt": -3.5,
-      "p_vs_base": 0.7599,
+      "p_vs_base": 0.7623,
       "verdict": "件数不足"
      }
     }
@@ -374,12 +374,12 @@
     "d0": {
      "利上げ vs 据え置き": {
       "n_a": 21,
-      "n_b": 77,
+      "n_b": 78,
       "mean_a_pct": 0.0,
-      "mean_b_pct": -0.212,
-      "diff_pt": 0.212,
-      "p_ttest": 0.5093,
-      "p_mannwhitney": 0.6401
+      "mean_b_pct": -0.195,
+      "diff_pt": 0.195,
+      "p_ttest": 0.5425,
+      "p_mannwhitney": 0.6969
      },
      "利上げ vs 利下げ": {
       "n_a": 21,
@@ -391,24 +391,24 @@
       "p_mannwhitney": 0.2628
      },
      "据え置き vs 利下げ": {
-      "n_a": 77,
+      "n_a": 78,
       "n_b": 10,
-      "mean_a_pct": -0.212,
+      "mean_a_pct": -0.195,
       "mean_b_pct": 0.501,
-      "diff_pt": -0.712,
-      "p_ttest": 0.0718,
-      "p_mannwhitney": 0.1118
+      "diff_pt": -0.696,
+      "p_ttest": 0.0777,
+      "p_mannwhitney": 0.1224
      }
     },
     "d1": {
      "利上げ vs 据え置き": {
       "n_a": 21,
-      "n_b": 77,
+      "n_b": 78,
       "mean_a_pct": -0.485,
-      "mean_b_pct": 0.101,
-      "diff_pt": -0.586,
-      "p_ttest": 0.1464,
-      "p_mannwhitney": 0.3152
+      "mean_b_pct": 0.073,
+      "diff_pt": -0.558,
+      "p_ttest": 0.1662,
+      "p_mannwhitney": 0.3531
      },
      "利上げ vs 利下げ": {
       "n_a": 21,
@@ -420,13 +420,13 @@
       "p_mannwhitney": 0.5973
      },
      "据え置き vs 利下げ": {
-      "n_a": 77,
+      "n_a": 78,
       "n_b": 10,
-      "mean_a_pct": 0.101,
+      "mean_a_pct": 0.073,
       "mean_b_pct": -0.088,
-      "diff_pt": 0.19,
-      "p_ttest": 0.7265,
-      "p_mannwhitney": 0.6848
+      "diff_pt": 0.161,
+      "p_ttest": 0.766,
+      "p_mannwhitney": 0.7275
      }
     }
    },
@@ -436,19 +436,19 @@
       "n": 1
      },
      "据え置き": {
-      "n": 17,
-      "mean_pct": -0.173,
-      "median_pct": -0.099,
-      "up_rate": 47.1,
+      "n": 18,
+      "mean_pct": -0.102,
+      "median_pct": -0.034,
+      "up_rate": 50.0,
       "max_pct": 2.03,
       "min_pct": -3.38,
-      "p_mean": 0.6117,
+      "p_mean": 0.7555,
       "p_up": 1.0,
-      "base_mean_pct": 0.123,
-      "base_up_rate": 53.6,
-      "diff_mean_pt": -0.296,
-      "diff_up_pt": -6.5,
-      "p_vs_base": 0.3965
+      "base_mean_pct": 0.118,
+      "base_up_rate": 53.3,
+      "diff_mean_pt": -0.22,
+      "diff_up_pt": -3.3,
+      "p_vs_base": 0.5124
      },
      "利下げ": {
       "n": 6,
@@ -459,11 +459,11 @@
       "min_pct": -0.9,
       "p_mean": 0.5009,
       "p_up": 0.6875,
-      "base_mean_pct": 0.123,
-      "base_up_rate": 53.6,
-      "diff_mean_pt": 0.215,
-      "diff_up_pt": 13.1,
-      "p_vs_base": 0.6655
+      "base_mean_pct": 0.118,
+      "base_up_rate": 53.3,
+      "diff_mean_pt": 0.22,
+      "diff_up_pt": 13.4,
+      "p_vs_base": 0.6583
      }
     },
     "d1": {
@@ -471,19 +471,19 @@
       "n": 1
      },
      "据え置き": {
-      "n": 17,
-      "mean_pct": 0.093,
-      "median_pct": 0.243,
-      "up_rate": 64.7,
+      "n": 18,
+      "mean_pct": -0.03,
+      "median_pct": 0.211,
+      "up_rate": 61.1,
       "max_pct": 4.03,
       "min_pct": -5.81,
-      "p_mean": 0.8608,
-      "p_up": 0.3323,
-      "base_mean_pct": 0.112,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": -0.019,
-      "diff_up_pt": 11.6,
-      "p_vs_base": 0.972
+      "p_mean": 0.9541,
+      "p_up": 0.4807,
+      "base_mean_pct": 0.11,
+      "base_up_rate": 53.0,
+      "diff_mean_pt": -0.14,
+      "diff_up_pt": 8.1,
+      "p_vs_base": 0.7888
      },
      "利下げ": {
       "n": 6,
@@ -494,11 +494,11 @@
       "min_pct": -0.57,
       "p_mean": 0.1778,
       "p_up": 0.6875,
-      "base_mean_pct": 0.112,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": 0.595,
-      "diff_up_pt": 13.6,
-      "p_vs_base": 0.246
+      "base_mean_pct": 0.11,
+      "base_up_rate": 53.0,
+      "diff_mean_pt": 0.597,
+      "diff_up_pt": 13.7,
+      "p_vs_base": 0.2444
      }
     }
    },
@@ -516,15 +516,15 @@
    "note": "CPIは前月分を翌月に発表する。発表日に紐づけたのは対象月＝発表月の1つ前。その月の前月比を、さらに1つ前の月の前月比と比べた。数字は発表日時点の版（改定前）",
    "extra": {
     "対象月のデータが無く除外": 2,
-    "反応日が取れず除外": 15
+    "反応日が取れず除外": 14
    },
-   "n_all": 164,
+   "n_all": 165,
    "range": {
-    "base_mean_pct": 1.224,
+    "base_mean_pct": 1.226,
     "前月比が加速": {
-     "n": 79,
-     "mean_pct": 1.186,
-     "ratio": 0.97
+     "n": 80,
+     "mean_pct": 1.224,
+     "ratio": 1.0
     },
     "前月比が減速": {
      "n": 83,
@@ -535,19 +535,19 @@
    "groups": {
     "d0": {
      "前月比が加速": {
-      "n": 79,
-      "mean_pct": 0.165,
-      "median_pct": 0.094,
-      "up_rate": 53.2,
+      "n": 80,
+      "mean_pct": 0.102,
+      "median_pct": 0.091,
+      "up_rate": 52.5,
       "max_pct": 3.41,
-      "min_pct": -3.01,
-      "p_mean": 0.2833,
-      "p_up": 0.653,
-      "base_mean_pct": 0.057,
+      "min_pct": -4.9,
+      "p_mean": 0.536,
+      "p_up": 0.7376,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.108,
-      "diff_up_pt": -0.1,
-      "p_vs_base": 0.4882,
+      "diff_mean_pt": 0.046,
+      "diff_up_pt": -0.8,
+      "p_vs_base": 0.7845,
       "verdict": "効いていない"
      },
      "前月比が減速": {
@@ -559,29 +559,29 @@
       "min_pct": -4.41,
       "p_mean": 0.0667,
       "p_up": 0.0475,
-      "base_mean_pct": 0.057,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.202,
+      "diff_mean_pt": 0.203,
       "diff_up_pt": 8.1,
-      "p_vs_base": 0.1574,
+      "p_vs_base": 0.1554,
       "verdict": "効いていない"
      }
     },
     "d1": {
      "前月比が加速": {
-      "n": 79,
-      "mean_pct": 0.367,
-      "median_pct": 0.3,
-      "up_rate": 62.0,
+      "n": 80,
+      "mean_pct": 0.379,
+      "median_pct": 0.322,
+      "up_rate": 62.5,
       "max_pct": 3.64,
       "min_pct": -3.4,
-      "p_mean": 0.0085,
-      "p_up": 0.0422,
-      "base_mean_pct": 0.058,
+      "p_mean": 0.0061,
+      "p_up": 0.033,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.4,
-      "diff_mean_pt": 0.309,
-      "diff_up_pt": 8.6,
-      "p_vs_base": 0.0278,
+      "diff_mean_pt": 0.323,
+      "diff_up_pt": 9.1,
+      "p_vs_base": 0.0203,
       "verdict": "効いている"
      },
      "前月比が減速": {
@@ -593,11 +593,11 @@
       "min_pct": -6.08,
       "p_mean": 0.8283,
       "p_up": 0.8264,
-      "base_mean_pct": 0.058,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.4,
-      "diff_mean_pt": -0.02,
+      "diff_mean_pt": -0.018,
       "diff_up_pt": -5.2,
-      "p_vs_base": 0.9133,
+      "p_vs_base": 0.9224,
       "verdict": "効いていない"
      }
     }
@@ -605,43 +605,43 @@
    "between": {
     "d0": {
      "前月比が加速 vs 前月比が減速": {
-      "n_a": 79,
+      "n_a": 80,
       "n_b": 83,
-      "mean_a_pct": 0.165,
+      "mean_a_pct": 0.102,
       "mean_b_pct": 0.259,
-      "diff_pt": -0.094,
-      "p_ttest": 0.6486,
-      "p_mannwhitney": 0.5531
+      "diff_pt": -0.158,
+      "p_ttest": 0.4642,
+      "p_mannwhitney": 0.4682
      }
     },
     "d1": {
      "前月比が加速 vs 前月比が減速": {
-      "n_a": 79,
+      "n_a": 80,
       "n_b": 83,
-      "mean_a_pct": 0.367,
+      "mean_a_pct": 0.379,
       "mean_b_pct": 0.038,
-      "diff_pt": 0.328,
-      "p_ttest": 0.142,
-      "p_mannwhitney": 0.0862
+      "diff_pt": 0.341,
+      "p_ttest": 0.126,
+      "p_mannwhitney": 0.0738
      }
     }
    },
    "recent": {
     "d0": {
      "前月比が加速": {
-      "n": 17,
-      "mean_pct": 0.389,
-      "median_pct": 0.252,
-      "up_rate": 52.9,
+      "n": 18,
+      "mean_pct": 0.096,
+      "median_pct": 0.107,
+      "up_rate": 50.0,
       "max_pct": 3.41,
-      "min_pct": -1.04,
-      "p_mean": 0.1744,
+      "min_pct": -4.9,
+      "p_mean": 0.8099,
       "p_up": 1.0,
-      "base_mean_pct": 0.105,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": 0.284,
-      "diff_up_pt": -0.6,
-      "p_vs_base": 0.3259
+      "base_mean_pct": 0.108,
+      "base_up_rate": 53.2,
+      "diff_mean_pt": -0.012,
+      "diff_up_pt": -3.2,
+      "p_vs_base": 0.9762
      },
      "前月比が減速": {
       "n": 15,
@@ -652,28 +652,28 @@
       "min_pct": -2.96,
       "p_mean": 0.5692,
       "p_up": 1.0,
-      "base_mean_pct": 0.105,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": 0.129,
-      "diff_up_pt": -0.2,
-      "p_vs_base": 0.7557
+      "base_mean_pct": 0.108,
+      "base_up_rate": 53.2,
+      "diff_mean_pt": 0.126,
+      "diff_up_pt": 0.1,
+      "p_vs_base": 0.7596
      }
     },
     "d1": {
      "前月比が加速": {
-      "n": 17,
-      "mean_pct": 0.272,
-      "median_pct": 0.278,
-      "up_rate": 52.9,
+      "n": 18,
+      "mean_pct": 0.334,
+      "median_pct": 0.283,
+      "up_rate": 55.6,
       "max_pct": 3.64,
       "min_pct": -1.16,
-      "p_mean": 0.3925,
-      "p_up": 1.0,
-      "base_mean_pct": 0.118,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": 0.154,
-      "diff_up_pt": -0.8,
-      "p_vs_base": 0.6309
+      "p_mean": 0.2781,
+      "p_up": 0.8145,
+      "base_mean_pct": 0.113,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": 0.221,
+      "diff_up_pt": 2.1,
+      "p_vs_base": 0.4775
      },
      "前月比が減速": {
       "n": 15,
@@ -684,11 +684,11 @@
       "min_pct": -2.79,
       "p_mean": 0.7504,
       "p_up": 1.0,
-      "base_mean_pct": 0.118,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": -0.225,
-      "diff_up_pt": -7.0,
-      "p_vs_base": 0.513
+      "base_mean_pct": 0.113,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": -0.22,
+      "diff_up_pt": -6.8,
+      "p_vs_base": 0.521
      }
     }
    },
@@ -706,15 +706,15 @@
    "note": "対象月＝発表月の1つ前。前年比は季節調整済系列で計算している（公表される見出しの前年比は季節調整前。ほぼ同じだが完全には一致しない）",
    "extra": {
     "対象月のデータが無く除外": 2,
-    "反応日が取れず除外": 15
+    "反応日が取れず除外": 14
    },
-   "n_all": 164,
+   "n_all": 165,
    "range": {
-    "base_mean_pct": 1.224,
+    "base_mean_pct": 1.226,
     "前年比が3%超": {
-     "n": 45,
-     "mean_pct": 1.293,
-     "ratio": 1.06
+     "n": 46,
+     "mean_pct": 1.355,
+     "ratio": 1.11
     },
     "前年比が3%以下": {
      "n": 117,
@@ -725,19 +725,19 @@
    "groups": {
     "d0": {
      "前年比が3%超": {
-      "n": 45,
-      "mean_pct": 0.181,
-      "median_pct": 0.027,
-      "up_rate": 53.3,
+      "n": 46,
+      "mean_pct": 0.07,
+      "median_pct": 0.021,
+      "up_rate": 52.2,
       "max_pct": 3.25,
-      "min_pct": -3.01,
-      "p_mean": 0.431,
-      "p_up": 0.766,
-      "base_mean_pct": 0.057,
+      "min_pct": -4.9,
+      "p_mean": 0.7788,
+      "p_up": 0.883,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.124,
-      "diff_up_pt": 0.0,
-      "p_vs_base": 0.5921,
+      "diff_mean_pt": 0.014,
+      "diff_up_pt": -1.1,
+      "p_vs_base": 0.9559,
       "verdict": "効いていない"
      },
      "前年比が3%以下": {
@@ -749,29 +749,29 @@
       "min_pct": -4.41,
       "p_mean": 0.0486,
       "p_up": 0.064,
-      "base_mean_pct": 0.057,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.169,
+      "diff_mean_pt": 0.17,
       "diff_up_pt": 5.7,
-      "p_vs_base": 0.1483,
+      "p_vs_base": 0.1459,
       "verdict": "効いていない"
      }
     },
     "d1": {
      "前年比が3%超": {
-      "n": 45,
-      "mean_pct": 0.156,
-      "median_pct": 0.205,
-      "up_rate": 51.1,
+      "n": 46,
+      "mean_pct": 0.183,
+      "median_pct": 0.206,
+      "up_rate": 52.2,
       "max_pct": 2.81,
       "min_pct": -2.79,
-      "p_mean": 0.395,
-      "p_up": 1.0,
-      "base_mean_pct": 0.058,
+      "p_mean": 0.3141,
+      "p_up": 0.883,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.4,
-      "diff_mean_pt": 0.098,
-      "diff_up_pt": -2.3,
-      "p_vs_base": 0.5942,
+      "diff_mean_pt": 0.127,
+      "diff_up_pt": -1.2,
+      "p_vs_base": 0.4863,
       "verdict": "効いていない"
      },
      "前年比が3%以下": {
@@ -783,11 +783,11 @@
       "min_pct": -6.08,
       "p_mean": 0.1261,
       "p_up": 0.1953,
-      "base_mean_pct": 0.058,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.4,
-      "diff_mean_pt": 0.157,
+      "diff_mean_pt": 0.159,
       "diff_up_pt": 3.0,
-      "p_vs_base": 0.2696,
+      "p_vs_base": 0.2634,
       "verdict": "効いていない"
      }
     }
@@ -795,43 +795,43 @@
    "between": {
     "d0": {
      "前年比が3%超 vs 前年比が3%以下": {
-      "n_a": 45,
+      "n_a": 46,
       "n_b": 117,
-      "mean_a_pct": 0.181,
+      "mean_a_pct": 0.07,
       "mean_b_pct": 0.226,
-      "diff_pt": -0.045,
-      "p_ttest": 0.8588,
-      "p_mannwhitney": 0.7252
+      "diff_pt": -0.156,
+      "p_ttest": 0.5699,
+      "p_mannwhitney": 0.5739
      }
     },
     "d1": {
      "前年比が3%超 vs 前年比が3%以下": {
-      "n_a": 45,
+      "n_a": 46,
       "n_b": 117,
-      "mean_a_pct": 0.156,
+      "mean_a_pct": 0.183,
       "mean_b_pct": 0.215,
-      "diff_pt": -0.058,
-      "p_ttest": 0.7992,
-      "p_mannwhitney": 0.7791
+      "diff_pt": -0.032,
+      "p_ttest": 0.8901,
+      "p_mannwhitney": 0.8784
      }
     }
    },
    "recent": {
     "d0": {
      "前年比が3%超": {
-      "n": 15,
-      "mean_pct": 0.562,
-      "median_pct": 0.252,
-      "up_rate": 60.0,
+      "n": 16,
+      "mean_pct": 0.221,
+      "median_pct": 0.155,
+      "up_rate": 56.2,
       "max_pct": 2.52,
-      "min_pct": -0.81,
-      "p_mean": 0.0773,
-      "p_up": 0.6072,
-      "base_mean_pct": 0.105,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": 0.457,
-      "diff_up_pt": 6.5,
-      "p_vs_base": 0.1501
+      "min_pct": -4.9,
+      "p_mean": 0.6223,
+      "p_up": 0.8036,
+      "base_mean_pct": 0.108,
+      "base_up_rate": 53.2,
+      "diff_mean_pt": 0.113,
+      "diff_up_pt": 3.0,
+      "p_vs_base": 0.8018
      },
      "前年比が3%以下": {
       "n": 17,
@@ -842,28 +842,28 @@
       "min_pct": -2.96,
       "p_mean": 0.7822,
       "p_up": 1.0,
-      "base_mean_pct": 0.105,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": -0.005,
-      "diff_up_pt": -6.4,
-      "p_vs_base": 0.989
+      "base_mean_pct": 0.108,
+      "base_up_rate": 53.2,
+      "diff_mean_pt": -0.008,
+      "diff_up_pt": -6.1,
+      "p_vs_base": 0.9843
      }
     },
     "d1": {
      "前年比が3%超": {
-      "n": 15,
-      "mean_pct": 0.198,
-      "median_pct": 0.205,
-      "up_rate": 53.3,
+      "n": 16,
+      "mean_pct": 0.273,
+      "median_pct": 0.224,
+      "up_rate": 56.2,
       "max_pct": 2.81,
       "min_pct": -2.79,
-      "p_mean": 0.5806,
-      "p_up": 1.0,
-      "base_mean_pct": 0.118,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": 0.08,
-      "diff_up_pt": -0.4,
-      "p_vs_base": 0.8237
+      "p_mean": 0.4296,
+      "p_up": 0.8036,
+      "base_mean_pct": 0.113,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": 0.16,
+      "diff_up_pt": 2.7,
+      "p_vs_base": 0.6468
      },
      "前年比が3%以下": {
       "n": 17,
@@ -874,11 +874,11 @@
       "min_pct": -1.45,
       "p_mean": 0.9918,
       "p_up": 1.0,
-      "base_mean_pct": 0.118,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": -0.115,
-      "diff_up_pt": -6.6,
-      "p_vs_base": 0.7094
+      "base_mean_pct": 0.113,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": -0.11,
+      "diff_up_pt": -6.4,
+      "p_vs_base": 0.7198
      }
     }
    },
@@ -914,7 +914,7 @@
    },
    "n_all": 165,
    "range": {
-    "base_mean_pct": 1.218,
+    "base_mean_pct": 1.221,
     "3か月平均より上": {
      "n": 77,
      "mean_pct": 1.276,
@@ -923,7 +923,7 @@
     "3か月平均より下": {
      "n": 87,
      "mean_pct": 1.348,
-     "ratio": 1.11
+     "ratio": 1.1
     }
    },
    "groups": {
@@ -937,11 +937,11 @@
       "min_pct": -7.83,
       "p_mean": 0.5839,
       "p_up": 0.022,
-      "base_mean_pct": 0.061,
+      "base_mean_pct": 0.059,
       "base_up_rate": 53.1,
-      "diff_mean_pt": 0.053,
+      "diff_mean_pt": 0.055,
       "diff_up_pt": 10.5,
-      "p_vs_base": 0.8002,
+      "p_vs_base": 0.7909,
       "verdict": "効いていない"
      },
      "3か月平均より下": {
@@ -953,11 +953,11 @@
       "min_pct": -12.4,
       "p_mean": 0.3732,
       "p_up": 0.053,
-      "base_mean_pct": 0.061,
+      "base_mean_pct": 0.059,
       "base_up_rate": 53.1,
-      "diff_mean_pt": 0.135,
+      "diff_mean_pt": 0.137,
       "diff_up_pt": 7.8,
-      "p_vs_base": 0.5416,
+      "p_vs_base": 0.5341,
       "verdict": "効いていない"
      }
     },
@@ -971,11 +971,11 @@
       "min_pct": -2.08,
       "p_mean": 0.079,
       "p_up": 0.362,
-      "base_mean_pct": 0.058,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.194,
+      "diff_mean_pt": 0.196,
       "diff_up_pt": 2.5,
-      "p_vs_base": 0.1799,
+      "p_vs_base": 0.1763,
       "verdict": "効いていない"
      },
      "3か月平均より下": {
@@ -987,11 +987,11 @@
       "min_pct": -5.4,
       "p_mean": 0.4095,
       "p_up": 0.1329,
-      "base_mean_pct": 0.058,
+      "base_mean_pct": 0.056,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.1,
+      "diff_mean_pt": 0.102,
       "diff_up_pt": 5.3,
-      "p_vs_base": 0.6034,
+      "p_vs_base": 0.5976,
       "verdict": "効いていない"
      }
     }
@@ -1031,11 +1031,11 @@
       "min_pct": -7.83,
       "p_mean": 0.7101,
       "p_up": 0.5235,
-      "base_mean_pct": 0.14,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": -0.324,
-      "diff_up_pt": 6.0,
-      "p_vs_base": 0.5161
+      "base_mean_pct": 0.135,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": -0.319,
+      "diff_up_pt": 6.3,
+      "p_vs_base": 0.5228
      },
      "3か月平均より下": {
       "n": 12,
@@ -1046,11 +1046,11 @@
       "min_pct": -12.4,
       "p_mean": 0.7403,
       "p_up": 0.146,
-      "base_mean_pct": 0.14,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": -0.561,
-      "diff_up_pt": 21.9,
-      "p_vs_base": 0.6595
+      "base_mean_pct": 0.135,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": -0.556,
+      "diff_up_pt": 22.2,
+      "p_vs_base": 0.6624
      }
     },
     "d1": {
@@ -1063,11 +1063,11 @@
       "min_pct": -1.7,
       "p_mean": 0.2257,
       "p_up": 0.5235,
-      "base_mean_pct": 0.088,
-      "base_up_rate": 53.2,
-      "diff_mean_pt": 0.334,
-      "diff_up_pt": 5.9,
-      "p_vs_base": 0.3407
+      "base_mean_pct": 0.085,
+      "base_up_rate": 53.1,
+      "diff_mean_pt": 0.337,
+      "diff_up_pt": 6.0,
+      "p_vs_base": 0.3374
      },
      "3か月平均より下": {
       "n": 12,
@@ -1078,11 +1078,11 @@
       "min_pct": -1.63,
       "p_mean": 0.1721,
       "p_up": 0.7744,
-      "base_mean_pct": 0.088,
-      "base_up_rate": 53.2,
-      "diff_mean_pt": 1.241,
-      "diff_up_pt": 5.1,
-      "p_vs_base": 0.2004
+      "base_mean_pct": 0.085,
+      "base_up_rate": 53.1,
+      "diff_mean_pt": 1.244,
+      "diff_up_pt": 5.2,
+      "p_vs_base": 0.1996
      }
     }
    },
@@ -1161,12 +1161,16 @@
       "what": "政策金利を1.25%程度に引上げ"
      }
     ],
-    "不明として除外": [],
-    "反応日が取れず除外": 10
+    "不明として除外": [
+     {
+      "d": "2026-10-30"
+     }
+    ],
+    "反応日が取れず除外": 9
    },
-   "n_all": 129,
+   "n_all": 130,
    "range": {
-    "base_mean_pct": 1.211,
+    "base_mean_pct": 1.214,
     "政策変更あり": {
      "n": 15,
      "mean_pct": 2.449,
@@ -1189,11 +1193,11 @@
       "min_pct": -2.46,
       "p_mean": 0.0833,
       "p_up": 0.1185,
-      "base_mean_pct": 0.061,
+      "base_mean_pct": 0.059,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.783,
+      "diff_mean_pt": 0.785,
       "diff_up_pt": 20.0,
-      "p_vs_base": 0.1059,
+      "p_vs_base": 0.1049,
       "verdict": "件数不足"
      },
      "政策変更なし": {
@@ -1205,11 +1209,11 @@
       "min_pct": -3.61,
       "p_mean": 0.5438,
       "p_up": 0.2232,
-      "base_mean_pct": 0.061,
+      "base_mean_pct": 0.059,
       "base_up_rate": 53.3,
-      "diff_mean_pt": 0.017,
+      "diff_mean_pt": 0.019,
       "diff_up_pt": 2.8,
-      "p_vs_base": 0.8976,
+      "p_vs_base": 0.8824,
       "verdict": "効いていない"
      }
     },
@@ -1223,11 +1227,11 @@
       "min_pct": -2.49,
       "p_mean": 0.1437,
       "p_up": 0.3018,
-      "base_mean_pct": 0.074,
-      "base_up_rate": 53.8,
-      "diff_mean_pt": 0.569,
-      "diff_up_pt": 12.9,
-      "p_vs_base": 0.1928,
+      "base_mean_pct": 0.073,
+      "base_up_rate": 53.7,
+      "diff_mean_pt": 0.57,
+      "diff_up_pt": 13.0,
+      "p_vs_base": 0.1916,
       "verdict": "件数不足"
      },
      "政策変更なし": {
@@ -1239,11 +1243,11 @@
       "min_pct": -7.32,
       "p_mean": 0.0324,
       "p_up": 0.3029,
-      "base_mean_pct": 0.074,
-      "base_up_rate": 53.8,
-      "diff_mean_pt": -0.358,
-      "diff_up_pt": -9.1,
-      "p_vs_base": 0.0082,
+      "base_mean_pct": 0.073,
+      "base_up_rate": 53.7,
+      "diff_mean_pt": -0.357,
+      "diff_up_pt": -9.0,
+      "p_vs_base": 0.0085,
       "verdict": "効いている"
      }
     }
@@ -1283,11 +1287,11 @@
       "min_pct": -0.07,
       "p_mean": 0.0173,
       "p_up": 0.125,
-      "base_mean_pct": 0.108,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": 0.628,
-      "diff_up_pt": 32.6,
-      "p_vs_base": 0.0317
+      "base_mean_pct": 0.103,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": 0.633,
+      "diff_up_pt": 32.9,
+      "p_vs_base": 0.0307
      },
      "政策変更なし": {
       "n": 17,
@@ -1298,11 +1302,11 @@
       "min_pct": -3.38,
       "p_mean": 0.4694,
       "p_up": 0.6291,
-      "base_mean_pct": 0.108,
-      "base_up_rate": 53.1,
-      "diff_mean_pt": 0.163,
-      "diff_up_pt": 5.7,
-      "p_vs_base": 0.6659
+      "base_mean_pct": 0.103,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": 0.168,
+      "diff_up_pt": 6.0,
+      "p_vs_base": 0.6564
      }
     },
     "d1": {
@@ -1315,11 +1319,11 @@
       "min_pct": -2.49,
       "p_mean": 0.3914,
       "p_up": 0.4531,
-      "base_mean_pct": 0.124,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": 0.492,
-      "diff_up_pt": 17.7,
-      "p_vs_base": 0.4897
+      "base_mean_pct": 0.121,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": 0.495,
+      "diff_up_pt": 17.9,
+      "p_vs_base": 0.4876
      },
      "政策変更なし": {
       "n": 17,
@@ -1330,11 +1334,11 @@
       "min_pct": -3.48,
       "p_mean": 0.4066,
       "p_up": 0.6291,
-      "base_mean_pct": 0.124,
-      "base_up_rate": 53.7,
-      "diff_mean_pt": -0.443,
-      "diff_up_pt": -12.5,
-      "p_vs_base": 0.2594
+      "base_mean_pct": 0.121,
+      "base_up_rate": 53.5,
+      "diff_mean_pt": -0.44,
+      "diff_up_pt": -12.3,
+      "p_vs_base": 0.262
      }
     }
    },
@@ -1351,9 +1355,9 @@
    "fred": "不要（価格のみ）",
    "note": "反応日の当日リターン（d0）で分け、その翌営業日（d1）を測った。同じ日に複数のイベントが重なる回は1日として数える",
    "extra": {
-    "対象の反応日": 533
+    "対象の反応日": 536
    },
-   "n_all": 533,
+   "n_all": 536,
    "groups": {
     "d1": {
      "+2%以上": {
@@ -1365,43 +1369,43 @@
       "min_pct": -2.84,
       "p_mean": 0.1201,
       "p_up": 0.7709,
-      "base_mean_pct": 0.061,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": 0.246,
-      "diff_up_pt": -0.3,
-      "p_vs_base": 0.2136,
+      "base_mean_pct": 0.058,
+      "base_up_rate": 53.4,
+      "diff_mean_pt": 0.249,
+      "diff_up_pt": -0.2,
+      "p_vs_base": 0.2094,
       "verdict": "効いていない"
      },
      "−2%以下": {
-      "n": 38,
-      "mean_pct": 0.488,
-      "median_pct": 0.137,
-      "up_rate": 57.9,
+      "n": 39,
+      "mean_pct": 0.511,
+      "median_pct": 0.205,
+      "up_rate": 59.0,
       "max_pct": 10.23,
       "min_pct": -6.08,
-      "p_mean": 0.335,
-      "p_up": 0.4177,
-      "base_mean_pct": 0.061,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": 0.427,
-      "diff_up_pt": 4.4,
-      "p_vs_base": 0.3983,
+      "p_mean": 0.3006,
+      "p_up": 0.3368,
+      "base_mean_pct": 0.058,
+      "base_up_rate": 53.4,
+      "diff_mean_pt": 0.453,
+      "diff_up_pt": 5.6,
+      "p_vs_base": 0.359,
       "verdict": "効いていない"
      },
      "±2%未満": {
-      "n": 448,
-      "mean_pct": 0.03,
-      "median_pct": 0.086,
-      "up_rate": 53.8,
+      "n": 449,
+      "mean_pct": 0.025,
+      "median_pct": 0.083,
+      "up_rate": 53.7,
       "max_pct": 4.83,
       "min_pct": -7.32,
-      "p_mean": 0.636,
-      "p_up": 0.1189,
-      "base_mean_pct": 0.061,
-      "base_up_rate": 53.5,
-      "diff_mean_pt": -0.031,
+      "p_mean": 0.691,
+      "p_up": 0.1309,
+      "base_mean_pct": 0.058,
+      "base_up_rate": 53.4,
+      "diff_mean_pt": -0.033,
       "diff_up_pt": 0.3,
-      "p_vs_base": 0.6537,
+      "p_vs_base": 0.6279,
       "verdict": "効いていない"
      }
     }
@@ -1410,30 +1414,30 @@
     "d1": {
      "+2%以上 vs −2%以下": {
       "n_a": 47,
-      "n_b": 38,
+      "n_b": 39,
       "mean_a_pct": 0.307,
-      "mean_b_pct": 0.488,
-      "diff_pt": -0.181,
-      "p_ttest": 0.7375,
-      "p_mannwhitney": 0.7138
+      "mean_b_pct": 0.511,
+      "diff_pt": -0.204,
+      "p_ttest": 0.6991,
+      "p_mannwhitney": 0.6457
      },
      "+2%以上 vs ±2%未満": {
       "n_a": 47,
-      "n_b": 448,
+      "n_b": 449,
       "mean_a_pct": 0.307,
-      "mean_b_pct": 0.03,
-      "diff_pt": 0.277,
-      "p_ttest": 0.1796,
-      "p_mannwhitney": 0.2565
+      "mean_b_pct": 0.025,
+      "diff_pt": 0.282,
+      "p_ttest": 0.1723,
+      "p_mannwhitney": 0.2476
      },
      "−2%以下 vs ±2%未満": {
-      "n_a": 38,
-      "n_b": 448,
-      "mean_a_pct": 0.488,
-      "mean_b_pct": 0.03,
-      "diff_pt": 0.458,
-      "p_ttest": 0.3687,
-      "p_mannwhitney": 0.2543
+      "n_a": 39,
+      "n_b": 449,
+      "mean_a_pct": 0.511,
+      "mean_b_pct": 0.025,
+      "diff_pt": 0.486,
+      "p_ttest": 0.3285,
+      "p_mannwhitney": 0.1822
      }
     }
    },
@@ -1448,41 +1452,41 @@
       "min_pct": -1.7,
       "p_mean": 0.9049,
       "p_up": 1.0,
-      "base_mean_pct": 0.081,
-      "base_up_rate": 53.0,
-      "diff_mean_pt": -0.123,
-      "diff_up_pt": -7.5,
-      "p_vs_base": 0.7305
+      "base_mean_pct": 0.076,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": -0.118,
+      "diff_up_pt": -7.3,
+      "p_vs_base": 0.7406
      },
      "−2%以下": {
-      "n": 10,
-      "mean_pct": 1.341,
-      "median_pct": 0.693,
-      "up_rate": 70.0,
+      "n": 11,
+      "mean_pct": 1.346,
+      "median_pct": 1.181,
+      "up_rate": 72.7,
       "max_pct": 10.23,
       "min_pct": -5.81,
-      "p_mean": 0.3719,
-      "p_up": 0.3438,
-      "base_mean_pct": 0.081,
-      "base_up_rate": 53.0,
-      "diff_mean_pt": 1.26,
-      "diff_up_pt": 17.0,
-      "p_vs_base": 0.4006
+      "p_mean": 0.3216,
+      "p_up": 0.2266,
+      "base_mean_pct": 0.076,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": 1.27,
+      "diff_up_pt": 19.9,
+      "p_vs_base": 0.3489
      },
      "±2%未満": {
-      "n": 90,
-      "mean_pct": 0.257,
-      "median_pct": 0.245,
-      "up_rate": 56.7,
+      "n": 91,
+      "mean_pct": 0.231,
+      "median_pct": 0.243,
+      "up_rate": 56.0,
       "max_pct": 4.03,
       "min_pct": -2.79,
-      "p_mean": 0.0614,
-      "p_up": 0.2461,
-      "base_mean_pct": 0.081,
-      "base_up_rate": 53.0,
-      "diff_mean_pt": 0.176,
-      "diff_up_pt": 3.7,
-      "p_vs_base": 0.2439
+      "p_mean": 0.0946,
+      "p_up": 0.2945,
+      "base_mean_pct": 0.076,
+      "base_up_rate": 52.8,
+      "diff_mean_pt": 0.155,
+      "diff_up_pt": 3.2,
+      "p_vs_base": 0.309
      }
     }
    },
