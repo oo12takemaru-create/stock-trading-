@@ -1,7 +1,7 @@
 {
  "schema": "builder_example/1",
- "asof": "2026-10-23",
- "generated_at": "2026-10-23T11:28:45.772Z",
+ "asof": "2026-10-30",
+ "generated_at": "2026-11-01T23:27:05.340Z",
  "basis": "solo",
  "rows": [
   {
@@ -9,27 +9,27 @@
    "kind": "preset",
    "threshold_pct": null,
    "note": null,
-   "trades": 1910,
-   "win_rate": 47.9,
-   "pf": 1.84
+   "trades": 2296,
+   "win_rate": 46.9,
+   "pf": 1.69
   },
   {
    "label": "一律 -15%",
    "kind": "uniform",
    "threshold_pct": -15,
    "note": "浅く拾う",
-   "trades": 2002,
-   "win_rate": 45.9,
-   "pf": 1.84
+   "trades": 2196,
+   "win_rate": 45.3,
+   "pf": 1.74
   },
   {
    "label": "一律 -22%",
    "kind": "uniform",
    "threshold_pct": -22,
    "note": "深く待つ",
-   "trades": 463,
-   "win_rate": 47.5,
-   "pf": 2.27
+   "trades": 496,
+   "win_rate": 46.8,
+   "pf": 2.19
   }
  ],
  "definition": {
