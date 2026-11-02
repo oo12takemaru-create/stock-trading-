@@ -1,6 +1,6 @@
 {
  "target_date": "2026-10-30",
- "generated_at": "2026-11-02T18:03:10+09:00",
+ "generated_at": "2026-11-02T21:03:24+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -29,10 +29,10 @@
  "stale": false,
  "signals_today_date": "2026-11-02",
  "is_halt": false,
- "signals_today_count": 2,
+ "signals_today_count": 3,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 2,
+  "BNF-LITE": 3,
   "MINERVINI": 0
  },
  "signal_of_day": {
@@ -42,7 +42,7 @@
   "code": "9301",
   "name": "三菱倉庫",
   "sector": "倉庫",
-  "reason": "乖離率-11.4%",
+  "reason": "乖離率-12.4%",
   "carried_over": false
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
