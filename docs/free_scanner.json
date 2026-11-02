@@ -1,6 +1,6 @@
 {
- "target_date": "2026-10-29",
- "generated_at": "2026-10-30T21:03:47+09:00",
+ "target_date": "2026-10-30",
+ "generated_at": "2026-11-02T18:03:10+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,33 +8,42 @@
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -15.23
+   "kairi": -21.11
   },
   {
-   "judge": "watch",
-   "code": "9697",
-   "name": "カプコン",
-   "sector": "ゲーム",
-   "kairi": -14.31
-  },
-  {
-   "judge": "watch",
+   "judge": "signal",
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -13.41
+   "kairi": -17.99
+  },
+  {
+   "judge": "signal",
+   "code": "5802",
+   "name": "住友電工",
+   "sector": "電線",
+   "kairi": -17.41
   }
  ],
- "asof": "2026-10-30",
+ "asof": "2026-11-02",
  "stale": false,
- "signals_today_date": "2026-10-30",
+ "signals_today_date": "2026-11-02",
  "is_halt": false,
- "signals_today_count": 0,
+ "signals_today_count": 2,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 0,
+  "BNF-LITE": 2,
   "MINERVINI": 0
  },
- "signal_of_day": null,
+ "signal_of_day": {
+  "scan_date": "2026-11-02",
+  "strategy": "BNF-LITE",
+  "strategy_label": "逆張り（乖離）",
+  "code": "9301",
+  "name": "三菱倉庫",
+  "sector": "倉庫",
+  "reason": "乖離率-11.4%",
+  "carried_over": false
+ },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
 }
