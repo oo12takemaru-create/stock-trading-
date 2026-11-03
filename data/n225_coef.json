@@ -279,11 +279,19 @@
    }
   }
  ],
- "checks": [],
+ "checks": [
+  {
+   "d": "2026-11-02",
+   "chg": -208.25,
+   "sum": -208.25,
+   "diff": 0.0,
+   "ok": true
+  }
+ ],
  "split_log": [],
  "members_diff": {
   "no_coef": [],
   "not_member": []
  },
- "updated": "2026-11-03T05:16:26+09:00"
+ "updated": "2026-11-03T15:29:12+09:00"
 }
