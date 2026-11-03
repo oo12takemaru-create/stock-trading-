@@ -1,10 +1,10 @@
 {
- "updated": "2026-11-02T21:05:13+09:00",
+ "updated": "2026-11-04T00:29:06+09:00",
  "trade_date": "2026-11-02",
  "n225": 63081.86,
  "horizon": 20,
  "crash_def": -0.1,
- "score": 1,
+ "score": 3,
  "flag_total": 7,
  "stage": "平常圏",
  "stage_key": "calm",
@@ -12,6 +12,26 @@
  "prob_recent": 4.8,
  "ratio": 0.9,
  "flags": [
+  {
+   "key": "vix_chg5",
+   "label": "VIXが5日で15%以上上昇",
+   "on": true,
+   "value": "+15.01%",
+   "threshold": "15%以上",
+   "distance": "0.01%超過",
+   "ratio": 1.83,
+   "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
+  },
+  {
+   "key": "vix_high",
+   "label": "VIXが20以上",
+   "on": true,
+   "value": "21.15",
+   "threshold": "20以上",
+   "distance": "1.15超過",
+   "ratio": 1.43,
+   "why": "市場が平常時より不安定と見ている水準"
+  },
   {
    "key": "ret20",
    "label": "日経が20営業日でマイナス",
@@ -21,16 +41,6 @@
    "distance": "7.65%超過",
    "ratio": 1.24,
    "why": "すでに下げている。ボラティリティは連続する"
-  },
-  {
-   "key": "vix_high",
-   "label": "VIXが20以上",
-   "on": false,
-   "value": "19.11",
-   "threshold": "20以上",
-   "distance": "あと0.89",
-   "ratio": 1.43,
-   "why": "市場が平常時より不安定と見ている水準"
   },
   {
    "key": "ma200_dev",
@@ -46,29 +56,19 @@
    "key": "spx_ma200_dev",
    "label": "S&P500が200日線割れ",
    "on": false,
-   "value": "+3.89%",
+   "value": "+3.36%",
    "threshold": "0%未満",
-   "distance": "あと3.89%",
+   "distance": "あと3.36%",
    "ratio": 1.73,
    "why": "米国株が長期トレンドを割ると、日本株の下落も深くなりやすい"
-  },
-  {
-   "key": "vix_chg5",
-   "label": "VIXが5日で15%以上上昇",
-   "on": false,
-   "value": "+3.92%",
-   "threshold": "15%以上",
-   "distance": "あと11.08%",
-   "ratio": 1.83,
-   "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
   },
   {
    "key": "usdjpy_chg20",
    "label": "20営業日で3%以上の円高",
    "on": false,
-   "value": "-0.08%",
+   "value": "-0.16%",
    "threshold": "-3%未満",
-   "distance": "あと2.92%",
+   "distance": "あと2.84%",
    "ratio": 1.97,
    "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
@@ -76,9 +76,9 @@
    "key": "gold_chg20",
    "label": "金が20営業日で5%以上上昇",
    "on": false,
-   "value": "-6.00%",
+   "value": "-4.63%",
    "threshold": "5%以上",
-   "distance": "あと11.00%",
+   "distance": "あと9.63%",
    "ratio": 1.28,
    "why": "株を持ちながら保険を買う動き。資金が逃げ場を探しているサイン"
   }
@@ -624,7 +624,7 @@
   },
   {
    "d": "2026-11-02",
-   "s": 1
+   "s": 3
   }
  ]
 }
