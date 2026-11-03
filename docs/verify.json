@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-03T03:52:53+09:00",
+ "updated": "2026-11-04T01:39:07+09:00",
  "radar": {
   "index": "1306.T（TOPIX連動ETF）",
   "period": [
@@ -21,7 +21,7 @@
     "r5": 0.3,
     "r20": 1.43,
     "r20_med": 1.67,
-    "up20": 66.3,
+    "up20": 66.2,
     "dd20": -2.64,
     "sankou": false
    },
@@ -33,7 +33,7 @@
      "r5": 0.21,
      "r20": 1.54,
      "r20_med": 1.83,
-     "up20": 69.4,
+     "up20": 69.2,
      "dd20": -2.54,
      "sankou": false
     },
@@ -117,7 +117,7 @@
     "r5": 0.3,
     "r20": 1.38,
     "r20_med": 1.52,
-    "up20": 66.5,
+    "up20": 66.4,
     "dd20": -2.59,
     "sankou": false
    },
@@ -129,7 +129,7 @@
      "r5": 0.18,
      "r20": 1.4,
      "r20_med": 1.64,
-     "up20": 68.4,
+     "up20": 68.2,
      "dd20": -2.55,
      "sankou": false
     },
@@ -425,46 +425,46 @@
  },
  "ai": {
   "period": [
-   "2026-08-28",
-   "2026-10-30"
+   "2026-08-31",
+   "2026-11-02"
   ],
   "days": 40,
   "cut": "2026-09-05",
   "cut_commit": "5a4104d4",
   "main": {
    "label": "AI朝刊（公開値）",
-   "hit": 18,
-   "judged": 32,
-   "pct": 56.2,
+   "hit": 19,
+   "judged": 33,
+   "pct": 57.6,
    "sankou": false
   },
   "comparisons": [
    {
     "label": "機械の3軸だけ（AIの修正前）",
+    "hit": 17,
+    "judged": 33,
+    "pct": 51.5,
+    "sankou": false
+   },
+   {
+    "label": "毎日「攻め」",
+    "hit": 17,
+    "judged": 40,
+    "pct": 42.5,
+    "sankou": false
+   },
+   {
+    "label": "前日と同じ判定",
     "hit": 16,
     "judged": 32,
     "pct": 50.0,
     "sankou": false
    },
    {
-    "label": "毎日「攻め」",
-    "hit": 18,
-    "judged": 40,
-    "pct": 45.0,
-    "sankou": false
-   },
-   {
-    "label": "前日と同じ判定",
-    "hit": 15,
-    "judged": 31,
-    "pct": 48.4,
-    "sankou": false
-   },
-   {
     "label": "温度計の判定そのまま",
     "hit": 13,
-    "judged": 32,
-    "pct": 40.6,
+    "judged": 31,
+    "pct": 41.9,
     "sankou": false
    }
   ],
