@@ -67,6 +67,20 @@ def banned_word(text):
     return m.group(0) if m else None
 
 
+RATIO_CAP = 100      # これを超える信用倍率は数字を出さない（売り残がごく少ない・Fable 判断 2026-11-04）
+
+
+def ratio_over(text):
+    """「信用倍率」を含む文の中の「◯倍」で RATIO_CAP を超えるもの（あれば最初の1つ）"""
+    for sent in re.split(r"[。]", text.translate(Z2H)):
+        if "信用倍率" not in sent and "週次" not in sent:
+            continue
+        for x in re.findall(r"(\d[\d,]*(?:\.\d+)?)倍", sent):
+            if float(x.replace(",", "")) > RATIO_CAP:
+                return x
+    return None
+
+
 def check_one(c, t, facts):
     if not isinstance(t, str) or not t.strip():
         return "文が空"
@@ -79,6 +93,9 @@ def check_one(c, t, facts):
     w = banned_word(t)
     if w:
         return f"禁止語「{w}」"
+    big = ratio_over(t)
+    if big:
+        return f"100倍超の信用倍率 {big}"
     have = set(nums(facts))
     miss = [x for x in nums(t) if x not in have]
     if miss:

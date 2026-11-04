@@ -36,6 +36,7 @@ TOP_N = 150
 EVENT_MAX = 50
 BATCH = 50
 ROW_MAX = 600
+RATIO_CAP = 100       # これを超える信用倍率は数字を出さない（売り残がごく少ない・Fable 判断 2026-11-04）
 MODEL = "claude-sonnet-5-5"
 STOP_JP = {"close_high": "終値ストップ高", "touch_high": "一時ストップ高",
            "close_low": "終値ストップ安", "touch_low": "一時ストップ安"}
@@ -168,15 +169,21 @@ def margin_line(S, c):
         return None
     s_, sd, b, bd = cur
     ratio = b / s_
-    out = f"信用倍率 {f2(ratio)}倍（{S.mdates[-1]}申込）"
+    # 100倍を超える倍率は売り残がごく少ないだけで意味のある数字にならない。数字は出さない（Fable 判断 2026-11-04）
+    out = (f"信用倍率 {f2(ratio)}倍（{S.mdates[-1]}申込）" if ratio <= RATIO_CAP
+           else f"信用倍率 売り残がごく少ないため倍率は大きく出ています（{S.mdates[-1]}申込）")
     if len(days) == 5 and all(days):
         s5 = s_ - sum(d[1] for d in days)
         b5 = b - sum(d[3] for d in days)
         if s5 > 0:
-            out += f"／5営業日前 {f2(b5 / s5)}倍"
-    wk = [r[1] / r[0] for r in (S.mweekly.get(c) or []) if r and r[0]]
+            r5 = b5 / s5
+            out += (f"／5営業日前 {f2(r5)}倍" if r5 <= RATIO_CAP
+                    else "／5営業日前 売り残がごく少ないため倍率は大きく出ています")
+    wk_all = [r[1] / r[0] for r in (S.mweekly.get(c) or []) if r and r[0]]
+    wk = [x for x in wk_all if x <= RATIO_CAP]
     if len(wk) >= 4:
-        out += f"／週次{len(wk)}回の幅 {f2(min(wk))}〜{f2(max(wk))}倍"
+        out += (f"／週次{len(wk)}回の幅 {f2(min(wk))}〜{f2(max(wk))}倍"
+                + ("（売り残がごく少ない週を除く）" if len(wk) < len(wk_all) else ""))
     return out
 
 
