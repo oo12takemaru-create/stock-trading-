@@ -89,7 +89,8 @@ const PLAN = {
   "19:00": ["buyback-daily.yml", "ai-record.yml", "kessan-react-hist.yml", "treasure-daily.yml"], // 決算反応カルテは 18:30 の決算速報の後
   // シグナル台帳（記録→採点）。18:00 のパイプラインと 18:30 の値動きの後（起動文 積上① 2026-10-07）
   // 掲示板の予想の採点（起動文 掲示板 2026-10-11）。終値が確定した後なら何時でもよいので台帳と同じ枠
-  "19:30": ["ledger-daily.yml", "board-score.yml"],
+  // カルテの読み上げ（層2）の前段＝その日に出来事があった銘柄（2026-11-04）。決算速報 18:30・ストップ高の集計の後
+  "19:30": ["ledger-daily.yml", "board-score.yml", "karte-ai-prep.yml"],
   "20:00": ["board.yml"],
 
   // ── 予備（冪等ガードが効くので二重でも害はない）──
@@ -129,6 +130,8 @@ const WEEKEND_PLAN = {
   0: {
     "07:40": ["ai-weekly-prep.yml"],
     "08:00": ["ai-weekly-prep.yml"],
+    // カルテの読み上げ（層2）の週1回＝売買代金の上位150を3バッチ（2026-11-04）。週末版の 8:10 と離す
+    "13:00": ["karte-ai-prep.yml"],
   },
 };
 
@@ -150,6 +153,9 @@ const RUN_ON_HOLIDAYS = new Set([
   "pipeline-weekly.yml",
   "ai-morning-prep.yml",
   "ai-weekly-prep.yml",
+  // カルテの読み上げの前段（2026-11-04）。日曜の上位150の回を動かすため。平日の休場日は
+  // 「その日の出来事」が0件になり、ブランチを作らずに終わる（karte_ai_prep.py が exit 3）
+  "karte-ai-prep.yml",
 ]);
 
 /** 特定の曜日だけ動かすもの（平日）。JST の曜日で判定 */
@@ -207,6 +213,10 @@ export const NO_DEDUP = new Set([
   "heatmap-us.yml",
   // 世界の値動きの地図（2026-10-30）。JST 7:00/16:00/23:00 の3回が正常（world.js）
   "world.yml",
+  // カルテの読み上げの前段（2026-11-04）。平日 19:30 と日曜 13:00 の別の曜日に置いただけ（1日1回）。
+  // 手で先に回した日でも 19:30 の回は「その日の出来事」を取り直したいので、重複確認をしない
+  // （prep は push -f で上書き、routine は取り込み済みのバッチを飛ばす）
+  "karte-ai-prep.yml",
 ]);
 
 /**
