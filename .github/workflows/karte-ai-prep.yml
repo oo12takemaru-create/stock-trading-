@@ -1,0 +1,101 @@
+name: Karte AI Prep (facts → prompt branches)
+
+# 2026-11-04〜 銘柄カルテの「AIの読み上げ」（層2）の前段。AI朝刊（ai-morning-prep.yml）と同じ型。
+#   routine（Claude Code 定期実行・claude-sonnet-5-5）のクラウド環境は外向き HTTPS が遮断されているので、
+#   入力づくりはここで行う。karte_ai_prep.py が 50銘柄ずつ PROMPT.txt と facts.json を作り、
+#   ブランチ ai-prompt/karte-YYYY-MM-DD-N（N=1,2,3…）に載せる。
+#   routine は未処理の一番小さい N を1つだけ読み、ai_answer.json を ai-karte/YYYY-MM-DD-N に push
+#   → karte-ai-ingest.yml が検査して docs/karte_ai/ に入れる。
+#
+# 起動: cron-worker（平日 19:30 JST＝出来事の回・日曜 13:00 JST＝上位150の回）。schedule は置かない
+#   （このリポジトリの GitHub schedule は数時間遅れる。19:30 の回が深夜に走ると「その日の出来事」がずれる）。
+# mode: 入力が空なら曜日で決める（日曜=top / それ以外=event）
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'top=売買代金の上位150（3バッチ）/ event=その日に出来事があった銘柄（最大50）。空なら曜日で決める'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: karte-ai-prep
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Decide mode
+        id: mode
+        env:
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+        run: |
+          M="$INPUT_MODE"
+          if [ -z "$M" ]; then
+            if [ "$(TZ='Asia/Tokyo' date +%u)" = "7" ]; then M=top; else M=event; fi
+          fi
+          case "$M" in top|event) ;; *) echo "::error::mode 不正: $M"; exit 1 ;; esac
+          echo "mode=$M" >> "$GITHUB_OUTPUT"
+          echo "モード: $M"
+
+      # 0件（出来事の無い日）は exit 3 → ブランチを作らずに成功で終える
+      - name: Build prompts
+        id: build
+        env:
+          M: ${{ steps.mode.outputs.mode }}
+        run: |
+          set +e
+          python -X utf8 karte_ai_prep.py "$M" --out karte_prompt
+          rc=$?
+          set -e
+          if [ $rc -eq 3 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          exit $rc
+
+      - name: Push prompt branches
+        if: steps.build.outputs.skip != '1'
+        env:
+          M: ${{ steps.mode.outputs.mode }}
+        run: |
+          D=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BASE=$(git rev-parse HEAD)
+          for N in $(cat karte_prompt/batches.txt); do
+            git checkout -q --detach "$BASE"
+            cp "karte_prompt/$N/PROMPT.txt" PROMPT.txt
+            cp "karte_prompt/$N/facts.json" facts.json
+            git add -f PROMPT.txt facts.json
+            git commit -q -m "prompt: karte $D-$N $M"
+            git push -f origin "HEAD:refs/heads/ai-prompt/karte-$D-$N"
+            echo "push: ai-prompt/karte-$D-$N（PROMPT $(wc -m < PROMPT.txt)字）"
+          done
+          echo "----- 1本目の PROMPT.txt（先頭80行） -----"
+          head -80 karte_prompt/1/PROMPT.txt
+
+      # 7日より古い ai-prompt/karte-* を掃除する（ai-morning-prep の掃除は日付で始まる名前だけを見るので、ここで消す）
+      - name: Clean old karte prompt branches
+        continue-on-error: true
+        run: |
+          CUT=$(TZ='Asia/Tokyo' date -d '7 days ago' +%Y-%m-%d)
+          git ls-remote --heads origin 'ai-prompt/karte-*' | awk '{print $2}' | sed 's#refs/heads/##' | while read -r br; do
+            d=$(printf '%s' "$br" | sed -n 's#^ai-prompt/karte-\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\).*#\1#p')
+            if [ -n "$d" ] && [ "$d" \< "$CUT" ]; then
+              echo "削除: $br"; git push origin --delete "$br" || true
+            fi
+          done

@@ -250,6 +250,17 @@ test("AI朝刊の prep は平日 05:35 と 06:05、週末版は土日 07:40 と 
   assert.equal(inputsFor("ai-morning-prep.yml", 3), null);
 });
 
+test("カルテの読み上げの前段は平日 19:30 と日曜 13:00 だけ（2026-11-04）", () => {
+  const at = (day, hm) => targetsFor(new Date(`${day}T${hm}:00Z`)).targets;
+  for (const day of ["2026-11-02", "2026-11-04", "2026-11-06"]) {
+    assert.ok(at(day, "19:30").includes("karte-ai-prep.yml"), `${day} 19:30`);
+    assert.ok(!at(day, "13:00").includes("karte-ai-prep.yml"), `${day} 13:00（平日は上位150の回なし）`);
+  }
+  assert.deepEqual(at("2026-11-08", "13:00"), ["karte-ai-prep.yml"], "日曜 13:00");
+  assert.ok(!at("2026-11-07", "13:00").includes("karte-ai-prep.yml"), "土曜 13:00 は無し");
+  assert.ok(!at("2026-11-08", "19:30").includes("karte-ai-prep.yml"), "日曜 19:30 は無し");
+});
+
 test("ai-weekly-prep は workflow_dispatch の mode 入力を受け取れる", () => {
   assert.match(
     wf("ai-weekly-prep.yml"), /workflow_dispatch:\s+inputs:\s+mode:/,

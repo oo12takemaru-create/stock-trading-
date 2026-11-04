@@ -1,0 +1,124 @@
+name: Karte AI Ingest (routine → main)
+
+# 2026-11-04〜 銘柄カルテの「AIの読み上げ」（層2）の取り込み。ai-weekly-ingest.yml と同じ型。
+#   routine が ai-karte/YYYY-MM-DD-N に ai_answer.json を push → 同じ番号の ai-prompt/karte-YYYY-MM-DD-N の
+#   facts.json（routine に渡した入力）と照らして karte_ai_ingest.py が検査
+#   → 通った銘柄だけ docs/karte_ai/latest.json と docs/karte_ai/YYYY-MM-DD.json に入れて main へコミット → ブランチ削除。
+#   銘柄ごとの不合格（入力に無い数字・禁止語・120字超など）は捨てて件数と理由をログに出す（run は成功）。
+#   回答そのものが壊れている（JSON でない・batch が違う）ときは exit 2 で落ち、ブランチは調査用に残る。
+# モデル表記: ブランチ先頭コミットのメッセージに「model=...」があればそれを使う。
+on:
+  push:
+    branches: ['ai-karte/**']
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '取り込むブランチ名（例: ai-karte/2026-11-08-1）'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: karte-ai-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    if: github.event_name == 'workflow_dispatch' || github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve branch
+        id: br
+        env:
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then BR="$INPUT_BRANCH"; else BR="$REF_NAME"; fi
+          if ! printf '%s' "$BR" | grep -Eq '^ai-karte/[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+$'; then
+            echo "::error::ブランチ名が規則(ai-karte/YYYY-MM-DD-N)に合いません: $BR"; exit 1
+          fi
+          ID="${BR#ai-karte/}"
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+          echo "prompt=ai-prompt/karte-$ID" >> "$GITHUB_OUTPUT"
+          echo "取り込むブランチ: $BR（入力 ai-prompt/karte-$ID）"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # ★main のルールセットを通すため deploy key で checkout する（ai-weekly-ingest.yml と同じ）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Take ai_answer.json and facts.json
+        id: take
+        env:
+          BR: ${{ steps.br.outputs.branch }}
+          PB: ${{ steps.br.outputs.prompt }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/$BR:refs/remotes/origin/$BR" "+refs/heads/$PB:refs/remotes/origin/$PB"
+          if ! git cat-file -e "origin/$BR:ai_answer.json" 2>/dev/null; then
+            echo "::error::ブランチ $BR に ai_answer.json がありません"; exit 1
+          fi
+          git show "origin/$BR:ai_answer.json" > ai_answer.json
+          git show "origin/$PB:facts.json" > facts.json
+          echo "回答 $(wc -c < ai_answer.json) bytes／入力 $(wc -c < facts.json) bytes"
+          LABEL=$(git log -1 --format=%B "origin/$BR" | sed -n 's/.*model=\(.*\)$/\1/p' | head -1 | tr -d '\r')
+          echo "model_label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "model_label: ${LABEL:-（既定）}"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Ingest
+        env:
+          MODEL_LABEL: ${{ steps.take.outputs.model_label }}
+        run: |
+          set +e
+          python -X utf8 karte_ai_ingest.py --answer ai_answer.json --facts facts.json --model-label "$MODEL_LABEL" > ingest.log 2>&1
+          rc=$?
+          cat ingest.log
+          if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
+          exit $rc
+
+      - name: Commit docs/karte_ai
+        env:
+          BR: ${{ steps.br.outputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/karte_ai
+          if git diff --staged --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "🗣️ カルテのAIの読み上げを更新 (${BR#ai-karte/})"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Notify (ntfy)
+        continue-on-error: true
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          BR: ${{ steps.br.outputs.branch }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "NTFY_TOPIC未設定のためスキップ"; exit 0; fi
+          python - <<'PY'
+          import json, os, urllib.request
+          msg = open("ingest.log", encoding="utf-8").read()[:1200]
+          urllib.request.urlopen(urllib.request.Request(
+              "https://ntfy.sh",
+              data=json.dumps({"topic": os.environ["NTFY_TOPIC"], "title": "カルテの読み上げ " + os.environ["BR"],
+                               "message": msg}).encode("utf-8"),
+              headers={"Content-Type": "application/json"}), timeout=30)
+          print("ntfy送信OK")
+          PY
+
+      # 成功したときだけ作業ブランチを消す（失敗時は調査用に残す）。入力の ai-prompt/karte-* は prep が7日で掃除する
+      - name: Delete work branch
+        if: success()
+        env:
+          BR: ${{ steps.br.outputs.branch }}
+        run: git push origin --delete "$BR"
