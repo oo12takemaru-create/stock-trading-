@@ -22,6 +22,9 @@ ENV/
 *.json
 !signal.json
 !prices.json
+# routine（Claude Code 定期実行）が ai-morning/・ai-weekly/・ai-karte/ のブランチに置く回答（2026-11-04）。
+# *.json に当たって git add が失敗していた。ルート直下の1ファイルだけ例外にする（ingest は回答を main にコミットしない）
+!/ai_answer.json
 # 無料版スキャナーの公開データ(GitHub Pages配信用)はコミット対象
 !docs/free_scanner.json
 # 遅延なしの地合い専用JSON(指示書§8-2・jiai.htmlが優先取得する)
