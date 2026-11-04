@@ -87,7 +87,8 @@ BANNED_PATTERNS = [
 # 「買い」「売り」は語の一部でも出さない（円買い・戻り売り・売りが先行 も不可）。
 # ただしサイト側（kaburadar の gen_stocks.py の ALLOW）と同じ需給の名詞だけは、先に取り除いてから調べる
 BUYSELL_ALLOW = ["空売り", "買い残", "売り残", "買い戻し", "信用買い", "信用売り",
-                 "売買", "買い越し", "売り越し", "売上"]
+                 "売買", "買い越し", "売り越し", "売上",
+                 "自社株買い"]   # 2026-11-04 長い目で見る（投資部門別の事業法人＝自社株買いなど）で足した
 WORD_RULE = ("「推奨」「おすすめ」「買い」「売り」は、語の一部としても使わない"
              "（円買い・戻り売り・売りが先行・買い持ち も不可。言い換え例: 円高方向の動き／戻りの鈍さ／下げが先行／"
              "円の上昇に賭けた建玉）。使ってよいのは 売買代金・空売り・買い越し・売り越し・買い残・売り残 だけ")
@@ -586,6 +587,11 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
 # 来週のイベントの過去の反応（相場の暦・事実）
 {event_stats}
 
+{long_guide}
+
+# 長い目で見るの材料（当サイトの集計・数字だけ）
+{long_material}
+
 # 出力（JSONのみ。コードフェンスや前置きは書かない）
 {{
   "title": "来週の見立てを一言で（25字以内。例: CPI週、7万円の上は重い）",
@@ -596,9 +602,12 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
   "flip": [{{"side": "up か down", "if": "こうなったら（数値の条件）", "then": "見立てをどう変えるか"}}],
   "days": [{{"d": "MM/DD（曜）", "watch": "その日に見るものを1文"}}],
   "sectors": [{{"name": "セクター名", "wind": "tail（追い風）か head（逆風）", "why": "理由を1文（数字つき）"}}],
-  "lesson": "来週に持ち越す教訓を1文"
+  "lesson": "来週に持ち越す教訓を1文",
+  "long_view": {{"title": "長い目で見るの見出し(20字以内)", "parts": [
+    {{"k": "history", "body": "歴史の物差し"}}, {{"k": "world", "body": "世界のお金の流れ"}},
+    {{"k": "why", "body": "「なぜ」を3段"}}, {{"k": "decade", "body": "10年の視点"}}]}}
 }}
-points は3つ。world は2〜3個。flip は2〜3個で、up と down を必ず両方入れる。
+points は3つ。world は2〜3個。flip は2〜3個で、up と down を必ず両方入れる。long_view の parts は4つをこの順で（合計400〜600字）。
 days は来週の営業日すべて（休場日は入れない）。sectors は追い風2つ・逆風2つ。JSONのみを出力すること。"""
 
 
@@ -749,8 +758,63 @@ def build_prompt(today):
             days=" / ".join(days) or "(なし)", closed="\n".join(closed),
             events="大型イベント: " + (" / ".join(ev) if ev else "なし"),
             kessan="\n".join(kessan_lines(nm, nf)) or "  (予定の取得なし)",
-            event_stats="\n".join(event_stat_lines(ev)) or "(該当なし)")
+            event_stats="\n".join(event_stat_lines(ev)) or "(該当なし)",
+            long_guide=_long_guide(), long_material="\n".join(long_material_lines()))
     return prompt, ctx
+
+
+def _long_guide():
+    try:
+        import deep_material
+        return deep_material.LONG_GUIDE
+    except Exception:
+        return ""
+
+
+def long_material_lines():
+    """日曜の「長い目で見る」の材料（数字だけ・1,500字以内）。取れなくても日曜版は止めない"""
+    try:
+        import deep_material
+        return deep_material.sunday_material() or ["(取得できず)"]
+    except Exception as e:
+        print(f"  長い目で見るの材料を作れず: {e}", file=sys.stderr)
+        return ["(取得できず)"]
+
+
+def _inputs_only(prompt):
+    """プロンプトから指示文（PROMPT_SUN の地の文・WORD_RULE・LONG_GUIDE）を取り除き、入力データだけにする。
+    「400〜600字」などの指示の数字で、入力に無い数字が通ってしまわないように"""
+    t = prompt
+    try:
+        import deep_material
+        extra = [deep_material.LONG_GUIDE, WORD_RULE]
+    except Exception:
+        extra = [WORD_RULE]
+    for chunk in extra + re.split(r"\{[a-z_0-9]+\}", PROMPT_SUN.replace("{{", "{").replace("}}", "}")):
+        if len(chunk.strip()) >= 8:
+            t = t.replace(chunk, "\n")
+    return t
+
+
+def check_long_view(data, source):
+    """long_view だけを検査し、落ちたら long_view だけを外す（日曜版の本体は出す・2026-11-04）。
+    土曜版には足さない（書いてあっても外す）"""
+    if "long_view" not in data:
+        return None
+    if MODE != "sun":
+        data.pop("long_view", None)
+        print("警告: 土曜版の long_view は外した（日曜だけの節）", file=sys.stderr)
+        return "土曜版"
+    try:
+        import deep_material
+    except Exception as e:
+        data.pop("long_view", None)
+        print(f"警告: deep_material を読めず long_view を外した: {e}", file=sys.stderr)
+        return str(e)
+
+    def v(d, src):
+        return deep_material.validate_long_view(d, src) or check_banned({"long_view": d})
+    return deep_material.take_checked(data, "long_view", v, _inputs_only(source))
 
 
 def days_dir():
@@ -862,7 +926,7 @@ def validate(data, ctx):
     return check_banned(data) or (validate_sat(data, ctx.get("pv")) if MODE == "sat" else validate_weekend(data))
 
 
-def run_answer(answer_path, label):
+def run_answer(answer_path, label, prompt_file=None):
     """APIを呼ばず、routine が書いた回答JSONを検証して書き出す。不正なら exit 2"""
     global LOCAL_FIRST
     LOCAL_FIRST = True
@@ -885,6 +949,11 @@ def run_answer(answer_path, label):
         if k not in data:
             print(f"回答不正: キー欠落: {k}", file=sys.stderr)
             sys.exit(2)
+    # long_view の数字は、prep が作った PROMPT.txt（あれば）と、ここで作り直したプロンプトの両方に照らす
+    src = _prompt
+    if prompt_file and Path(prompt_file).exists():
+        src = Path(prompt_file).read_text(encoding="utf-8") + "\n" + _prompt
+    check_long_view(data, src)
     err = validate(data, ctx)
     if err is not None:
         print(f"回答不正: 検証NG: {err}", file=sys.stderr)
@@ -907,6 +976,8 @@ def run_api():
     for i in range(3):
         try:
             cand = call_anthropic(prompt, key)
+            if isinstance(cand, dict):
+                check_long_view(cand, prompt)
             err = validate(cand, ctx)
             if err is None:
                 data = cand
@@ -931,6 +1002,7 @@ def main():
     ap.add_argument("--prompt-out", help="APIを呼ばず、完成したプロンプトをこのファイルに書いて終了")
     ap.add_argument("--answer", help="APIを呼ばず、このAI回答JSONを検証して書き出す")
     ap.add_argument("--model-label", default="", help=f"--answer 時の model 表記(既定: {ROUTINE_LABEL})")
+    ap.add_argument("--prompt-file", default="", help="--answer 時に long_view の数字を突き合わせる PROMPT.txt（prep が作ったもの）")
     ap.add_argument("--reindex", action="store_true", help="docs/ai_weekly_days/index.json だけを作り直す")
     a = ap.parse_args()
     MODE = MODE_ALIASES.get(a.mode.lower(), a.mode.lower())
@@ -947,7 +1019,7 @@ def main():
     elif a.prompt_out:
         run_prompt_out(a.prompt_out)
     elif a.answer:
-        run_answer(a.answer, a.model_label.strip() or ROUTINE_LABEL)
+        run_answer(a.answer, a.model_label.strip() or ROUTINE_LABEL, a.prompt_file or None)
     else:
         run_api()
 
