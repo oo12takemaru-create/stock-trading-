@@ -73,6 +73,16 @@ jobs:
           LABEL=$(git log -1 --format=%B "origin/$BR" | sed -n 's/.*model=\(.*\)$/\1/p' | head -1 | tr -d '\r')
           echo "model_label=$LABEL" >> "$GITHUB_OUTPUT"
           echo "model_label: ${LABEL:-（既定）}"
+          # 日曜の long_view（長い目で見る）の数字を照らすため、prep が作った PROMPT.txt も持ってくる（無くても続ける）
+          if git cat-file -e "origin/$BR:PROMPT.txt" 2>/dev/null; then
+            git show "origin/$BR:PROMPT.txt" > PROMPT.txt
+          else
+            PB="ai-prompt/${BR#ai-weekly/}"
+            if git fetch --no-tags origin "+refs/heads/$PB:refs/remotes/origin/$PB" 2>/dev/null && git cat-file -e "origin/$PB:PROMPT.txt" 2>/dev/null; then
+              git show "origin/$PB:PROMPT.txt" > PROMPT.txt
+            fi
+          fi
+          [ -f PROMPT.txt ] && echo "PROMPT.txt: $(wc -c < PROMPT.txt) bytes" || echo "PROMPT.txt なし（作り直したプロンプトだけで照らす）"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -89,7 +99,7 @@ jobs:
           MODE: ${{ steps.br.outputs.mode }}
         run: |
           set +e
-          python -X utf8 weekly.py --answer ai_answer.json --model-label "$MODEL_LABEL" "$MODE" docs/ai_weekly.json
+          python -X utf8 weekly.py --answer ai_answer.json --model-label "$MODEL_LABEL" --prompt-file PROMPT.txt "$MODE" docs/ai_weekly.json
           rc=$?
           if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
           exit $rc

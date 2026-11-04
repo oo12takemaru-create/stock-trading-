@@ -332,6 +332,16 @@ def score3_lines():
     return out
 
 
+def deep_material_lines():
+    """深掘り(deep)の材料（数字だけ・1,500字以内）。取れなくても朝刊は止めない"""
+    try:
+        import deep_material
+        return deep_material.morning_material() or ["(取得できず)"]
+    except Exception as e:
+        print(f"深掘りの材料を作れず: {e}", file=sys.stderr)
+        return ["(取得できず)"]
+
+
 def build_inputs(dst):
     now = datetime.now(JST)
     prev, prev_lines = prev_analysis(dst)
@@ -365,6 +375,9 @@ def build_inputs(dst):
         "",
         "## 直近ニュース見出し",
         *fetch_rss(),
+        "",
+        "## 深掘りの材料（当サイトの集計・数字だけ）",
+        *deep_material_lines(),
     ]
     return "\n".join(parts), prev
 
@@ -402,6 +415,8 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
 - どちらかを推す言葉(「〜すべき」「おすすめ」など)は書かない。両方の言い分を同じ温度で並べる
 - verdict は「機械の判定」と「それを動かさなかった/1段下げた理由」を1文で。stance と矛盾させない
 
+{deep_guide}
+
 # 今朝の客観データ
 
 {inputs}
@@ -429,7 +444,8 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
     "bull": ["攻め派の根拠1(入力データの数字を引用・40字以内)", "根拠2", "根拠3"],
     "bear": ["守り派の根拠1(同上)", "根拠2", "根拠3"],
     "verdict": "機械の判定と、それを動かさなかった/1段下げた理由を1文で"
-  }}
+  }},
+  "deep": {{"type": "history | world | why のどれか1つ", "title": "深掘りの見出し(20字以内)", "body": "200〜300字の1段落"}}
 }}
 
 world_flowは2〜4個、sectorsは3〜5個。
@@ -536,6 +552,42 @@ def validate(data):
     if warn:
         print(f"警告: {warn}", file=sys.stderr)
     return None
+
+
+def _deep_guide():
+    try:
+        import deep_material
+        return deep_material.DEEP_GUIDE
+    except Exception:
+        return ""
+
+
+def check_deep(data, source):
+    """深掘り(deep)だけを検査し、落ちたら deep だけを外す（朝刊の本体は出す・2026-11-04）。
+    source は入力データ（inputs.txt）。読めなければ数字を確かめられないので外す"""
+    if "deep" not in data:
+        return None
+    if not source:
+        data.pop("deep", None)
+        print("警告: 入力データが無いので deep を外した（本体は出す）", file=sys.stderr)
+        return "入力データなし"
+    try:
+        import deep_material
+    except Exception as e:
+        data.pop("deep", None)
+        print(f"警告: deep_material を読めず deep を外した: {e}", file=sys.stderr)
+        return str(e)
+
+    def v(d, src):
+        err = deep_material.validate_deep(d, src)
+        if err:
+            return err
+        blob = json.dumps(d, ensure_ascii=False)
+        for pat in BANNED_PATTERNS:
+            if re.search(pat, blob):
+                return f"禁止パターン検出: {pat}"
+        return None
+    return deep_material.take_checked(data, "deep", v, source)
 
 
 # ---------------------------------------------------------------- LLM呼び出し
@@ -794,12 +846,12 @@ def run_prompt_out(dst, prompt_out, inputs_out):
         print("入力データが少なすぎるため中止", file=sys.stderr)
         sys.exit(1)
     Path(inputs_out).write_text(inputs, encoding="utf-8")
-    prompt = PROMPT_TEMPLATE.format(inputs=inputs)
+    prompt = PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide())
     Path(prompt_out).write_text(prompt, encoding="utf-8")
     print(f"プロンプトを出力: {prompt_out} ({len(prompt)}文字) / 入力データ: {inputs_out}")
 
 
-def run_answer(dst, answer_path, label):
+def run_answer(dst, answer_path, label, inputs_path="inputs.txt"):
     """APIを呼ばず、routine が書いた回答JSONを検証して ai_analysis.json に書き出す。
     回答が不正なら理由を stderr に出して exit 2"""
     print(f"使用モデル: {label}")
@@ -812,6 +864,10 @@ def run_answer(dst, answer_path, label):
     except Exception as e:
         print(f"回答不正: JSONとして読めない ({answer_path}): {e}", file=sys.stderr)
         sys.exit(2)
+    # 深掘り(deep)は先に単独で検査し、落ちたら deep だけ外す（本体は止めない）
+    src = Path(inputs_path).read_text(encoding="utf-8") if inputs_path and Path(inputs_path).exists() else ""
+    if isinstance(data, dict):
+        check_deep(data, src)
     err = validate(data)
     if err is not None:
         print(f"回答不正: 検証NG: {err}", file=sys.stderr)
@@ -839,13 +895,15 @@ def run_api(dst):
     # make_x_post.py が数字を拾えるよう入力データを残す(デバッグにも使う)
     Path("inputs.txt").write_text(inputs, encoding="utf-8")
 
-    prompt = PROMPT_TEMPLATE.format(inputs=inputs)
+    prompt = PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide())
 
     data = None
     err = None
     for attempt in range(3):
         try:
             cand = call(prompt)
+            if isinstance(cand, dict):
+                check_deep(cand, inputs)
             err = validate(cand)
             if err is None:
                 data = cand
@@ -867,6 +925,7 @@ def main():
     ap.add_argument("dst", nargs="?", default="docs/ai_analysis.json")
     ap.add_argument("--prompt-out", help="APIを呼ばず、完成したプロンプトをこのファイルに書いて終了")
     ap.add_argument("--inputs-out", default="inputs.txt", help="--prompt-out 時の入力データの出力先")
+    ap.add_argument("--inputs", default="inputs.txt", help="--answer 時に deep の数字を突き合わせる入力データ")
     ap.add_argument("--answer", help="APIを呼ばず、このAI回答JSONを検証して書き出す")
     ap.add_argument("--model-label", default="", help=f"--answer 時の model 表記(既定: {ROUTINE_LABEL})")
     a = ap.parse_args()
@@ -876,7 +935,7 @@ def main():
     if a.prompt_out:
         run_prompt_out(a.dst, a.prompt_out, a.inputs_out)
     elif a.answer:
-        run_answer(a.dst, a.answer, a.model_label.strip() or ROUTINE_LABEL)
+        run_answer(a.dst, a.answer, a.model_label.strip() or ROUTINE_LABEL, a.inputs)
     else:
         run_api(a.dst)
 
