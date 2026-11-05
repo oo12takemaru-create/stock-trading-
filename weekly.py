@@ -604,8 +604,10 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
   "sectors": [{{"name": "セクター名", "wind": "tail（追い風）か head（逆風）", "why": "理由を1文（数字つき）"}}],
   "lesson": "来週に持ち越す教訓を1文",
   "long_view": {{"title": "長い目で見るの見出し(20字以内)", "parts": [
-    {{"k": "history", "body": "歴史の物差し"}}, {{"k": "world", "body": "世界のお金の流れ"}},
-    {{"k": "why", "body": "「なぜ」を3段"}}, {{"k": "decade", "body": "10年の視点"}}]}}
+    {{"k": "history", "h": "小見出し(20字以内)", "body": "歴史の物差し（結論→根拠→条件の3文・数字4つまで）"}},
+    {{"k": "world", "h": "小見出し", "body": "世界のお金の流れ（同じ形）"}},
+    {{"k": "why", "h": "小見出し", "body": "「なぜ」を3段（同じ形）"}},
+    {{"k": "decade", "h": "小見出し", "body": "10年の視点（同じ形）"}}]}}
 }}
 points は3つ。world は2〜3個。flip は2〜3個で、up と down を必ず両方入れる。long_view の parts は4つをこの順で（合計400〜600字）。
 days は来週の営業日すべて（休場日は入れない）。sectors は追い風2つ・逆風2つ。JSONのみを出力すること。"""
@@ -812,9 +814,10 @@ def check_long_view(data, source):
         print(f"警告: deep_material を読めず long_view を外した: {e}", file=sys.stderr)
         return str(e)
 
-    def v(d, src):
-        return deep_material.validate_long_view(d, src) or check_banned({"long_view": d})
-    return deep_material.take_checked(data, "long_view", v, _inputs_only(source))
+    # 全体（見出し・順・合計字数）が落ちたら long_view ごと外す。型ごとに落ちたらその型だけ外す（2026-11-06）
+    errs = deep_material.check_long_view_parts(
+        data, _inputs_only(source), extra=lambda p: check_banned({"long_view": {"parts": [p]}}))
+    return "; ".join(errs) or None
 
 
 def days_dir():

@@ -31,10 +31,50 @@ ok(d.names_ok("半導体が主流の指数・世界の潮流に") is None, "主�
 ok(d.words_ok("買い越しが続き、売り越しが減った。自社株買いも多い") is None, "需給の名詞は通る")
 ok(d.words_ok("押し目買いの局面") is not None, "「買い」は落ちる")
 ok(d.words_ok("必ず戻る") is not None, "「必ず」は落ちる")
-ok(d.validate_deep({"type": "history", "title": "物差し", "body": BODY}, SRC) is None, "deep の正しい形は通る")
-ok(d.validate_deep({"type": "history", "title": "物差し", "body": "短い"}, SRC) is not None, "字数が足りない deep は落ちる")
-ok(d.validate_deep({"type": "x", "title": "物差し", "body": BODY}, SRC) is not None, "type が不正な deep は落ちる")
-data = {"headline": "x", "deep": {"type": "history", "title": "物差し", "body": BODY.replace("50.8%", "60.8%")}}
-ok(d.take_checked(data, "deep", d.validate_deep, SRC) and "deep" not in data and "headline" in data,
+# 2026-11-06 の型: 3文・数字4つまで・180〜260字（結論→根拠→条件）
+SRC2 = ("今回当たった: SOX指数（半導体）が−3%以上下落 → 過去184回 翌日の日経 平均-1.352%・上昇19.6%\n"
+        "金が+2%以上上昇 → 過去78回 平均+0.533%・上昇56.4%\nCME先物は現物比+1.38%")
+DEEP3 = ("半導体指数（SOX）が3%以上下げた日の翌日、日経平均は過去184回で平均−1.35%と下げる側に偏っており、今朝はちょうどこの条件に当たる。"
+         "金の上昇と原油の下落も同時に点灯したが、この2つは翌日の日経の上げ下げがほぼ五分で偏りが小さく、今朝の物差しとして効いているのは半導体の下げだけだ。"
+         "ただしCME先物が示す+1.4%の高寄りが前場のうちに保たれるなら、過去の平均どおりにはならず、この物差しより当日の寄り付きの強さを重く見る。")
+ok(d.count_sentences(DEEP3) == 3 and d.count_numbers(DEEP3) == 4, "見本は3文・数字4つ（「この2つ」は数えない）")
+ok(d.count_numbers("2026-10-06の高値70,683.98から-12.02%") == 3, "日付は1つと数える")
+ok(d.validate_deep({"type": "history", "title": "半導体の急落が翌日に響く朝", "body": DEEP3}, SRC2) is None, "新しい型の deep は通る")
+four = DEEP3.replace("だけだ。", "だけだ。上昇は19.6%にとどまる。", 1)
+ok("文が4つ" in (d.validate_deep({"type": "history", "title": "物差し", "body": four}, SRC2) or ""), "文が4つの deep は落ちる")
+five = DEEP3.replace("偏りが小さく", "偏りが小さく（金は過去78回）", 1)
+ok("数字が5個" in (d.validate_deep({"type": "history", "title": "物差し", "body": five}, SRC2) or ""), "数字が5つの deep は落ちる")
+ok("字" in (d.validate_deep({"type": "history", "title": "物差し", "body": DEEP3.replace("重く見る", "重く見る" + "ことになる" * 10)}, SRC2) or ""), "260字を超える deep は落ちる")
+ok(d.validate_deep({"type": "history", "title": "物差し", "body": "短い"}, SRC2) is not None, "字数が足りない deep は落ちる")
+ok(d.validate_deep({"type": "x", "title": "物差し", "body": DEEP3}, SRC2) is not None, "type が不正な deep は落ちる")
+data = {"headline": "x", "deep": {"type": "history", "title": "物差し", "body": DEEP3.replace("184回", "185回")}}
+ok(d.take_checked(data, "deep", d.validate_deep, SRC2) and "deep" not in data and "headline" in data,
    "落ちた deep だけ外し、本体は残す")
+
+# long_view: 型ごとに3文・数字4つまで。落ちた型だけ外して残りは出す
+PART = ("今の日経は、条件なしの全期間61回で見ると崩れの側が多い位置にいる。"
+        "20営業日後に崩れたのは50.8%で、上抜けの31.1%を上回る。"
+        "似た局面の上げが続くなら、この見方は変わる。")
+SRC3 = SRC + "\n" + SRC2
+def lv(parts):
+    return {"title": "10年で見た支え手", "parts": [dict(k=k, h="小見出し", body=b) for k, b in zip(d.LONG_KEYS, parts)]}
+PAD = PART[:-1] + "（長い目で見た位置）" * 4 + "。"
+good = [PAD] * 4
+data = {"view": "x", "long_view": lv(good)}
+ok(d.check_long_view_parts(data, SRC3) == [] and len(data["long_view"]["parts"]) == 4, "4つの型がすべて通る")
+bad = list(good)
+bad[1] = PAD + "崩れの側が多い。"
+data = {"view": "x", "long_view": lv(bad)}
+errs = d.check_long_view_parts(data, SRC3)
+ok(len(errs) == 1 and "world" in errs[0] and [p["k"] for p in data["long_view"]["parts"]] == ["history", "why", "decade"],
+   "文が4つの型（world）だけ外し、残り3つは出す")
+bad = list(good)
+bad[3] = PAD.replace("61回", "61回・184回・-1.352%")
+data = {"view": "x", "long_view": lv(bad)}
+errs = d.check_long_view_parts(data, SRC3)
+ok(len(errs) == 1 and "decade" in errs[0] and "数字" in errs[0], "数字が5つ以上の型（decade）だけ外す")
+p0 = lv(good); p0["parts"][0].pop("h")
+data = {"view": "x", "long_view": p0}
+d.check_long_view_parts(data, SRC3)
+ok(data["long_view"]["parts"][0]["h"] == "歴史の物差し", "小見出しが無い型は型の名前で埋める")
 print("all ok")

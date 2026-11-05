@@ -12,7 +12,7 @@
   - 実在の評論家・投資家の名前を含まない（名前そのものはコードに書かず、ハッシュで持つ）
     と「〜氏」「〜流」などの人を指す書き方をしない
   - 禁止語: 推奨・おすすめ・必ず・確実・買い/売り（需給の名詞だけ許可）
-  - 字数
+  - 字数・文の数・数字の個数（deep は3文・数字4つ・180〜260字。long_view は型ごとに3文・数字4つ）
 """
 import hashlib
 import json
@@ -422,10 +422,50 @@ def _check_text(text, source):
 
 
 DEEP_TYPES = {"history": "歴史の物差し", "world": "世界のお金の流れ", "why": "「なぜ」を3段"}
-DEEP_LEN = (150, 360)       # 起動文は 200〜300字。少しだけ幅を持たせる
+LONG_LABELS = {"history": "歴史の物差し", "world": "世界のお金の流れ", "why": "「なぜ」を3段", "decade": "10年の視点"}
+# 2026-11-06 「数字を並べただけで何が言いたいのか分からない」への対応: 結論1文＋根拠1文＋条件1文の型に絞る
+DEEP_LEN = (180, 260)       # deep 本文の字数
+DEEP_MAX_SENT = 3           # 文の数（「。」で数える）
+DEEP_MAX_NUM = 4            # 数字の個数
 LONG_KEYS = ("history", "world", "why", "decade")
-LONG_LEN = (360, 720)       # 起動文は 400〜600字
+LONG_LEN = (360, 720)       # 起動文は 400〜600字（今のまま）
+PART_MAX_SENT = 3
+PART_MAX_NUM = 4
 TITLE_MAX = 30
+H_MAX = 24                  # long_view の型ごとの小見出し
+COND_RE = re.compile(r"なら|場合|れば|たら")
+
+SENT_END_RE = re.compile(r"[。！？!?]")
+# 日付は1つの数字として数える（2026-10-06・2026年10月6日・10月6日・10/6）
+DATE_RE = re.compile(r"\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}日|(?<![\d.])\d{1,2}/\d{1,2}(?![\d.])")
+
+
+def count_sentences(text):
+    """文の数。「。」（と！？）で区切り、空でない区切りを数える（最後の「。」が無い文も1つ）"""
+    return sum(1 for x in SENT_END_RE.split(_norm(text)) if x.strip())
+
+
+def count_numbers(text):
+    """数字の個数（%・円・倍・回・件・日 などを伴う数値。単位の無い指数の水準なども1つと数える）。
+    日付は1つ、「3つ」「2段」のような数え方（12まで）は数えない"""
+    t = DATE_RE.sub("〈日付〉", _norm(text))
+    n = t.count("〈日付〉")
+    counters = {m.start() for m in COUNTER_RE.finditer(t)}
+    for m in NUM_RE.finditer(t):
+        if m.start() in counters and int(m.group(0)) <= 12:
+            continue
+        n += 1
+    return n
+
+
+def shape_ok(text, max_sent, max_num, what):
+    """文の数と数字の個数。戻り値: エラー（合格なら None）"""
+    ns, nn = count_sentences(text), count_numbers(text)
+    if ns > max_sent:
+        return f"{what}の文が{ns}つ（{max_sent}つまで）"
+    if nn > max_num:
+        return f"{what}の数字が{nn}個（{max_num}個まで）"
+    return None
 
 
 def validate_deep(d, source):
@@ -439,13 +479,34 @@ def validate_deep(d, source):
         return f"deep.title は1〜{TITLE_MAX}字"
     if not isinstance(body, str) or not (DEEP_LEN[0] <= len(body) <= DEEP_LEN[1]):
         return f"deep.body は{DEEP_LEN[0]}〜{DEEP_LEN[1]}字（{len(body) if isinstance(body, str) else '—'}字）"
-    if d["type"] == "why" and not re.search(r"なら|場合", body):
+    err = shape_ok(body, DEEP_MAX_SENT, DEEP_MAX_NUM, "deep.body")
+    if err:
+        return err
+    if d["type"] == "why" and not COND_RE.search(body):
         return "deep（なぜを3段）に条件（〜なら／〜場合）が無い"
     return _check_text(title + "\n" + body, source)
 
 
+def validate_long_part(p, source):
+    """long_view の1つの型。戻り値: エラー（合格なら None）"""
+    if not isinstance(p, dict) or p.get("k") not in LONG_KEYS:
+        return "parts の k が不正"
+    body, h = p.get("body"), p.get("h")
+    if not isinstance(body, str) or not body.strip():
+        return f"long_view.parts.{p['k']} が空"
+    if h is not None and (not isinstance(h, str) or len(h) > H_MAX):
+        return f"long_view.parts.{p['k']}.h は{H_MAX}字以内"
+    err = shape_ok(body, PART_MAX_SENT, PART_MAX_NUM, f"long_view.{p['k']}")
+    if err:
+        return err
+    if p["k"] == "why" and not COND_RE.search(body):
+        return "long_view.why に条件（〜なら／〜場合）が無い"
+    return _check_text((h or "") + "\n" + body, source)
+
+
 def validate_long_view(d, source):
-    """日曜の long_view。戻り値: エラー（合格なら None）"""
+    """日曜の long_view の全体（見出し・4つの型の順・合計字数）。型ごとの中身は validate_long_part。
+    戻り値: エラー（合格なら None）"""
     if not isinstance(d, dict):
         return "long_view が dict でない"
     title = d.get("title")
@@ -454,16 +515,39 @@ def validate_long_view(d, source):
     parts = d.get("parts")
     if not isinstance(parts, list) or [p.get("k") if isinstance(p, dict) else None for p in parts] != list(LONG_KEYS):
         return f"long_view.parts は {'→'.join(LONG_KEYS)} の4つをこの順で"
-    for p in parts:
-        if not isinstance(p.get("body"), str) or not p["body"].strip():
-            return f"long_view.parts.{p.get('k')} が空"
-    total = sum(len(p["body"]) for p in parts)
+    total = sum(len(p.get("body") or "") for p in parts)
     if not (LONG_LEN[0] <= total <= LONG_LEN[1]):
         return f"long_view は合計{LONG_LEN[0]}〜{LONG_LEN[1]}字（{total}字）"
-    why = parts[2]["body"]
-    if not re.search(r"なら|場合", why):
-        return "long_view.why に条件（〜なら／〜場合）が無い"
-    return _check_text(title + "\n" + "\n".join(p["body"] for p in parts), source)
+    return _check_text(title, source)
+
+
+def check_long_view_parts(data, source, extra=None):
+    """long_view を検査する。全体が落ちたら long_view を外す。型ごとに落ちたらその型だけ外し、残りは出す。
+    extra(part) は追加の検査（禁止パターンなど）。戻り値: 落ちた理由のリスト"""
+    if "long_view" not in data:
+        return []
+    L = data["long_view"]
+    err = validate_long_view(L, source)
+    if err:
+        data.pop("long_view", None)
+        print(f"警告: long_view を検査で外した（本体は出す）: {err}", file=sys.stderr)
+        return [err]
+    keep, errs = [], []
+    for p in L["parts"]:
+        e = validate_long_part(p, source) or (extra(p) if extra else None)
+        if e:
+            errs.append(f"{p.get('k')}: {e}")
+            print(f"警告: long_view の {p.get('k')} だけ外した: {e}", file=sys.stderr)
+        else:
+            if not p.get("h"):
+                p["h"] = LONG_LABELS[p["k"]]
+            keep.append(p)
+    if not keep:
+        data.pop("long_view", None)
+        print("警告: long_view の型がすべて落ちたので long_view を外した", file=sys.stderr)
+    else:
+        L["parts"] = keep
+    return errs
 
 
 def take_checked(data, key, validator, source):
@@ -486,19 +570,37 @@ RULES_COMMON = """- 材料は下の「深掘りの材料」と、ここまでの
 - 「推奨」「おすすめ」「必ず」「確実」は書かない。「買い」「売り」は語の一部でも使わない（使ってよいのは 売買代金・空売り・買い越し・売り越し・買い残・売り残・自社株買い だけ）"""
 
 DEEP_GUIDE = """# 深掘り（deep）の書き方
-今朝のデータを、日々の値動きより一段深く読む段落を1つだけ書きます。次の3つの型から、今朝いちばん効くものを1つ選ぶ（type に書く）。
-- history（歴史の物差し）: 今に似た過去の局面を1つ挙げ、その後どうなったかを数字で書く。材料は「歴史の物差し」の行（同じ動きの翌日・似た局面・傾斜計・投資部門別の順位）
-- world（世界のお金の流れ）: 金・原油・ドル・米金利・各国株の並び（5日・20日・年初来・円建て）から、日本株への伝わり方を書く
-- why（「なぜ」を3段）: 事実 → その理由として入力から言えること → その次に起きやすいこと（「〜なら〜しやすい」）。3段目は条件と、条件が外れたときの見方を必ず添える
+今朝のデータを、日々の値動きより一段深く読む段落を1つだけ書きます。数字を並べるのではなく、**「今朝はこうなりやすい」という1つの結論**を言うための段落です。
+次の3つの型から、今朝いちばん効くものを**1つだけ**選ぶ（type に書く。型を混ぜない）。
+- history（歴史の物差し）: 今朝当たっている過去の条件（同じ動きの翌日・似た局面・傾斜計など）と、その後どうなったか
+- world（世界のお金の流れ）: 金・原油・ドル・米金利・各国株の並び（5日・20日・年初来・円建て）から、日本株への伝わり方
+- why（「なぜ」を3段）: 事実 → その理由として入力から言えること → 「〜なら〜しやすい」
+
+## 形（3文だけ・数字は4つまで・全体180〜260字）
+- 1文目＝結論: 「今朝はこの条件に当たる。過去の同じ日の翌日はこうだった」を1文で言い切る
+- 2文目＝根拠: 結論を支える数字を2つまで。同時に点灯した他の条件が翌日の日経にほぼ効かないなら「効かない」と一言で切り、数字は並べない
+- 3文目＝見方を変える条件: 「〜なら、過去どおりにはならない」
+- 文は「。」で数えて3つまで。数字（%・円・倍・回・件・日 などを伴う数値。日付や「20営業日」「10年」のような期間も1つと数える）は本文全体で4つまで。超えると機械の検査で深掘りだけ載りません
+- 数字は丸めてよい（−1.352% → −1.35%）。1つの文に数字を3つ以上詰めない
+
+## 見本（type=history。この形で書く。数字は毎朝の入力から取り直す）
+title: 半導体の急落が翌日に響く朝
+body: 半導体指数（SOX）が3%以上下げた日の翌日、日経平均は過去184回で平均−1.35%と下げる側に偏っており、今朝はちょうどこの条件に当たる。金の上昇と原油の下落も同時に点灯したが、この2つは翌日の日経の上げ下げがほぼ五分で偏りが小さく、今朝の物差しとして効いているのは半導体の下げだけだ。ただしCME先物が示す+1.4%の高寄りが前場のうちに保たれるなら、過去の平均どおりにはならず、この物差しより当日の寄り付きの強さを重く見る。
 """ + RULES_COMMON + """
-- body は200〜300字。title は20字以内。採点・スタンスには関係しない（stance を動かす理由にしない）"""
+- body は180〜260字。title は20字以内。採点・スタンスには関係しない（stance を動かす理由にしない）"""
 
 LONG_GUIDE = """# 長い目で見る（long_view）の書き方
-来週の地図とは別に、日々の値動きから一歩引いた節を書きます。採点はしません。次の4つを、この順で1段落ずつ（合計400〜600字）。
-- history（歴史の物差し）: 今に似た過去の局面を1つ挙げ、その後どうなったかを数字で
+来週の地図とは別に、日々の値動きから一歩引いた節を書きます。採点はしません。次の4つの型を、この順で（合計400〜600字）。
+- history（歴史の物差し）: 今に似た過去の局面と、その後どうなったか
 - world（世界のお金の流れ）: 金・原油・ドル・米金利・各国株の並び（5日・20日・年初来・円建て）から、日本株への伝わり方
-- why（「なぜ」を3段）: 事実 → その理由として入力から言えること → その次に起きやすいこと（「〜なら〜しやすい」）。3段目は条件と、条件が外れたときの見方を必ず添える
+- why（「なぜ」を3段）: 事実 → その理由として入力から言えること → 「〜なら〜しやすい」
 - decade（10年の視点）: 日本株の構造の変化を、入力にある長期の数字（投資部門別の累計・10年の位置など）だけで
+
+## 1つの型の形（どの型も同じ。数字を並べず、言いたいことを1つに絞る）
+- h（小見出し）: その型で言いたいことを20字以内で
+- body は3文だけ: 1文目＝結論 → 2文目＝根拠（数字は2つまで） → 3文目＝「〜なら、この見方は変わる」の条件
+- 1つの型の数字（%・円・倍・回・件・日 などを伴う数値。日付や「20営業日」「10年」のような期間も1つと数える）は4つまで。文（「。」で数える）は3つまで。超えた型は機械の検査で、その型だけ載りません
+- 数字は丸めてよい（−1.352% → −1.35%）
 """ + RULES_COMMON + """
 - title は20字以内。見立て（view）とは矛盾させない"""
 
