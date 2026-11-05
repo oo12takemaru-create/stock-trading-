@@ -229,14 +229,19 @@ def build_post(a, d, date_str):
     # AI朝刊 v2: 1行目はスコアボード（機械で作った成績）。無い回（v1 の朝刊）は従来どおり
     sb = a.get("scoreboard") or {}
     db = a.get("debate") or {}
+    no = f" 第{a['issue']}号" if a.get("issue") else ""
     if sb.get("ai"):
         y = sb.get("yesterday") or {}
         mark = {True: "⭕", False: "❌"}.get(y.get("hit"), "－")
         mon = int((sb.get("month") or "0000-00")[5:7] or 0)
-        lines = [f"【AI朝刊 {md}】AI {mon}月{sb['ai']['win']}勝{sb['ai']['lose']}敗｜昨日{mark}",
+        lines = [f"【AI朝刊{no} {md}】AI {mon}月{sb['ai']['win']}勝{sb['ai']['lose']}敗｜昨日{mark}",
                  a.get("headline", ""), ""]
     else:
-        lines = [f"【AI朝刊 {md}】{a.get('headline','')}", ""]
+        lines = [f"【AI朝刊{no} {md}】{a.get('headline','')}", ""]
+    # 今日の記録（機械で作る1行・2026-11-06〜）。見出しのすぐ下に置き、長いときも残す
+    rec = (a.get("record") or {}).get("text")
+    if rec:
+        lines.insert(len(lines) - 1, "📌今日の記録: " + rec)
     if db.get("bull") and db.get("bear"):
         lines.append("🟢攻め派:" + db["bull"][0])
         lines.append("🔴守り派:" + db["bear"][0])
@@ -260,7 +265,7 @@ def build_post(a, d, date_str):
 
     # 280(全角140)を超えたら後ろから削る
     # 削るのは後ろの数字行から。スコアボード・見出し・討論・スタンスは残す
-    keep = sum(1 for x in lines if x.startswith(("【", "🟢", "🔴", "スタンス"))) + 3
+    keep = sum(1 for x in lines if x.startswith(("【", "📌", "🟢", "🔴", "スタンス"))) + 3
     while tweet_len(body) > 278 and len(lines) > keep:
         del lines[-3]
         body = "\n".join(lines)

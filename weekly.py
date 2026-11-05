@@ -604,10 +604,10 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
   "sectors": [{{"name": "セクター名", "wind": "tail（追い風）か head（逆風）", "why": "理由を1文（数字つき）"}}],
   "lesson": "来週に持ち越す教訓を1文",
   "long_view": {{"title": "長い目で見るの見出し(20字以内)", "parts": [
-    {{"k": "history", "h": "小見出し(20字以内)", "body": "歴史の物差し（結論→根拠→条件の3文・数字4つまで）"}},
-    {{"k": "world", "h": "小見出し", "body": "世界のお金の流れ（同じ形）"}},
-    {{"k": "why", "h": "小見出し", "body": "「なぜ」を3段（同じ形）"}},
-    {{"k": "decade", "h": "小見出し", "body": "10年の視点（同じ形）"}}]}}
+    {{"k": "history", "q": "見出しの問い(30字以内・末尾は？か「か」)", "body": "歴史の物差し（結論→翻訳→次に見る数字の3文・数字5つまで）"}},
+    {{"k": "world", "q": "問い", "body": "世界のお金の流れ（同じ形）"}},
+    {{"k": "why", "q": "問い", "body": "「なぜ」を3段（同じ形）"}},
+    {{"k": "decade", "q": "問い", "body": "10年の視点（同じ形）"}}]}}
 }}
 points は3つ。world は2〜3個。flip は2〜3個で、up と down を必ず両方入れる。long_view の parts は4つをこの順で（合計400〜600字）。
 days は来週の営業日すべて（休場日は入れない）。sectors は追い風2つ・逆風2つ。JSONのみを出力すること。"""
@@ -850,6 +850,15 @@ def rebuild_days_index():
     return ix
 
 
+ISSUE_FROM = "2026-10-10"   # 週末版の1本化（来週の地図）の初回＝#1
+
+
+def issue_of(views, d):
+    """来週の地図の通し番号 #◯（ISSUE_FROM からの見立ての数。d の回を含む）"""
+    ds = sorted({v.get("date") for v in views if v.get("date") and ISSUE_FROM <= v["date"] <= d})
+    return len(ds) if d in ds else None
+
+
 def write_entry(data, label, now, ctx):
     """回答 → entry 組み立て → 書き出し（API / --answer 共通）"""
     today = now.date()
@@ -899,6 +908,7 @@ def write_entry(data, label, now, ctx):
                       "base_close": base, "base_date": bdate,
                       "week_from": nm.isoformat(), "week_to": nf.isoformat(),
                       "title": data.get("title", "")})
+        entry["issue"] = issue_of(views, today.isoformat())
         out["weekend"] = entry
     out["views"] = views[-104:]
     entry["view_record"] = view_record(views)
