@@ -58,6 +58,9 @@ DEDUP_GAP = 20
 MIN_FULL, MIN_SHOW = 30, 10
 TOPIX_PROXY = "1306.T"
 Q1_BINS = [(0, 1, "1倍未満"), (1, 3, "1〜3倍"), (3, 10, "3〜10倍"), (10, math.inf, "10倍超")]
+# 100倍を超える倍率（売り残がごく少ない週）は Q1 に入れない（サイトの信用残カード・今日の要点と同じ考え方・2026-11-05）。
+# 売り残0（倍率が無限大）も同じく入れない（統括判断 2026-11-05。以前は10倍超に入れていた）
+Q1_RATIO_CAP = 100
 Q2_UP, Q2_LISTED_PCT = 0.20, 0.5          # 買い残 前週比+20%以上・上場株式数比0.5%以上（Fable 10/10）
 Q3_UP, SQUEEZE = 0.30, 0.15               # 売り残 前週比+30%以上・踏み上げ=20営業日以内に+15%以上
 Q7_VR = 2.0                               # 出来高が20日平均の2倍以上
@@ -233,9 +236,11 @@ def q1_q2_q3(weeks, pubs, items, shares, universe):
                 continue
             s, b = r
             ratio = (b / s) if s else math.inf
-            # 売り残0は倍率が無限大＝10倍超に入れる
+            # 売り残0（無限大）と100倍超は Q1 に入れない（Q7 も Q1 から作るので同じく外れる）
             lab = (next((l for lo, hi, l in Q1_BINS if lo <= ratio < hi), Q1_BINS[-1][2])
                    if (b or s) else None)
+            if lab and ratio > Q1_RATIO_CAP:
+                lab = None
             if lab:
                 out.append(ev("Q1", lab, c, pubs[i], week=weeks[i], ratio=None if ratio == math.inf else round(ratio, 2)))
             prev = rows[i - 1] if i >= 1 else None
@@ -575,6 +580,7 @@ def main():
             "size": "規模＝直近20営業日の平均売買代金を、今の全銘柄の三分位で大型・中型・小型に分けた",
             "size_cut": tier_cut, "regime": "温度計（radar_history.json・2026-08-02〜）。それより前は「不明」",
             "prices": "yfinance（分割調整済み）",
+            "q1_cap": f"Q1（とそれを掛け合わせる Q7）は信用倍率が{Q1_RATIO_CAP}倍を超える週と売り残0の週を除く（売り残がごく少ない・無い週）",
             "excess_univ": "全信用銘柄の平均との差＝同じ起点・同じ期間の、信用残のある全銘柄の平均リターンを引いた値（サイトの1行はこちら）。TOPIX比はデータに残す", "survivorship": "2026-10-10 から上場廃止を記録（delisted.json）。それ以前の廃止銘柄は含まれない",
         },
         "data_since": {"信用残（週次）": first_week, "機関の空売り（転換・新規）": q6_from,
