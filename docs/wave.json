@@ -1,11 +1,11 @@
 {
- "updated": "2026-11-05T18:06:18+09:00",
+ "updated": "2026-11-05T21:05:39+09:00",
  "asof": "2026-11-05",
  "position": {
-  "regime": "NEUTRAL",
-  "streak": 15,
-  "streak_radar": 16,
-  "streak_replay": 0,
+  "regime": "BEARISH",
+  "streak": 1,
+  "streak_radar": 1,
+  "streak_replay": 1,
   "regime_replay": "BEARISH",
   "regime_asof": "2026-11-05",
   "n225": {
@@ -14,7 +14,7 @@
    "high_d": "2026-10-07",
    "dist": -12.79,
    "asof": "2026-11-05",
-   "radar_n225": 62188.63
+   "radar_n225": 61077.9
   },
   "topix": {
    "name": "TOPIX（1306.T で代用）",
@@ -24,7 +24,7 @@
    "dist": -4.9,
    "asof": "2026-11-05"
   },
-  "vix": 16.61,
+  "vix": 16.88,
   "gauge": {
    "lit": 3,
    "total": 5,
@@ -105,8 +105,8 @@
     {
      "text": "温度計が BEARISH/PANIC を2営業日連続",
      "level": 2,
-     "today": "NEUTRAL",
-     "gap": 2,
+     "today": "BEARISH",
+     "gap": 1,
      "unit": "営業日",
      "met": false
     },
@@ -139,8 +139,8 @@
  ],
  "similar": {
   "cond": {
-   "regime": "NEUTRAL",
-   "streak_band": "6–20日",
+   "regime": "BEARISH",
+   "streak_band": "1–5日",
    "dist_band": "−10%超",
    "vix_band": "15–20"
   },
@@ -157,7 +157,7 @@
    "major": null
   },
   "built": {
-   "n": 0,
+   "n": 1,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -168,7 +168,7 @@
    "major": null
   },
   "tested": {
-   "n": 1,
+   "n": 0,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -191,15 +191,15 @@
   },
   "cases": [
    {
-    "d": "2026-07-28",
-    "res": "up",
-    "res_d": "2026-08-05",
-    "k": 6,
-    "ret20": 5.62,
-    "dd20": -2.07,
-    "dist": -11.51,
-    "vix": 18.67,
-    "streak": 10
+    "d": "2024-08-02",
+    "res": "down",
+    "res_d": "2024-08-05",
+    "k": 1,
+    "ret20": 9.79,
+    "dd20": -10.75,
+    "dist": -14.95,
+    "vix": 18.59,
+    "streak": 1
    }
   ],
   "alt_with_gauge": {
@@ -227,8 +227,8 @@
     "major": null
    },
    "gauge_series_period": [
-    "2021-11-04",
-    "2026-11-04"
+    "2021-11-05",
+    "2026-11-05"
    ]
   },
   "v1": {
