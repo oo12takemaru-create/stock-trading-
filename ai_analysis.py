@@ -445,7 +445,7 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
     "bear": ["守り派の根拠1(同上)", "根拠2", "根拠3"],
     "verdict": "機械の判定と、それを動かさなかった/1段下げた理由を1文で"
   }},
-  "deep": {{"type": "history | world | why のどれか1つ", "title": "深掘りの見出し(20字以内)", "body": "200〜300字の1段落"}}
+  "deep": {{"type": "history | world | why のどれか1つ", "q": "見出しの問い(30字以内・末尾は？か「か」)", "body": "4文だけ（事実→翻訳→なぜ→次に見る数字）・数字は5つまで・200〜300字"}}
 }}
 
 world_flowは2〜4個、sectorsは3〜5個。
@@ -795,6 +795,39 @@ def build_scoreboard(now):
     return sb
 
 
+ISSUE_FROM = "2026-10-06"   # 朝刊 v2 の初回＝第1号
+
+
+def issue_no(date_str, dst, prev=None):
+    """第◯号。ISSUE_FROM から date_str の前日までに出た営業日の朝刊の数 + 1。
+    出た日は ai_record.json の採点の行と、ai_analysis.json の履歴（直近7件）を合わせて数える
+    （採点が遅れた日も、履歴にあれば数える）。数えられなければ None（号数を出さない）"""
+    try:
+        import jp_bizday
+        from datetime import date as _date
+        days = set()
+        rec = load_site_json("ai_record.json") or {}
+        for r in ((rec.get("ai") or {}).get("rows") or []):
+            if r.get("d"):
+                days.add(r["d"])
+        try:
+            old = json.loads(Path(dst).read_text(encoding="utf-8"))
+            for e in [old.get("latest") or {}] + (old.get("history") or []):
+                if e.get("date"):
+                    days.add(e["date"])
+        except Exception:
+            pass
+        if prev and prev.get("date"):
+            days.add(prev["date"])
+        if not days:
+            return None
+        n = sum(1 for d in days if ISSUE_FROM <= d < date_str and jp_bizday.is_bizday(_date.fromisoformat(d)))
+        return n + 1
+    except Exception as e:
+        print(f"号数を数えられず（朝刊は出す）: {e}", file=sys.stderr)
+        return None
+
+
 def finalize(data, label, s3, machine, prev, dst, now):
     """検証済みの回答 → 上方修正の禁止 → entry 組み立て → history 引き継ぎ → 書き出し"""
     date_str = now.strftime("%Y-%m-%d")
@@ -818,6 +851,21 @@ def finalize(data, label, s3, machine, prev, dst, now):
         # AI朝刊 v2: 成績のスコアボード（機械で作る・AIの回答は使わない）
         "scoreboard": build_scoreboard(now),
     }
+    # 2026-11-06〜 機械で付ける2つ（AIの回答に同じ名前があっても上書きする）
+    #   issue: 第◯号（2026-10-06 の朝刊 v2 初回＝第1号。営業日の朝刊の通し番号）
+    #   record: 今日の記録（日足から機械で作る1行。該当が無い日は付けない）
+    entry.pop("record", None)
+    entry["issue"] = issue_no(date_str, dst, prev)
+    try:
+        import day_record
+        rec = day_record.today_record()
+    except Exception as e:
+        rec = None
+        print(f"今日の記録を作れず（朝刊は出す）: {e}", file=sys.stderr)
+    if rec:
+        entry["record"] = rec
+    if entry["issue"] is None:
+        entry.pop("issue")
 
     # 既存の履歴を引き継ぐ(直近7件)
     history = []
