@@ -15,6 +15,9 @@
     y  {d1,d5,d20,ytd} 円で持っていたら の騰落%（(1+現地)×(1+対円の為替)−1。円建て・金利・為替・VIX は null）
     yen 為替だけ: 1 = 円の絡む組（ドル円など。上がる＝円安）。色は「円から見て」（サイト側）
     sub 1 = まとめの1行の「世界の株」に数えない（SOX指数）  note 注記
+    stale 1 = 7時の確定版で、日本とアジアの指数の最終の取引日が前の東京の営業日より古い（前日の値が取れていない）。
+          サイトは灰色＋注記、まとめの1行には数えない。先頭の stale[] にその名前（2026-11-06）
+■ 終値は yf_latest.fill_latest で「最新日の空欄」を取引所の確定値で埋めてから使う（2026-11-06。dropna() 直書きにしない）
   先頭: updated（日本時間）・edition（morning 7時の確定版 / asia 16時のアジア引け / night 23時の欧州・米国の途中）・
         final（確定版か）・summary（{d1,d5,d20,ytd} まとめの1行。機械的な事実だけ）・counts（上昇した指数の数）
 
@@ -27,6 +30,10 @@
 ■ 判断の言葉（リスクオン/オフ・お金が流れた・買い/売り・推奨）は書かない。まとめの1行は生成時に検査して止める。
 
 使い方: python -X utf8 world_fetch.py   （world.yml・cron-worker が JST 7:00 / 16:00 / 23:00 に起こす）
+       python -X utf8 world_fetch.py --final      7時の確定版として作る（11時を過ぎてから朝の回をやり直す）
+       python -X utf8 world_fetch.py --rebuild-day YYYY-MM-DD
+           その日の7時の確定版の日付アーカイブ（world_days/その日.json）だけを作り直す。足はその日より前だけを使い、
+           world.json には書かない（最新の回を上書きしないため）。日付アーカイブが古い値で積まれた日の修理用
 依存: yfinance, pandas
 """
 import json
@@ -115,13 +122,95 @@ def edition_of(now):
     return "night", "23時の回（欧州の途中・米国の寄り後の途中経過）"
 
 
-def series(df, t):
+STALE_NOTE = "前日の値が取れず、1日前の値です"
+# 最新日の空欄を埋めた終値（fill_closes が入れる）。ここに無いティッカーは df の終値から空欄を捨てただけ
+CLOSES = {}
+CUT = None      # --rebuild-day のとき、この日より前の足だけを使う（pandas.Timestamp）
+
+
+def raw_close(df, t):
     try:
-        s = df[t]["Close"].dropna()
+        return df[t]["Close"]
     except Exception:
         return None
+
+
+def series(df, t):
+    if t in CLOSES:
+        s = CLOSES[t]
+    else:
+        c = raw_close(df, t)
+        if c is None:
+            return None
+        s = c.dropna()
+    if CUT is not None and len(s):
+        s = s[s.index < CUT]
     s = s[s > 0] if len(s) else s
     return s if len(s) >= 2 else None
+
+
+def fill_closes(df, tickers):
+    """最新の取引日の終値が空欄（NaN）の足を、取引所の確定値で埋める（yf_latest.fill_latest・2026-11-06）。
+
+    yfinance の日足は朝5〜7時台に最新日の終値が空欄で返ることがあり、空欄を捨てると2営業日前が「最新」になる。
+    2026-11-06 の7時の確定版で、日経平均・ハンセン・上海・KOSPI・台湾・NIFTY の6つが 11/4 のまま出た
+    （1306.T と米欧は 11/5）。日本とアジアは毎回、それ以外は末尾に空欄があるときだけ確かめる（取得の回数を抑える）"""
+    from yf_latest import fill_latest
+    asia = {t for t, _n, g, *_ in ITEMS if g == "as"} | {x[5]["alt"] for x in ITEMS if x[5].get("alt")}
+    for t in tickers:
+        c = raw_close(df, t)
+        if c is None or not c.notna().any():
+            continue
+        if t in asia or c.index[-1] > c.dropna().index[-1]:
+            CLOSES[t] = fill_latest(t, c)
+
+
+def prev_tokyo_bizday(d):
+    """d より前で最後の東京の営業日（土日・祝日・年末年始を除く）"""
+    from jp_bizday import is_bizday
+    cur = d - timedelta(days=1)
+    while not is_bizday(cur):
+        cur -= timedelta(days=1)
+    return cur
+
+
+def last_session_day(t):
+    """その取引所の直近の立会いの日（history_metadata の regularMarketTime・現地の日付）。取れなければ None"""
+    try:
+        import pandas as pd
+        import yfinance as yf
+        from yf_latest import _epoch
+        tk = yf.Ticker(t)
+        tk.history(period="5d", interval="1d", auto_adjust=False)
+        md = tk.history_metadata or {}
+        ts = _epoch(md.get("regularMarketTime"))
+        if ts is None:
+            return None
+        return pd.Timestamp(ts, unit="s", tz="UTC").tz_convert(md.get("exchangeTimezoneName") or "UTC").date()
+    except Exception:
+        return None
+
+
+def mark_stale(items, today, last_session=last_session_day):
+    """7時の確定版の鮮度の検査（2026-11-06）。日本とアジアの指数の最終の取引日が「前の東京の営業日」より古ければ
+    stale=1 を付ける（サイトは灰色＋注記・まとめの1行には数えない）。黙って古い値を出さない。
+    ただし取引所の直近の立会いの日がその日のままなら現地の休場（中国の国慶節など）なので付けない。
+    立会いの日が確かめられないときは付ける（安全側）"""
+    exp = prev_tokyo_bizday(today)
+    out = []
+    for i in items:
+        if i["g"] != "as" or i["k"] != "idx" or not i.get("ok") or not i.get("d"):
+            continue
+        d = date.fromisoformat(i["d"])
+        if d >= exp:
+            continue
+        last = last_session(i["t"])
+        if last is not None and last <= d:
+            continue
+        i["stale"] = 1
+        i["note"] = (i["note"] + "。" if i.get("note") else "") + f"{STALE_NOTE}（最終の取引日 {i['d']}）"
+        out.append(i["n"])
+    return out
 
 
 def base_index(s, n):
@@ -202,7 +291,8 @@ def fmt_pct(v, d=1):
 def summary_line(items, key):
     """まとめの1行（機械的・事実だけ）。例: 世界の株は17指数中10が上昇。米10年金利 +0.06%pt。円は対ドルで0.4%安。金 +1.2%、WTI原油 -2.1%"""
     by = {i["t"]: i for i in items if i.get("ok")}
-    idx = [i for i in items if i.get("ok") and i["k"] == "idx" and not i.get("sub") and i["r"].get(key) is not None]
+    idx = [i for i in items if i.get("ok") and i["k"] == "idx" and not i.get("sub") and not i.get("stale")
+           and i["r"].get(key) is not None]
     up = sum(1 for i in idx if i["r"][key] > 0)
     head = "" if key == "d1" else f"{PERIOD_JA[key]}で見ると、"
     parts = [f"{head}世界の株は{len(idx)}指数中{up}が上昇"]
@@ -250,9 +340,20 @@ def save_day(out):
 
 
 def main():
+    global CUT
     import yfinance as yf
     now = datetime.now(JST)
     force_final = "--final" in sys.argv
+    rebuild = sys.argv[sys.argv.index("--rebuild-day") + 1] if "--rebuild-day" in sys.argv else None
+    if rebuild:
+        import pandas as pd
+        rd = date.fromisoformat(rebuild)
+        if rd > now.date():
+            raise SystemExit(f"--rebuild-day {rebuild} は未来の日付")
+        now = datetime(rd.year, rd.month, rd.day, 7, 0, tzinfo=JST)
+        CUT = pd.Timestamp(rd)
+        force_final = True
+        print(f"日付アーカイブの作り直し: {rebuild} 7時の確定版（{rebuild} より前の足だけ・world.json は書かない）")
     tickers = sorted({t for t, *_ in ITEMS} | {x[5]["alt"] for x in ITEMS if x[5].get("alt")} | set(FX_JPY.values()))
     df = yf.download(tickers, period="420d", progress=False, auto_adjust=False, group_by="ticker", threads=True)
     # 並列で取ると yfinance の内部キャッシュが「database is locked」で1つ2つ落とすことがある（10/30 の ETH-USD）。
@@ -269,6 +370,8 @@ def main():
                     df = pd.concat([df, one_df[[t]]], axis=1, sort=True)
             except Exception as e:
                 print(f"  {t}: 取り直しも失敗 {e}")
+    if not rebuild:
+        fill_closes(df, tickers)      # 作り直しのときは、過去の日の足はもう確定している
     items = [one(df, t, n, g, k, cur, ex, now.date()) for t, n, g, k, cur, ex in ITEMS]
     ok = sum(i["ok"] for i in items)
     if ok < FLOOR:
@@ -277,15 +380,21 @@ def main():
     ed, ed_label = edition_of(now)
     if force_final:
         ed, ed_label = "morning", edition_of(now.replace(hour=7))[1]
+    stale = mark_stale(items, now.date()) if ed == "morning" else []
+    if stale:
+        print(f"鮮度の検査: 前の東京の営業日より古い指数 {stale}（stale を付けた）", file=sys.stderr)
     summ, counts = {}, {}
     for key, _ in PERIODS:
         summ[key], counts[key] = summary_line(items, key)
     out = {"updated": now.isoformat(timespec="seconds"), "edition": ed, "edition_label": ed_label,
            "final": ed == "morning", "groups": [{"k": k, "n": n} for k, n in GROUPS],
            "periods": [{"k": k, "n": PERIOD_JA[k]} for k, _ in PERIODS],
-           "summary": summ, "counts": counts, "count": len(items), "ok": ok,
+           "summary": summ, "counts": counts, "count": len(items), "ok": ok, "stale": stale,
            "source": "Yahoo!ファイナンスの配信値（日足）", "items": items}
     DOCS.mkdir(exist_ok=True)
+    if rebuild:
+        save_day(out)
+        return
     DST.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     miss = [i["n"] for i in items if not i["ok"]]
     print(f"world.json: {ok}/{len(items)}銘柄 回={ed} 取れなかった={miss or 'なし'}")

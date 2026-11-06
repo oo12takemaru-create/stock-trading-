@@ -172,6 +172,49 @@ def age_of(path, today):
         return None
 
 
+# ★2026-11-06 追加★ 世界の値動きの地図の「日本とアジアの指数の最終の取引日」。
+#   world.json は毎回 updated が進むので、上の表（updated の鮮度）では中身の日付の遅れを捕まえられない。
+#   11/6 の7時の確定版で、日経平均など6つが 11/4 のまま出た（yfinance の最新日の終値が空欄・world_fetch.py で直した）。
+#   古いと判定する条件（どれか1つ）:
+#     ・world_fetch.py が stale を付けた（7時の確定版で、前の東京の営業日より古く、現地の休場でもない）
+#     ・日経平均（と TOPIX の代用 1306）が、updated の日付の前の東京の営業日より古い（東京の祝日は jp_bizday で正しく数える）
+#     ・ほかのアジアの指数が、前の東京の営業日から WORLD_ASIA_HOLIDAY 営業日より古い（国慶節など現地の長い休場は許す）
+WORLD_JSON = "docs/world.json"
+WORLD_LABEL = "世界の地図（日本とアジアの指数の日付）"
+WORLD_TOKYO = ("^N225", "1306.T", "^TOPX")
+WORLD_ASIA_HOLIDAY = 5
+
+
+def world_asia_lag(root="."):
+    """world.json の日本とアジアの指数で、日付が古いもの。
+
+    戻り値: (遅れの営業日数の最大, ["日経平均 11/4", ...])。問題が無ければ (0, [])。読めなければ (None, [])
+    """
+    try:
+        from jp_bizday import is_bizday
+        d = json.loads((Path(root) / WORLD_JSON).read_text(encoding="utf-8"))
+        day = datetime.fromisoformat(d["updated"]).date()
+    except Exception:
+        return None, []
+    exp = day - timedelta(days=1)
+    while not is_bizday(exp):
+        exp -= timedelta(days=1)
+    worst, bad = 0, []
+    for i in d.get("items") or []:
+        if i.get("g") != "as" or i.get("k") != "idx" or not i.get("ok") or not i.get("d"):
+            continue
+        try:
+            last = datetime.fromisoformat(i["d"]).date()
+        except Exception:
+            continue
+        lag = bizdays_between(last, exp)
+        tokyo = i.get("t") in WORLD_TOKYO
+        if i.get("stale") or (lag >= 1 and tokyo) or lag > WORLD_ASIA_HOLIDAY:
+            worst = max(worst, lag, 1)
+            bad.append(f"{i.get('n')} {i['d']}")
+    return worst, bad
+
+
 def stale_list(root=".", now=None, slack=0, skip=None):
     """許容を超えて古いものを返す。
 
@@ -189,6 +232,9 @@ def stale_list(root=".", now=None, slack=0, skip=None):
         if age is None or age <= tol + slack:
             continue
         out.append({"f": Path(path).name, "label": label, "age": age, "tol": tol})
+    lag, bad = world_asia_lag(root)
+    if lag and WORLD_JSON not in skip:
+        out.append({"f": Path(WORLD_JSON).name, "label": WORLD_LABEL, "age": lag, "tol": 0, "items": bad})
     return sorted(out, key=lambda x: -(x["age"] - x["tol"]))
 
 
@@ -214,4 +260,10 @@ def freshness_table(root=".", now=None, slack=1):
                  else "wait" if age <= tol + slack else "stale")
         out.append({"f": path.replace("docs/", ""), "label": label, "tol": tol,
                     "updated": upd, "age": age, "state": state})
+        if path == WORLD_JSON:
+            lag, bad = world_asia_lag(root)
+            out.append({"f": "world.json（日本とアジアの指数の日付）", "label": WORLD_LABEL, "tol": 0,
+                        "updated": upd, "age": lag,
+                        "state": "unknown" if lag is None else "stale" if lag else "ok",
+                        **({"items": bad} if bad else {})})
     return out
