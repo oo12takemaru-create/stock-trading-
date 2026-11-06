@@ -8,7 +8,7 @@
     → 3. 翻訳（日常の言葉で一言） → 4. 2つの道を条件つきで（「◯◯なら〜しやすい／◯◯なら〜しやすい」。
     過去の統計は、どちらの道が重いかの根拠として1つだけ） → 5. 次に見る数字
   の5文以内・数字6つまで・260〜400字。片方の道に言い切らない。
-  各道に機械で判定できる条件（来週の金曜終値→翌週金曜終値の騰落）を持たせ、翌週の土曜版で答え合わせする（judge_prev）。
+  各道に機械で判定できる条件（来週1週間＝5営業日。今週金曜の終値→来週金曜の終値の騰落）を持たせ、来週の土曜版で答え合わせする（judge_prev）。
 
 ■ 材料（prep が作る。routine は外へ出られない）
   - 今週のニュースの見出し: AI朝刊の prep が作った ai-prompt/<日付>/inputs.txt の「直近ニュース見出し」（媒体と日付つき・見出しだけ）
@@ -311,33 +311,84 @@ def low_n(s):
 # ------------------------------------------------------------------ 今週のニュースの見出し
 
 NEWS_HEAD = "## 直近ニュース見出し"
-NEWS_MAX = 90
+NEWS_MAX = 40          # 統括 11/6: 新しい順に最大40本
+NEWS_DAYS = 7          # 日曜の7日前より古い見出しは除く（見出しの中の「◯月◯日」で判定。RSS に古い記事が混じる）
+# 経済・金融・政治・国際の語（どれかを含む見出しだけ残す）
+NEWS_KEEP = re.compile(
+    r"株|円高|円安|円相場|ドル|ユーロ|為替|金利|利上げ|利下げ|日銀|FRB|FOMC|ECB|中銀|中央銀行|物価|インフレ|デフレ|賃金|雇用|就業|失業"
+    r"|GDP|景気|関税|貿易|輸出|輸入|原油|石油|ガス|エネルギー|半導体|AI|決算|利益|赤字|黒字|業績|日経|ダウ|ナスダック|債|財政|予算"
+    r"|税|政府|首相|大統領|政権|選挙|議会|国会|長官|財務|経産省|金融庁|日本銀行|制裁|協議|停戦|侵攻|攻撃|軍|戦争|紛争|核"
+    r"|ウクライナ|ロシア|露|中国|米中|イラン|イスラエル|ガザ|台湾|北朝鮮|EU|欧州|銀行|証券|出資|提携|買収|合併|上場|投資|市場"
+    r"|業務改善|交付金|融資|倒産|破綻|価格|値上げ|値下がり|値上がり|高騰|急落|急騰")
+# 娯楽・スポーツ・事件事故（国際の語があっても落とす。ただし戦争・紛争の見出しは残す）
+NEWS_DROP = re.compile(
+    r"【動画】|野球|サッカー|ホームラン|五輪|選手|試合|優勝|監督|芸能|俳優|女優|歌手|ドラマ|映画|アイドル|アニメ|結婚|離婚|熱愛"
+    r"|死亡|死傷|死去|事故|墜落|殺人|殺害|刺され|逮捕|容疑|詐欺|火災|行方不明|爆破予告|性的|性暴力|わいせつ|猫|犬|パンダ|うどん|すし店")
+NEWS_GEO = re.compile(r"軍事|空爆|ミサイル|攻撃|侵攻|停戦|戦闘|砲撃")   # 戦争・紛争の見出しは「死亡」などがあっても残す
+MD_RE = re.compile(r"(\d{1,2})月(\d{1,2})日")
 
 
-def week_news(mon, fri, fetch=None):
+def news_ok(title, sunday):
+    """見出しを材料に残すか（経済・金融・政治・国際だけ・7日より古い日付を含むものは除く）"""
+    if not NEWS_KEEP.search(title):
+        return False
+    if NEWS_DROP.search(title) and not NEWS_GEO.search(title):
+        return False
+    if sunday is not None:
+        cut = sunday - timedelta(days=NEWS_DAYS)
+        for m in MD_RE.finditer(title):
+            try:
+                d = date(sunday.year, int(m.group(1)), int(m.group(2)))
+            except ValueError:
+                continue
+            if d > sunday:
+                d = date(sunday.year - 1, d.month, d.day)
+            if d < cut:
+                return False
+    return True
+
+
+def week_news(mon, fri, fetch=None, sunday=None):
     """月〜金の AI朝刊の入力（ai-prompt/<日付>/inputs.txt）から見出しを集める。
-    同じ見出しは最初に出た日の日付で1つだけ。並びは新しい日が先"""
+    同じ見出しは最初に出た日の日付で1つだけ。経済・金融・政治・国際の見出しだけ（news_ok）。
+    日曜の7日前より古い日付の見出しは除く。並びは新しい日が先・最大40本"""
     fetch = fetch or _raw_inputs
-    seen, days = set(), []
-    d = mon
+    sunday = sunday or (fri + timedelta(days=2))
+    if fri < sunday - timedelta(days=NEWS_DAYS):
+        return []
+    seen, days, feeds = set(), [], {}
+    d = max(mon, sunday - timedelta(days=NEWS_DAYS))
     while d <= fri:
         day = []
         txt = fetch(d.isoformat())
         if txt and NEWS_HEAD in txt:
             sec = txt.split(NEWS_HEAD, 1)[1].split("\n## ", 1)[0]
+            today = {}
             for ln in sec.splitlines():
                 m = re.match(r"\[([^\]]+)\]\s*(.+)$", ln.strip())
                 if not m or "取得失敗" in m.group(2) or m.group(2).startswith("【動画】"):
                     continue
                 t = m.group(2).strip()
-                if t in seen:
+                today.setdefault(m.group(1), []).append(t)
+                if t in seen or not news_ok(t, sunday):
                     continue
                 seen.add(t)
-                day.append(f"[{d:%m/%d} {m.group(1)}] {t}")
+                day.append((m.group(1), f"[{d:%m/%d} {m.group(1)}] {t}"))
+            for k, v in today.items():
+                feeds.setdefault(k, []).append(v)
         days.append(day)
         d += timedelta(days=1)
-    out = [x for day in reversed(days) for x in day]
+    # 1週間ずっと同じ並びの媒体は、RSS の更新が止まっている（古い記事のまま）ので除く
+    stuck = stuck_feeds(feeds)
+    if stuck:
+        print(f"  見出し: 更新が止まった媒体を除いた: {'・'.join(sorted(stuck))}", file=sys.stderr)
+    out = [x for day in reversed(days) for (lab, x) in day if lab not in stuck]
     return out[:NEWS_MAX]
+
+
+def stuck_feeds(feeds):
+    """3日以上取れた媒体のうち、毎日の見出しの並びが全く同じもの"""
+    return {k for k, v in feeds.items() if len(v) >= 3 and v[0] and all(x == v[0] for x in v[1:])}
 
 
 def _raw_inputs(ds):
@@ -366,7 +417,8 @@ def path_cond_jp(p):
 
 
 def path_rule_lines():
-    return ["道の条件（来週の金曜終値→翌週の金曜終値の騰落で、翌週の土曜に機械が判定する）に使える指標と幅:",
+    return ["道の条件は来週1週間（5営業日）だけで判定する（今週金曜の終値→来週金曜の終値の騰落。来週の土曜に機械が判定）。"
+            "20日・1か月・年末までのような長い期間の条件は道にしない。使える指標と幅:",
             "  指標 t: " + " / ".join(f"{k}＝{v[1]}" for k, v in PATH_T.items()),
             "  幅 v（符号つき）: 1, 2, 3, 5, 7, 10, 15, 20%（米10年金利だけ 0.1, 0.2, 0.3%pt）"]
 
@@ -408,7 +460,7 @@ def build(today, mon, fri, world_lines=None):
     L.append("## 市場の数字（世界の値動きの地図）")
     L += world_lines or ["  (取得できず)"]
     L.append(f"## 今週（{mon:%m/%d}〜{fri:%m/%d}）のニュースの見出し（AI朝刊の入力・[日付 媒体] 見出し。本文は無い）")
-    L += week_news(mon, fri) or ["  (取得できず)"]
+    L += week_news(mon, fri, sunday=today) or ["  (取得できず)"]
     L += path_rule_lines()
     return "\n".join(L), ctx
 
@@ -441,6 +493,7 @@ QA_GUIDE = """# アーサーの質問箱（qa）の書き方
    "paths": [{"name": "道の名前（12字以内）", "t": "SOX", "op": ">=", "v": 5},
              {"name": "もう1つの道", "t": "SOX", "op": "<=", "v": -5}]}]}
 - paths は2つ。4文目の2つの道と同じ中身にする。t・v は材料の「道の条件」にある指標と幅だけ。op は ">=" か "<="（2つで向きを逆に）
+- 道の条件は**来週1週間（5営業日）の騰落だけ**で判定する（今週金曜の終値→来週金曜の終値）。4文目・5文目の道の条件も「来週」で書き、20日・1か月・年末までのような長い期間を道の条件にしない（過去の統計の期間は根拠としてだけ使う）
 - 1問の答えが検査に落ちても、日曜版の本体と他の問いは出る。qa のために本体を削ったり変えたりしない"""
 
 
