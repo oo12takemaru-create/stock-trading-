@@ -75,4 +75,19 @@ q.check_qa(data, {"items": {"sox": META}}, SRC)
 ok("qa" not in data, "全部落ちたら qa ごと外す")
 ok([q.election_day(int(d[:4])).isoformat() for d in q.MIDTERMS] == q.MIDTERMS and len(q.MIDTERMS) == 19,
    "中間選挙の投票日の表は「11月の第1月曜の翌日の火曜」と一致・19回")
+
+from datetime import date  # noqa: E402
+SUN = date(2026, 11, 8)
+ok(q.news_ok("NYダウ急落 一時1800ドル超安", SUN), "経済の見出しは残る")
+ok(not q.news_ok("イチローさん マリナーズOBのホームラン競争", SUN), "スポーツは除く")
+ok(not q.news_ok("台湾の九份 日本人男性が行方不明", SUN), "事件事故は除く（国名があっても）")
+ok(q.news_ok("露軍がウの学校に空爆 26人死亡", SUN), "戦争・紛争の見出しは残る")
+ok(not q.news_ok("【詳細】ロシア ウクライナに軍事侵攻（8月8日の動き）", SUN), "日曜の7日前より古い日付の見出しは除く")
+ok(not q.news_ok("香川の讃岐うどん店 混雑対応苦慮", SUN), "経済・金融・政治・国際の語が無い見出しは除く")
+days = {"2026-11-02": "## 直近ニュース見出し\n[A 経済] 日銀 会合へ\n[B 経済] 円安 進む\n## x",
+        "2026-11-03": "## 直近ニュース見出し\n[A 経済] 日銀 会合へ\n[B 経済] 株価 上昇\n## x",
+        "2026-11-04": "## 直近ニュース見出し\n[A 経済] 日銀 会合へ\n[B 経済] 金利 低下\n## x"}
+L = q.week_news(date(2026, 11, 2), date(2026, 11, 6), fetch=lambda d: days.get(d, ""), sunday=SUN)
+ok(L == ["[11/04 B 経済] 金利 低下", "[11/03 B 経済] 株価 上昇", "[11/02 B 経済] 円安 進む"],
+   "毎日同じ並びの媒体（更新が止まった RSS）は除き、新しい順")
 print("all ok")
