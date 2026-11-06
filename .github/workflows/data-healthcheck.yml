@@ -75,7 +75,7 @@ jobs:
           import json, sys
           # ★鮮度の基準表は data_targets.py に1本化した★
           #   トップのバッジ（make_board.py）と同じ表を使う。2か所に書くと必ずずれる。
-          from data_targets import TARGETS, ref_date, bizdays_between
+          from data_targets import TARGETS, ref_date, bizdays_between, world_asia_lag, WORLD_LABEL
           from datetime import datetime, timezone, timedelta
           JST = timezone(timedelta(hours=9))
           now = datetime.now(JST)
@@ -108,6 +108,14 @@ jobs:
               if not ok:
                   problems.append(f"{label}: {age}営業日前が最新 (許容{tol}営業日)")
               rows.append(f"| {label} | {'✅' if ok else '⚠️ 古い'} | {upd[:16]} ({age}営業日前) |")
+
+          # ★2026-11-06★ 世界の地図の日本とアジアの指数の日付（updated は進むのに中身が古い、を捕まえる）
+          lag, bad = world_asia_lag(".")
+          if lag:
+              problems.append(f"{WORLD_LABEL}: {'・'.join(bad)} が古い（前の東京の営業日の値が取れていない）")
+              rows.append(f"| {WORLD_LABEL} | ⚠️ 古い | {'・'.join(bad)} |")
+          else:
+              rows.append(f"| {WORLD_LABEL} | {'✅' if lag == 0 else '❌ 読込失敗'} | - |")
 
           # テスト用（workflow_dispatch の test_stale）。本番のJSONは触らず、問題を1件足すだけ
           import os

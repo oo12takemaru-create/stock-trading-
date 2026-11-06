@@ -69,7 +69,13 @@ def main():
             pass
     tickers = sorted({c[1] for c in CONDS} | {NK})
     df = yf.download(tickers, period=f"{YEARS + 1}y", progress=False, auto_adjust=False, group_by="ticker", threads=True)
-    nk = df[NK]["Close"].dropna()
+    # 最新日の空欄は取引所の確定値で埋める（yf_latest・2026-11-06。dropna() だと直近の東京の日が抜ける）
+    from yf_latest import fill_latest
+
+    def close_of(t):
+        return fill_latest(t, df[t]["Close"], verbose=False)
+
+    nk = close_of(NK)
     nk = nk[nk.index >= nk.index[-1] - timedelta(days=365 * YEARS)]
     if len(nk) < 2000:
         print(f"日経平均の日足が少なすぎる: {len(nk)}", file=sys.stderr)
@@ -92,7 +98,7 @@ def main():
     rows = []
     for cid, t, name, unit, th, sgn in CONDS:
         try:
-            s = df[t]["Close"].dropna()
+            s = close_of(t)
         except Exception:
             s = None
         if s is None or len(s) < 500:
