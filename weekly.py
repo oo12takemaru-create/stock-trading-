@@ -591,7 +591,7 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
 
 # 長い目で見るの材料（当サイトの集計・数字だけ）
 {long_material}
-
+{qa_section}
 # 出力（JSONのみ。コードフェンスや前置きは書かない）
 {{
   "title": "来週の見立てを一言で（25字以内。例: CPI週、7万円の上は重い）",
@@ -761,8 +761,47 @@ def build_prompt(today):
             events="大型イベント: " + (" / ".join(ev) if ev else "なし"),
             kessan="\n".join(kessan_lines(nm, nf)) or "  (予定の取得なし)",
             event_stats="\n".join(event_stat_lines(ev)) or "(該当なし)",
-            long_guide=_long_guide(), long_material="\n".join(long_material_lines()))
+            long_guide=_long_guide(), long_material="\n".join(long_material_lines()),
+            qa_section=qa_section(today, mon, fri, ctx))
     return prompt, ctx
+
+
+# 2026-11-08〜 アーサーの質問箱（日曜だけ・qa_material.py）。問いが無い週・材料が作れない週は何も足さない
+QA_TICKERS = ["^N225", "1306.T", "^GSPC", "^NDX", "^SOX", "^TNX", "JPY=X", "^VIX", "GC=F", "CL=F"]
+
+
+def qa_section(today, mon, fri, ctx):
+    try:
+        import deep_material
+        import qa_material
+        wl = deep_material.world_flow_lines(("d1", "d5", "d20", "ytd"), QA_TICKERS)
+        text, qctx = qa_material.build(today, mon, fri, world_lines=wl)
+    except Exception as e:
+        print(f"  質問箱の材料を作れず（質問箱は出さない）: {e}", file=sys.stderr)
+        return ""
+    ctx["qa"] = qctx
+    if not text:
+        return ""
+    return "\n" + qa_material.QA_GUIDE + "\n\n" + text + "\n"
+
+
+def check_qa(data, ctx, source):
+    """質問箱（qa）だけを検査し、落ちた問いだけ外す（日曜版の本体と他の問いは出す）。土曜版には足さない"""
+    if "qa" not in data:
+        return None
+    if MODE != "sun":
+        data.pop("qa", None)
+        print("警告: 土曜版の qa は外した（日曜だけの節）", file=sys.stderr)
+        return "土曜版"
+    try:
+        import qa_material
+    except Exception as e:
+        data.pop("qa", None)
+        print(f"警告: qa_material を読めず qa を外した: {e}", file=sys.stderr)
+        return str(e)
+    errs = qa_material.check_qa(data, ctx.get("qa"), _inputs_only(source),
+                                extra=lambda it: check_banned({"qa": it}))
+    return "; ".join(errs) or None
 
 
 def _long_guide():
@@ -792,6 +831,11 @@ def _inputs_only(prompt):
         extra = [deep_material.LONG_GUIDE, WORD_RULE]
     except Exception:
         extra = [WORD_RULE]
+    try:
+        import qa_material
+        extra.append(qa_material.QA_GUIDE)
+    except Exception:
+        pass
     for chunk in extra + re.split(r"\{[a-z_0-9]+\}", PROMPT_SUN.replace("{{", "{").replace("}}", "}")):
         if len(chunk.strip()) >= 8:
             t = t.replace(chunk, "\n")
@@ -890,6 +934,15 @@ def write_entry(data, label, now, ctx):
         entry["days_data"] = ctx.get("week_days") or []
         entry["sector_week"] = ctx.get("sector_week")
         entry["world_d5"] = ctx.get("world_d5") or ""
+        # 先週の日曜版のアーサーの質問箱の「2つの道」を、今週の金曜終値で機械が答え合わせする
+        try:
+            import qa_material
+            qc = qa_material.judge_prev(out.get("weekend"), fri)
+        except Exception as e:
+            print(f"  質問箱の答え合わせを作れず: {e}", file=sys.stderr)
+            qc = None
+        if qc:
+            entry["qa_check"] = qc
         out["sat"] = entry
     else:
         ev, nm, nf = next_week_events(today)
@@ -909,6 +962,12 @@ def write_entry(data, label, now, ctx):
                       "week_from": nm.isoformat(), "week_to": nf.isoformat(),
                       "title": data.get("title", "")})
         entry["issue"] = issue_of(views, today.isoformat())
+        if isinstance(entry.get("qa"), dict):
+            # Vol.◯＝質問箱が実際に出た日曜の数（同じ日曜の再実行は同じ番号）
+            last = out.get("qa_last") or {}
+            vol = last.get("vol") if last.get("date") == today.isoformat() else (last.get("vol") or 0) + 1
+            entry["qa"]["vol"] = vol
+            out["qa_last"] = {"date": today.isoformat(), "vol": vol}
         out["weekend"] = entry
     out["views"] = views[-104:]
     entry["view_record"] = view_record(views)
@@ -967,6 +1026,7 @@ def run_answer(answer_path, label, prompt_file=None):
     if prompt_file and Path(prompt_file).exists():
         src = Path(prompt_file).read_text(encoding="utf-8") + "\n" + _prompt
     check_long_view(data, src)
+    check_qa(data, ctx, src)
     err = validate(data, ctx)
     if err is not None:
         print(f"回答不正: 検証NG: {err}", file=sys.stderr)
@@ -991,6 +1051,7 @@ def run_api():
             cand = call_anthropic(prompt, key)
             if isinstance(cand, dict):
                 check_long_view(cand, prompt)
+                check_qa(cand, ctx, prompt)
             err = validate(cand, ctx)
             if err is None:
                 data = cand
