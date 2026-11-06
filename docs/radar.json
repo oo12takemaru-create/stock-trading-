@@ -1,10 +1,10 @@
 {
- "updated": "2026-11-06T21:04:25+09:00",
- "scanner_timestamp": "2026-11-06T12:01:12.262484",
+ "updated": "2026-11-06T22:26:45+09:00",
+ "scanner_timestamp": "2026-11-06T13:25:04.307904",
  "regime": "BEARISH",
  "is_halt": true,
  "halt_reason": "日経1ヶ月-18.0%下落(急落)",
- "vix": 26.46,
+ "vix": 27.45,
  "n225": 57434.77,
  "signal_count": 18,
  "rule": "bt-2026-10-24"
