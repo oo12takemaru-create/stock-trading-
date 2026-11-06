@@ -1,6 +1,6 @@
 {
- "target_date": "2026-11-04",
- "generated_at": "2026-11-05T21:04:06+09:00",
+ "target_date": "2026-11-05",
+ "generated_at": "2026-11-06T18:03:23+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,41 +8,42 @@
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -33.68
-  },
-  {
-   "judge": "signal",
-   "code": "5802",
-   "name": "住友電工",
-   "sector": "電線",
-   "kairi": -26.42
+   "kairi": -41.29
   },
   {
    "judge": "signal",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -22.89
+   "kairi": -32.5
+  },
+  {
+   "judge": "signal",
+   "code": "6976",
+   "name": "太陽誘電",
+   "sector": "電子部品",
+   "kairi": -30.83
   }
  ],
- "asof": "2026-11-05",
+ "asof": "2026-11-06",
  "stale": false,
- "signals_today_date": "2026-11-05",
- "is_halt": false,
- "signals_today_count": 7,
+ "signals_today_date": "2026-11-06",
+ "is_halt": true,
+ "halt_reason": "日経1ヶ月-18.3%下落(急落)",
+ "signals_today_count": 13,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 7,
+  "BNF-LITE": 13,
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-11-05",
+  "scan_date": "2026-11-06",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
-  "code": "5471",
-  "name": "大同特殊鋼",
-  "sector": "鉄鋼",
-  "reason": "乖離率-18.6%",
+  "code": "7012",
+  "name": "川崎重工",
+  "sector": "重工業",
+  "reason": "乖離率-10.9%",
   "carried_over": false
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
