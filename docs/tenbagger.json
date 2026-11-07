@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-07T11:52:09+09:00",
+ "updated": "2026-11-07T20:08:51+09:00",
  "data_date": "2026-11-06",
  "universe": 3634,
  "excluded_young": 59,
@@ -20,7 +20,7 @@
    "rocket": 1,
    "size": 2.0,
    "lynch": 5.0,
-   "peg": 0.3,
+   "peg": 0.29,
    "growth_pct": 35.9,
    "obscure": true,
    "near_high": false,
@@ -59,6 +59,31 @@
   },
   {
    "rank": 3,
+   "code": "6138",
+   "name": "ダイジェット工業",
+   "market": "スタンダード",
+   "sector": "機械",
+   "close": 1666.0,
+   "mcap_oku": 49.5,
+   "score": 15.0,
+   "minervini": 7,
+   "rocket": 1,
+   "size": 2.0,
+   "lynch": 5.0,
+   "peg": 0.16,
+   "growth_pct": 29.3,
+   "obscure": true,
+   "near_high": false,
+   "base": false,
+   "ignition": true,
+   "ma25_gap_pct": -13.6,
+   "rs": 98.4,
+   "off_high_pct": -22.0,
+   "ret3m_pct": 50.8,
+   "turnover_mm": 32
+  },
+  {
+   "rank": 4,
    "code": "3091",
    "name": "ブロンコビリー",
    "market": "プライム",
@@ -70,7 +95,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 5.0,
-   "peg": 0.86,
+   "peg": 0.8,
    "growth_pct": 42.0,
    "obscure": true,
    "near_high": false,
@@ -83,7 +108,7 @@
    "turnover_mm": 408
   },
   {
-   "rank": 4,
+   "rank": 5,
    "code": "5018",
    "name": "ＭＯＲＥＳＣＯ",
    "market": "スタンダード",
@@ -95,7 +120,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.28,
+   "peg": 0.27,
    "growth_pct": 35.3,
    "obscure": true,
    "near_high": false,
@@ -108,7 +133,7 @@
    "turnover_mm": 195
   },
   {
-   "rank": 5,
+   "rank": 6,
    "code": "4320",
    "name": "ＣＥホールディングス",
    "market": "スタンダード",
@@ -133,7 +158,7 @@
    "turnover_mm": 65
   },
   {
-   "rank": 6,
+   "rank": 7,
    "code": "4224",
    "name": "ロンシール工業",
    "market": "スタンダード",
@@ -145,7 +170,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.29,
+   "peg": 0.28,
    "growth_pct": 31.5,
    "obscure": true,
    "near_high": false,
@@ -158,7 +183,7 @@
    "turnover_mm": 34
   },
   {
-   "rank": 7,
+   "rank": 8,
    "code": "9560",
    "name": "プログリット",
    "market": "グロース",
@@ -170,7 +195,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.17,
+   "peg": 0.16,
    "growth_pct": 68.1,
    "obscure": true,
    "near_high": false,
@@ -183,7 +208,7 @@
    "turnover_mm": 111
   },
   {
-   "rank": 8,
+   "rank": 9,
    "code": "6194",
    "name": "アトラエ",
    "market": "プライム",
@@ -195,7 +220,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.85,
+   "peg": 0.82,
    "growth_pct": 21.7,
    "obscure": true,
    "near_high": false,
@@ -208,7 +233,7 @@
    "turnover_mm": 257
   },
   {
-   "rank": 9,
+   "rank": 10,
    "code": "4371",
    "name": "コアコンセプト・テクノロジー",
    "market": "グロース",
@@ -220,7 +245,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.91,
+   "peg": 0.87,
    "growth_pct": 21.5,
    "obscure": true,
    "near_high": false,
@@ -233,7 +258,32 @@
    "turnover_mm": 26
   },
   {
-   "rank": 10,
+   "rank": 11,
+   "code": "4441",
+   "name": "トビラシステムズ",
+   "market": "スタンダード",
+   "sector": "情報・通信業",
+   "close": 1435.0,
+   "mcap_oku": 148.0,
+   "score": 14.5,
+   "minervini": 7,
+   "rocket": 1,
+   "size": 1.5,
+   "lynch": 5.0,
+   "peg": 0.95,
+   "growth_pct": 24.8,
+   "obscure": true,
+   "near_high": false,
+   "base": true,
+   "ignition": false,
+   "ma25_gap_pct": -6.9,
+   "rs": 79.3,
+   "off_high_pct": -14.6,
+   "ret3m_pct": -13.0,
+   "turnover_mm": 78
+  },
+  {
+   "rank": 12,
    "code": "5029",
    "name": "サークレイス",
    "market": "グロース",
@@ -258,32 +308,7 @@
    "turnover_mm": 145
   },
   {
-   "rank": 11,
-   "code": "6138",
-   "name": "ダイジェット工業",
-   "market": "スタンダード",
-   "sector": "機械",
-   "close": 1666.0,
-   "mcap_oku": 49.5,
-   "score": 14.0,
-   "minervini": 7,
-   "rocket": 1,
-   "size": 2.0,
-   "lynch": 4.0,
-   "peg": 0.17,
-   "growth_pct": 29.3,
-   "obscure": true,
-   "near_high": false,
-   "base": false,
-   "ignition": true,
-   "ma25_gap_pct": -13.6,
-   "rs": 98.4,
-   "off_high_pct": -22.0,
-   "ret3m_pct": 50.8,
-   "turnover_mm": 32
-  },
-  {
-   "rank": 12,
+   "rank": 13,
    "code": "4972",
    "name": "綜研化学",
    "market": "スタンダード",
@@ -308,7 +333,7 @@
    "turnover_mm": 177
   },
   {
-   "rank": 13,
+   "rank": 14,
    "code": "2705",
    "name": "大戸屋ホールディングス",
    "market": "スタンダード",
@@ -320,7 +345,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.94,
+   "peg": 0.9,
    "growth_pct": 64.7,
    "obscure": true,
    "near_high": true,
@@ -333,7 +358,7 @@
    "turnover_mm": 283
   },
   {
-   "rank": 14,
+   "rank": 15,
    "code": "4410",
    "name": "ハリマ化成グループ",
    "market": "プライム",
@@ -358,7 +383,7 @@
    "turnover_mm": 322
   },
   {
-   "rank": 15,
+   "rank": 16,
    "code": "3989",
    "name": "シェアリングテクノロジー",
    "market": "グロース",
@@ -383,7 +408,7 @@
    "turnover_mm": 469
   },
   {
-   "rank": 16,
+   "rank": 17,
    "code": "2121",
    "name": "ＭＩＸＩ",
    "market": "プライム",
@@ -395,7 +420,7 @@
    "rocket": 1,
    "size": 0.0,
    "lynch": 5.0,
-   "peg": 0.25,
+   "peg": 0.24,
    "growth_pct": 49.6,
    "obscure": true,
    "near_high": false,
@@ -408,7 +433,7 @@
    "turnover_mm": 1433
   },
   {
-   "rank": 17,
+   "rank": 18,
    "code": "6676",
    "name": "ＢＵＦＦＡＬＯ",
    "market": "スタンダード",
@@ -420,7 +445,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 5.0,
-   "peg": 0.29,
+   "peg": 0.27,
    "growth_pct": 38.2,
    "obscure": true,
    "near_high": false,
@@ -433,7 +458,7 @@
    "turnover_mm": 238
   },
   {
-   "rank": 18,
+   "rank": 19,
    "code": "7085",
    "name": "カーブスホールディングス",
    "market": "プライム",
@@ -445,7 +470,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.86,
+   "peg": 0.8,
    "growth_pct": 24.2,
    "obscure": false,
    "near_high": false,
@@ -458,7 +483,7 @@
    "turnover_mm": 683
   },
   {
-   "rank": 19,
+   "rank": 20,
    "code": "2120",
    "name": "ＬＩＦＵＬＬ",
    "market": "プライム",
@@ -470,7 +495,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.16,
+   "peg": 0.15,
    "growth_pct": 65.1,
    "obscure": true,
    "near_high": true,
@@ -483,7 +508,7 @@
    "turnover_mm": 215
   },
   {
-   "rank": 20,
+   "rank": 21,
    "code": "4040",
    "name": "南海化学",
    "market": "スタンダード",
@@ -508,7 +533,7 @@
    "turnover_mm": 48
   },
   {
-   "rank": 21,
+   "rank": 22,
    "code": "7942",
    "name": "ＪＳＰ",
    "market": "プライム",
@@ -520,7 +545,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 5.0,
-   "peg": 0.21,
+   "peg": 0.2,
    "growth_pct": 37.6,
    "obscure": true,
    "near_high": false,
@@ -533,7 +558,7 @@
    "turnover_mm": 198
   },
   {
-   "rank": 22,
+   "rank": 23,
    "code": "3377",
    "name": "バイク王＆カンパニー",
    "market": "スタンダード",
@@ -558,7 +583,7 @@
    "turnover_mm": 45
   },
   {
-   "rank": 23,
+   "rank": 24,
    "code": "7986",
    "name": "日本アイ・エス・ケイ",
    "market": "スタンダード",
@@ -570,7 +595,7 @@
    "rocket": 1,
    "size": 2.0,
    "lynch": 4.0,
-   "peg": 0.2,
+   "peg": 0.21,
    "growth_pct": 32.2,
    "obscure": true,
    "near_high": false,
@@ -583,7 +608,7 @@
    "turnover_mm": 48
   },
   {
-   "rank": 24,
+   "rank": 25,
    "code": "4718",
    "name": "早稲田アカデミー",
    "market": "プライム",
@@ -595,7 +620,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 1.0,
+   "peg": 0.95,
    "growth_pct": 17.0,
    "obscure": true,
    "near_high": false,
@@ -608,7 +633,7 @@
    "turnover_mm": 114
   },
   {
-   "rank": 25,
+   "rank": 26,
    "code": "5136",
    "name": "ｔｒｉｐｌａ",
    "market": "グロース",
@@ -620,7 +645,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.23,
+   "peg": 0.22,
    "growth_pct": 88.5,
    "obscure": true,
    "near_high": false,
@@ -633,7 +658,7 @@
    "turnover_mm": 185
   },
   {
-   "rank": 26,
+   "rank": 27,
    "code": "4228",
    "name": "積水化成品工業",
    "market": "プライム",
@@ -645,7 +670,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 3.0,
-   "peg": 0.06,
+   "peg": 0.05,
    "growth_pct": 68.1,
    "obscure": true,
    "near_high": false,
@@ -658,7 +683,7 @@
    "turnover_mm": 261
   },
   {
-   "rank": 27,
+   "rank": 28,
    "code": "6505",
    "name": "東洋電機製造",
    "market": "スタンダード",
@@ -670,7 +695,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.15,
+   "peg": 0.14,
    "growth_pct": 53.4,
    "obscure": true,
    "near_high": false,
@@ -683,7 +708,7 @@
    "turnover_mm": 387
   },
   {
-   "rank": 28,
+   "rank": 29,
    "code": "3968",
    "name": "セグエグループ",
    "market": "プライム",
@@ -695,7 +720,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.72,
+   "peg": 0.69,
    "growth_pct": 17.0,
    "obscure": true,
    "near_high": false,
@@ -708,7 +733,7 @@
    "turnover_mm": 813
   },
   {
-   "rank": 29,
+   "rank": 30,
    "code": "7033",
    "name": "マネジメントソリューションズ",
    "market": "プライム",
@@ -720,7 +745,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.26,
+   "peg": 0.24,
    "growth_pct": 48.2,
    "obscure": false,
    "near_high": false,
@@ -733,7 +758,7 @@
    "turnover_mm": 117
   },
   {
-   "rank": 30,
+   "rank": 31,
    "code": "4396",
    "name": "システムサポートホールディングス",
    "market": "プライム",
@@ -745,7 +770,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.73,
+   "peg": 0.69,
    "growth_pct": 22.8,
    "obscure": true,
    "near_high": false,
@@ -758,7 +783,7 @@
    "turnover_mm": 130
   },
   {
-   "rank": 31,
+   "rank": 32,
    "code": "1914",
    "name": "日本基礎技術",
    "market": "スタンダード",
@@ -770,7 +795,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.17,
+   "peg": 0.16,
    "growth_pct": 46.6,
    "obscure": true,
    "near_high": false,
@@ -783,7 +808,7 @@
    "turnover_mm": 24
   },
   {
-   "rank": 32,
+   "rank": 33,
    "code": "7727",
    "name": "オーバル",
    "market": "スタンダード",
@@ -795,7 +820,7 @@
    "rocket": 0,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.61,
+   "peg": 0.58,
    "growth_pct": 29.2,
    "obscure": true,
    "near_high": false,
@@ -808,7 +833,7 @@
    "turnover_mm": 96
   },
   {
-   "rank": 33,
+   "rank": 34,
    "code": "367A",
    "name": "プリモグローバルホールディングス",
    "market": "スタンダード",
@@ -820,7 +845,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 4.0,
-   "peg": 0.27,
+   "peg": 0.26,
    "growth_pct": 42.6,
    "obscure": true,
    "near_high": false,
@@ -833,7 +858,7 @@
    "turnover_mm": 241
   },
   {
-   "rank": 34,
+   "rank": 35,
    "code": "7554",
    "name": "幸楽苑",
    "market": "プライム",
@@ -845,7 +870,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.65,
+   "peg": 0.63,
    "growth_pct": 30.3,
    "obscure": true,
    "near_high": true,
@@ -856,31 +881,6 @@
    "off_high_pct": -3.9,
    "ret3m_pct": 7.3,
    "turnover_mm": 70
-  },
-  {
-   "rank": 35,
-   "code": "4441",
-   "name": "トビラシステムズ",
-   "market": "スタンダード",
-   "sector": "情報・通信業",
-   "close": 1435.0,
-   "mcap_oku": 148.0,
-   "score": 13.5,
-   "minervini": 7,
-   "rocket": 1,
-   "size": 1.5,
-   "lynch": 4.0,
-   "peg": 1.0,
-   "growth_pct": 24.8,
-   "obscure": true,
-   "near_high": false,
-   "base": true,
-   "ignition": false,
-   "ma25_gap_pct": -6.9,
-   "rs": 79.3,
-   "off_high_pct": -14.6,
-   "ret3m_pct": -13.0,
-   "turnover_mm": 78
   },
   {
    "rank": 36,
@@ -895,7 +895,7 @@
    "rocket": 1,
    "size": 1.5,
    "lynch": 5.0,
-   "peg": 0.65,
+   "peg": 0.62,
    "growth_pct": 23.9,
    "obscure": true,
    "near_high": false,
@@ -970,7 +970,7 @@
    "rocket": 0,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.51,
+   "peg": 0.63,
    "growth_pct": 61.7,
    "obscure": true,
    "near_high": false,
@@ -1020,7 +1020,7 @@
    "rocket": 0,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.52,
+   "peg": 0.5,
    "growth_pct": 30.6,
    "obscure": true,
    "near_high": false,
@@ -1120,7 +1120,7 @@
    "rocket": 1,
    "size": 0.0,
    "lynch": 4.0,
-   "peg": 0.52,
+   "peg": 0.49,
    "growth_pct": 42.0,
    "obscure": false,
    "near_high": false,
@@ -1145,7 +1145,7 @@
    "rocket": 0,
    "size": 2.0,
    "lynch": 5.0,
-   "peg": 0.95,
+   "peg": 0.87,
    "growth_pct": 29.4,
    "obscure": true,
    "near_high": false,
@@ -1170,7 +1170,7 @@
    "rocket": 1,
    "size": 1.0,
    "lynch": 4.0,
-   "peg": 0.34,
+   "peg": 0.32,
    "growth_pct": 32.3,
    "obscure": true,
    "near_high": false,
@@ -1220,7 +1220,7 @@
    "rocket": 1,
    "size": 0.0,
    "lynch": 4.0,
-   "peg": 0.79,
+   "peg": 0.72,
    "growth_pct": 22.8,
    "obscure": false,
    "near_high": false,
