@@ -168,6 +168,61 @@ STARTER_TYPES_WARM = [
 STARTER_REGIMES = ["BULLISH", "NEUTRAL"]
 
 
+# ─────────────────────────────────────────────────────────
+# 自分のルールの土台2つ × 入口の3択 ＝ 6通り（会員アプリ /rules/new・/try）
+#
+# ★なぜ温めるか（2026-11-07 Fable 判断・案B）★
+#   会員アプリは画面を開いた時点でこの6通りの成績を読む。夜にここで温めないと、
+#   データの日付が進むたびに（上の purge で消えるので）その日最初に開いた人の
+#   ときに Vercel 側から計算が走る。毎晩の前計算と同じ GitHub Actions の中で
+#   温めれば、Vercel の CPU を使わない。
+#
+# ★ruletrade-app/src/content/base-rules.ts の requestForBase() と同じ形★
+#   ・土台＝規定値（PRESET_RULES_WARM）の出口と地合いをそのまま使う
+#   ・BNF        … 規定値の入口から dev_25（業種別の表）を外し、会員が選ぶ深さを足す
+#   ・モメンタム … 規定値の入口のうち high_20_ratio と high_52w_ratio だけを残し、
+#                  会員が選ぶ出来高倍率を足す
+#   規定値の数字を二重に書かないよう、PRESET_RULES_WARM から組み立てる。
+#   3択の値は base-rules.ts の options と同じ（DB の単位）。
+#   1つでも違うとキーがズレて当たらない（壊れず遅いだけ）。
+#   → precompute/tests/verify_base_warm_keys.py が、会員アプリの base-rules.ts から
+#     作ったキーと突き合わせる。
+BASE_CHOICES = {
+    "bnf-reversal": {
+        "column": "dev_25", "op": "lte", "values": [-14, -20, -26],
+        "keep": lambda c: c["column"] != "dev_25",
+    },
+    "momentum-breakout": {
+        "column": "vol_ratio_20", "op": "gte", "values": [1.2, 2, 3],
+        "keep": lambda c: c["column"] in ("high_20_ratio", "high_52w_ratio"),
+    },
+}
+
+
+def base_rules_warm():
+    """土台2つ × 3択の6通りを、PRESET_RULES_WARM と同じ形の辞書で返す。"""
+    presets = {r["id"]: r for r in PRESET_RULES_WARM}
+    out = []
+    for base_id, ch in BASE_CHOICES.items():
+        preset = presets[base_id]
+        fixed = [dict(c) for c in preset["conditions"] if ch["keep"](c)]
+        for i, v in enumerate(ch["values"]):
+            chosen = {"column": ch["column"], "op": ch["op"], "value": v}
+            out.append({
+                "id": "%s#%d" % (base_id, i),
+                "base_id": base_id,
+                "choice": i,
+                # 並びは requestForBase と同じ（選んだ条件が先頭）。キーは並べ替えるので順は効かない
+                "conditions": [chosen] + fixed,
+                "exit": dict(preset["exit"]),
+                "regimes": list(preset["regimes"]),
+            })
+    return out
+
+
+BASE_RULES_WARM = base_rules_warm()
+
+
 class RpcTimeout(RuntimeError):
     pass
 
@@ -366,14 +421,45 @@ def warm_types(url, key, date_to, dry_run=False):
     return len(rows), failed
 
 
+def fixed_rule_params(r, date_to):
+    """規定値・土台のような「条件・出口・地合いが決まった1本」の正規化パラメータ。
+
+    キーの照合試験（tests/verify_base_warm_keys.py）もここを通す。
+    温める処理と試験で別々に組み立てると、試験が通っても本番が当たらないことがある。
+    """
+    ex = r["exit"]
+    return cache_key.normalize(
+        conditions=r["conditions"], hold_days=None,
+        calendar_days=ex.get("calendar_days"), ma_revert=ex.get("ma_revert"),
+        stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
+        cost_pct=COST_PCT, regimes=r["regimes"],
+        date_from=DATE_FROM, date_to=date_to, universe=UNIVERSE)
+
+
 def warm_presets(url, key, date_to, dry_run=False):
     """規定値3本を温める。/rules の初回表示がここで決まる。
 
     戻り値: (保存した件数, 落ちたもののリスト)
     """
+    return _warm_fixed(PRESET_RULES_WARM, url, key, date_to, dry_run, zero_is_failure=True)
+
+
+def warm_bases(url, key, date_to, dry_run=False):
+    """自分のルールの土台2つ × 3択の6通りを温める。/rules/new・/try の表示がここで決まる。
+
+    ★0件は失敗に数えない★（保存もしない）
+      規定値と違い、会員が選ぶ値の組なので、10年で当てはまらない組もありうる。
+      0件を保存しないのは会員アプリの runCached と同じ（空の結果を焼き付けない）。
+
+    戻り値: (保存した件数, 落ちたもののリスト)
+    """
+    return _warm_fixed(BASE_RULES_WARM, url, key, date_to, dry_run, zero_is_failure=False)
+
+
+def _warm_fixed(rules, url, key, date_to, dry_run, zero_is_failure):
     rows = []
     failed = []
-    for r in PRESET_RULES_WARM:
+    for r in rules:
         ex = r["exit"]
         t1 = time.time()
         try:
@@ -391,16 +477,12 @@ def warm_presets(url, key, date_to, dry_run=False):
         # 2026-09-08、閾値表が読めず「エラーも出さず0件」が焼き付いた事故があった。
         # 規定値が0件になることは本来ありえないので、異常として扱う。
         if not trades:
-            failed.append((r["id"], "0件が返った（入力データを疑う）"))
+            if zero_is_failure:
+                failed.append((r["id"], "0件が返った（入力データを疑う）"))
             log("  ★%s が0件でした。保存しません" % r["id"])
             continue
 
-        p_ = cache_key.normalize(
-            conditions=r["conditions"], hold_days=None,
-            calendar_days=ex.get("calendar_days"), ma_revert=ex.get("ma_revert"),
-            stop_pct=ex.get("stop_pct"), take_pct=ex.get("take_pct"),
-            cost_pct=COST_PCT, regimes=r["regimes"],
-            date_from=DATE_FROM, date_to=date_to, universe=UNIVERSE)
+        p_ = fixed_rule_params(r, date_to)
         rows.append({
             "params_hash": cache_key.params_hash(p_),
             "params": p_,
@@ -422,7 +504,7 @@ def parse_args():
     p.add_argument("--types-only", action="store_true",
                    help="はじめての方向けの型3本だけ温める（1,260通りも規定値も回さない）")
     p.add_argument("--no-adjust", action="store_true",
-                   help="型3本と規定値3本を温めて、1,260通りの調整域は回さない（日次はこれ）")
+                   help="型3本・規定値3本・土台6通りを温めて、1,260通りの調整域は回さない（日次はこれ）")
     return p.parse_args()
 
 
@@ -459,6 +541,12 @@ def main():
     log("規定値3本を温めます（/rules の初回表示）")
     preset_saved, preset_failed = warm_presets(url, key, date_to, args.dry_run)
     log("  規定値: 保存 %d 件 / 失敗 %d 件" % (preset_saved, len(preset_failed)))
+
+    # ★土台2つ × 3択の6通り（2026-11-07）★ 会員アプリ /rules/new・/try が開いた時点で読む
+    log("自分のルールの土台6通りを温めます（/rules/new・/try の表示）")
+    base_saved, base_failed = warm_bases(url, key, date_to, args.dry_run)
+    log("  土台: 保存 %d 件 / 失敗 %d 件" % (base_saved, len(base_failed)))
+    preset_failed = list(preset_failed) + list(base_failed)
 
     # ★日次はここまで（--no-adjust）★
     #   1,260通りの調整域は通信量が大きいので戻さない（2026-09-10 案A のまま）。
@@ -526,8 +614,9 @@ def main():
         supabase_io.upsert("backtest_cache", rows, "params_hash", log=lambda *_: None)
         saved += len(rows)
 
-    log("保存 %d 件（うち規定値 %d 件）/ 見送り %d 件 / 所要 %.1f 分"
-        % (saved + preset_saved, preset_saved, len(skipped), (time.time() - t0) / 60))
+    log("保存 %d 件（うち規定値 %d 件・土台 %d 件）/ 見送り %d 件 / 所要 %.1f 分"
+        % (saved + preset_saved + base_saved, preset_saved, base_saved, len(skipped),
+           (time.time() - t0) / 60))
     if preset_failed:
         log("★規定値を温められなかったものがあります（/rules の初回表示が遅くなります）:")
         for rid, why in preset_failed:
