@@ -1,31 +1,31 @@
 {
- "updated": "2026-11-07T02:06:05+09:00",
+ "updated": "2026-11-09T19:38:27+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 11215,
+ "total": 11800,
  "sources": {
   "ai": {
-   "count": 29,
-   "scored_r20": 7,
-   "r20_mean": -7.74,
+   "count": 30,
+   "scored_r20": 8,
+   "r20_mean": -8.76,
    "r20_up_rate": 0.0
   },
   "free_scanner": {
-   "count": 437,
-   "scored_r20": 312,
-   "r20_mean": -2.32,
-   "r20_up_rate": 44.2
+   "count": 492,
+   "scored_r20": 314,
+   "r20_mean": -2.2,
+   "r20_up_rate": 44.6
   },
   "karauri_new": {
-   "count": 957,
-   "scored_r20": 715,
-   "r20_mean": -3.13,
-   "r20_up_rate": 40.8
+   "count": 985,
+   "scored_r20": 728,
+   "r20_mean": -3.28,
+   "r20_up_rate": 40.7
   },
   "movers": {
-   "count": 4249,
-   "scored_r20": 226,
-   "r20_mean": -17.89,
-   "r20_up_rate": 15.5
+   "count": 4478,
+   "scored_r20": 278,
+   "r20_mean": -16.85,
+   "r20_up_rate": 16.2
   },
   "regime": {
    "count": 11,
@@ -34,31 +34,31 @@
    "r20_up_rate": 40.0
   },
   "score3": {
-   "count": 23,
-   "scored_r20": 0,
-   "r20_mean": null,
-   "r20_up_rate": null
+   "count": 24,
+   "scored_r20": 1,
+   "r20_mean": -15.84,
+   "r20_up_rate": 0.0
   },
   "tenbagger": {
-   "count": 183,
+   "count": 200,
    "scored_r20": 17,
    "r20_mean": -14.24,
    "r20_up_rate": 0.0
   },
   "treasure_card": {
-   "count": 20,
+   "count": 21,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "treasure_contra": {
-   "count": 1943,
+   "count": 2052,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
   },
   "treasure_quiet": {
-   "count": 3363,
+   "count": 3507,
    "scored_r20": 0,
    "r20_mean": null,
    "r20_up_rate": null
