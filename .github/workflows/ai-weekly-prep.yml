@@ -83,8 +83,13 @@ jobs:
         run: pip install -q yfinance jpholiday
 
       # sat で採点対象が1件も無ければ weekly.py が exit 1（＝ブランチを作らない）
+      # 2026-11-15〜 日曜の質問箱は掲示板の #質問箱（kr_posts）から2問を選ぶ（読むだけ・kr-export.yml と同じ鍵）。
+      #   鍵が無い・読めないときは「よく検索される問い」（qa_fallback.json）で埋める（日曜版は止めない）
       - name: Build prompt
         if: steps.mode.outputs.mode != 'skip'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python -X utf8 weekly.py --prompt-out PROMPT.txt ${{ steps.mode.outputs.mode }} docs/ai_weekly.json
 
       - name: Push prompt branch
