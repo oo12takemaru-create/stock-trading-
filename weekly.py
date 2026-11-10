@@ -1024,7 +1024,17 @@ def run_answer(answer_path, label, prompt_file=None):
     # long_view の数字は、prep が作った PROMPT.txt（あれば）と、ここで作り直したプロンプトの両方に照らす
     src = _prompt
     if prompt_file and Path(prompt_file).exists():
-        src = Path(prompt_file).read_text(encoding="utf-8") + "\n" + _prompt
+        ptxt = Path(prompt_file).read_text(encoding="utf-8")
+        src = ptxt + "\n" + _prompt
+        # 質問箱の問いは prep が選んだもの（PROMPT.txt の qa_ctx の行）で検査する。
+        # 掲示板の投稿が prep の後に増えても、routine が答えた問いと同じ問い・同じ回数で照らす（2026-11-15〜）
+        try:
+            import qa_material
+            qc = qa_material.ctx_from_prompt(ptxt)
+            if qc and MODE == "sun":
+                ctx["qa"] = qc
+        except Exception as e:
+            print(f"  PROMPT.txt の qa_ctx を読めず（作り直した問いで検査）: {e}", file=sys.stderr)
     check_long_view(data, src)
     check_qa(data, ctx, src)
     err = validate(data, ctx)
