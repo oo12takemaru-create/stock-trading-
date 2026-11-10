@@ -9,6 +9,7 @@ name: Notify Morning (保有銘柄の朝の1通)
 #   休場日は cron-worker が起こさない。notify_morning.py も休場日は何もしない
 # ■ 二重に走っても、今日送った人（last_sent が今日）には送らない
 # ■ 手で走らせるとき: mode=dry-run（何人に送るかを出すだけ）/ only=me（本人＝Secrets の NOTIFY_TO の1通だけ送る＝試し）
+#   夜に試すとき: only=me と today=翌営業日（YYYY-MM-DD）を一緒に入れる（today は only が空なら無視＝全員への配信は必ず本当の今日）
 #   このリポジトリの Actions のログは公開なので、メールアドレス・保有の銘柄・token はログに出さない（行の番号だけ）
 #
 # Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY（既存）/ RESEND_API_KEY（kaburadar の Vercel と同じ鍵。無い間は送らずに終わる）
@@ -21,6 +22,10 @@ on:
         default: 'send'
       only:
         description: 'me＝本人（Secrets の NOTIFY_TO）の1人だけに送る（試し・確認済みの登録が要る）。空なら全員'
+        required: false
+        default: ''
+      today:
+        description: '「今日」の日付 YYYY-MM-DD（試し用・空なら今日）。only が空でないときだけ効く（全員への配信では無視）'
         required: false
         default: ''
 
@@ -55,8 +60,18 @@ jobs:
           NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
           MODE: ${{ github.event.inputs.mode || 'send' }}
           ONLY: ${{ github.event.inputs.only || '' }}
+          TODAY: ${{ github.event.inputs.today || '' }}
         run: |
           ARGS=""
           if [ "$MODE" = "dry-run" ]; then ARGS="--dry-run"; fi
           if [ -n "$ONLY" ]; then ARGS="$ARGS --only $ONLY"; fi
+          if [ -n "$TODAY" ]; then
+            if [ -z "$ONLY" ]; then
+              echo "::warning::today は only が空のとき（全員への配信）は使わない。本当の今日で送る"
+            elif ! echo "$TODAY" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+              echo "::error::today は YYYY-MM-DD で（入力: $TODAY）"; exit 1
+            else
+              ARGS="$ARGS --today $TODAY"
+            fi
+          fi
           python -X utf8 notify_morning.py $ARGS
