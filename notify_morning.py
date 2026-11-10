@@ -21,7 +21,9 @@
       P2 まで。1日遅れになるが、毎日同じ幅で数えるので取りこぼしも二重もない（提出日を書く）
   - 空売り残高の報告の新規・増加（karauri.json・report_date が P1 のとき）。JPX 由来の数値は出さず「報告がありました」だけ
   - 決算の予定（kessan.json）: 今日・明日（＝次の営業日）は毎日、今週のほかの日は週の最初の営業日だけ
-  末尾に温度計の判定1行（radar.json）・AI朝刊・保有ボード（AIに聞く）のリンク、停止のリンク
+  銘柄は出来事の重い順（決算の発表 → ストップ高/安・±5% → 空売り/大量保有/分割/配当 → 決算の予定）
+  増収増益などの札は売上と営業利益の前年同期比（営業利益が無い会社は経常利益→純利益）。判定できなければ付けない
+  冒頭に保有ボードへのボタン。末尾に温度計の判定1行（radar.json）・AI朝刊・保有ボード（AIに聞く）のリンク、停止のリンク
 
 ■ 守り
   - prices.json の trade_date が前営業日でなければ**誰にも送らない**（古いデータで届けない・exit 1 で気づく）
@@ -35,7 +37,7 @@
   python notify_morning.py --dry-run           # 誰に何を送るかを表示するだけ（送らない・書かない）
   python notify_morning.py --only me           # 本人（Secrets の NOTIFY_TO）の1通だけ送る（試し。確認済みの登録が要る）
   python notify_morning.py --preview 7203,6315 # Supabase を使わずに、その銘柄の文面を表示するだけ
-  --today YYYY-MM-DD で「今日」を変えられる（試し用）
+  --today YYYY-MM-DD で「今日」を変えられる（試し用）。--preview に --html out.html を足すと HTML も書く
 """
 import argparse
 import json
@@ -62,7 +64,8 @@ WARN_AT = 50             # これを超えた日は Actions に警告（メー�
 MOVE_PCT = 5.0           # 値動きの閾値（前日比の絶対値）
 MAX_LINES = 2            # 1銘柄の行数
 UNCONFIRMED_DAYS = 7
-UTM = "utm_source=notify&utm_medium=email&utm_campaign=morning"
+UTM = "utm_source=notify&utm_medium=email"
+HOLD_URL = f"{SITE}/hold.html?{UTM}"   # 冒頭のボタン（毎日サイトを開く入口）
 WD = "月火水木金土日"
 Q_JP = {"1Q": "第1四半期", "2Q": "第2四半期", "3Q": "第3四半期", "本決算": "本決算"}
 STOP_JP = {"close_high": "終値ストップ高", "touch_high": "一時ストップ高",
@@ -128,6 +131,24 @@ def oku(v):
     return f"{v:,.0f}百万円"
 
 
+def flash_verdict(it):
+    """増収増益などの札。kessan_flash.py の verdict（売上と営業利益の前年同期比の符号）を使い、
+    営業利益が無い会社（IFRS 等）は記録にある利益（経常利益→純利益）の前年同期比で判定する。判定できなければ None（付けない）"""
+    if it.get("verdict"):
+        return it["verdict"]
+    s = it.get("sales_yoy")
+    pr = next((it[k] for k in ("op_yoy", "ord_yoy", "np_yoy") if it.get(k) is not None), None)
+    if s is None or pr is None:
+        return None
+    return ("増収" if s >= 0 else "減収") + ("増益" if pr >= 0 else "減益")
+
+
+# 出来事の順位（小さいほど重い。1銘柄の中の行の順）
+#   0 決算の発表 / 1 ストップ高・安 / 2 ±5% / 3 空売り / 4 大量保有 / 5 分割 / 6 配当 / 7 決算の予定
+# 銘柄の並びの段: 決算の発表 → ストップ高/安・±5% → 空売り/大量保有/分割/配当 → 決算の予定
+TIER = {0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 2, 6: 2, 7: 3}
+
+
 class Facts:
     """銘柄ごとの出来事。ev[code] = [(順位, 文), ...]（順位の小さいものから出す）"""
 
@@ -169,7 +190,7 @@ class Facts:
             if c and k in STOP_JP:
                 stop_codes.add(c)
                 chg = it.get("chg")
-                self.add(c, 0, f"{STOP_JP[k]}（{md(p1)}" + (f"・前日比 {chg:+.1f}%" if chg is not None else "") + "）")
+                self.add(c, 1, f"{STOP_JP[k]}（{md(p1)}" + (f"・前日比 {chg:+.1f}%" if chg is not None else "") + "）")
         if self.price_date == p1:
             for c, v in (pr.get("items") or {}).items():
                 ch = v.get("c")
@@ -193,16 +214,17 @@ class Facts:
                 t = f"決算の発表（{q + '・' if q else ''}{md(day['d'])}）"
                 if parts:
                     t += "：" + "・".join(parts)
-                if it.get("verdict"):
-                    t += f"（{it['verdict']}）"
-                self.add(c, 1, t)
+                v = flash_verdict(it)
+                if v:
+                    t += f"（{v}）"
+                self.add(c, 0, t)
 
         # 株式分割の発表
         sp = load("splits.json") or {}
         for e in sp.get("recent") or []:
             if e.get("code") and e.get("status") != "中止" and in12(e.get("ann")):
                 r = e.get("ratio")
-                self.add(e["code"], 3, f"株式分割の発表（{md(e['ann'])}" + (f"・1株→{format(r, 'g')}株" if r else "") + "）")
+                self.add(e["code"], 5, f"株式分割の発表（{md(e['ann'])}" + (f"・1株→{format(r, 'g')}株" if r else "") + "）")
 
         # 配当予想の修正（決算短信の「直近に公表されている配当予想からの修正の有無：有」）
         idx = load("dividend_hist/index.json") or {}
@@ -215,7 +237,7 @@ class Facts:
                     continue
                 seen.add(c)
                 fc = row.get("dps_fc")
-                self.add(c, 4, f"配当予想の修正（{md(row['d'])}の決算短信" + (f"・年間 {fc:g}円の予想" if fc is not None else "") + "）")
+                self.add(c, 6, f"配当予想の修正（{md(row['d'])}の決算短信" + (f"・年間 {fc:g}円の予想" if fc is not None else "") + "）")
 
         # 大量保有の報告（提出日が (P3, P2]・1日遅れ）
         ed = load("edinet_latest.json") or {}
@@ -226,7 +248,7 @@ class Facts:
                 who = (e.get("filer") or "").replace("株式会社", "").strip()
                 r = e.get("ratio")
                 typ = {"大量保有": "新規"}.get(e.get("type"), e.get("type") or "報告")
-                self.add(c, 5, f"大量保有の報告（{typ}・{md(e['d'])}提出）"
+                self.add(c, 4, f"大量保有の報告（{typ}・{md(e['d'])}提出）"
                          + (f"：{who}" if who else "") + (f" {r:.2f}%" if r is not None else ""))
 
         # 空売り残高の報告（新規・増加）。JPX 由来の数値・機関名は出さない
@@ -242,7 +264,7 @@ class Facts:
                     kinds.setdefault(st["c"], set()).add("up")
             for c, ks in kinds.items():
                 w = "・".join(x for x, k in (("新規の報告あり", "new"), ("合計が増加", "up")) if k in ks)
-                self.add(c, 6, f"大口の空売り残高の新しい報告がありました（{w}・{md(p1)}公表）")
+                self.add(c, 3, f"大口の空売り残高の新しい報告がありました（{w}・{md(p1)}公表）")
 
         # 決算の予定（今日・明日は毎日。今週のほかの日は週の最初の営業日だけ）
         ks = load("kessan.json") or {}
@@ -271,6 +293,10 @@ class Facts:
         if rd.get("regime"):
             self.regime = (rd["regime"], (rd.get("scanner_timestamp") or rd.get("updated") or "")[:16])
 
+    def weight(self, code):
+        """銘柄の並び順に使う段（いちばん重い出来事の段）"""
+        return min((TIER.get(r, 9) for r, _ in self.ev.get(code) or []), default=9)
+
     def lines(self, code):
         ev = sorted(self.ev.get(code) or [], key=lambda x: x[0])
         out = [t for _, t in ev[:MAX_LINES]]
@@ -288,6 +314,7 @@ def compose(F, codes, token):
     """codes のうち出来事のある銘柄だけで文面を作る。無ければ None"""
     blocks = [(c, F.names.get(c) or c, F.lines(c)) for c in codes]
     blocks = [b for b in blocks if b[2]]
+    blocks.sort(key=lambda b: F.weight(b[0]))   # 重い出来事の銘柄から（同じ段はボードの順）
     if not blocks:
         return None
     stop = f"{SITE}/api/board?a=nstop&t={token}"
@@ -297,10 +324,10 @@ def compose(F, codes, token):
         reg, upd = F.regime
         tail.append(("相場の温度計", f"{REGIME_JP.get(reg, reg)}（{reg}）" + (f"・{md(upd)} {upd[11:16]}の判定" if len(upd) >= 16 else ""), f"{SITE}/radar.html?{UTM}"))
     tail.append(("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}"))
-    tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", f"{SITE}/hold.html?{UTM}"))
+    tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", HOLD_URL))
     note = "事実の一覧で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
 
-    text = [head, ""]
+    text = [head, f"保有ボードで損益を見る → {HOLD_URL}", ""]
     for c, n, ls in blocks:
         text.append(f"■ {n}（{c}）")
         text += [f"・{x}" for x in ls]
@@ -311,17 +338,22 @@ def compose(F, codes, token):
     text += ["", note, "このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。",
              f"配信を止める（押すとすぐ止まり、メールアドレスと銘柄コードを消します）：{stop}"]
 
-    h = [f"<p>{escape(head)}</p>"]
+    A = 'style="color:#0b6b3a"'
+    # スマホの Gmail で読みやすく: 本文 15px・行間 1.7・最大 600px・左右の余白 16px・銘柄名 16px 太字
+    h = ['<div style="max-width:600px;margin:0 auto;padding:0 16px;font-size:15px;line-height:1.7;color:#1f2933">',
+         f'<p style="margin:16px 0 10px">{escape(head)}</p>',
+         f'<p style="margin:0 0 18px"><a href="{HOLD_URL}" style="display:inline-block;padding:10px 18px;background:#0b6b3a;'
+         'color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">保有ボードで損益を見る →</a></p>']
     for c, n, ls in blocks:
         h.append(f'<div style="margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px">'
-                 f'<div style="font-weight:bold"><a href="{karte(c)}" style="color:#0b6b3a;text-decoration:none">{escape(n)}（{c}）</a></div>'
+                 f'<div style="font-size:16px;font-weight:bold"><a href="{karte(c)}" style="color:#0b6b3a;text-decoration:none">{escape(n)}（{c}）</a></div>'
                  + "".join(f'<div style="margin-top:4px">・{escape(x)}</div>' for x in ls)
-                 + f'<div style="margin-top:6px;font-size:13px"><a href="{karte(c)}" style="color:#0b6b3a">カルテを見る →</a></div></div>')
+                 + f'<div style="margin-top:6px"><a href="{karte(c)}" {A}>カルテを見る →</a></div></div>')
     h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
-    h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" style="color:#0b6b3a">開く →</a></div>' for a, b, u in tail]
-    h.append(f'<p style="color:#666;font-size:12px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。<br>'
+    h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
+    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。<br>'
              f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスと銘柄コードを消します）</p>'
-             '<p style="color:#666;font-size:12px">株レーダー https://kaburadar.jp</p>')
+             '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
     names = "・".join(n for _, n, _ in blocks[:2]) + (f" ほか{len(blocks) - 2}銘柄" if len(blocks) > 2 else "")
     subject = f"株レーダー 朝の1通（{md(F.today.isoformat())}）{names}"
     return {"subject": subject, "text": "\n".join(text), "html": "\n".join(h), "n": len(blocks), "stop": stop}
@@ -390,6 +422,7 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--preview", default="")
     ap.add_argument("--today", default="")
+    ap.add_argument("--html", default="", help="--preview の HTML をこのファイルに書く（手元の見た目の確認用）")
     a = ap.parse_args()
 
     today = date.fromisoformat(a.today) if a.today else datetime.now(JST).date()
@@ -404,6 +437,10 @@ def main():
         codes = [c.strip().upper() for c in a.preview.split(",") if c.strip()]
         m = compose(F, codes, "0" * 64)
         print(m["subject"] + "\n\n" + m["text"] if m else "（出来事が無いので送らない日）")
+        if m and a.html:
+            Path(a.html).write_text('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+                                    f'<title>{escape(m["subject"])}</title><body style="margin:0;background:#fff">' + m["html"],
+                                    encoding="utf-8")
         return 0
 
     if F.price_date != F.p1.isoformat():
