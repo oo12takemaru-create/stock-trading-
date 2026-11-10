@@ -26,7 +26,7 @@
 ■ 守り
   - prices.json の trade_date が前営業日でなければ**誰にも送らない**（古いデータで届けない・exit 1 で気づく）
   - 同じ日に二重に送らない（last_sent が今日の人は飛ばす）
-  - 1日の上限 DAILY_CAP 通（Resend の無料枠 100通/日。確認メール・ログインメールの分を残す）。超える分は送らず警告
+  - 1日の上限 DAILY_CAP=60 通（Resend の無料枠 100通/日はルールトレードの通知・ログインメールと共用）。50通を超えた日は警告、超える分は送らない
   - 表（kr_notify）が無い・RESEND_API_KEY が無いときは、何もせずに理由を出して終わる（exit 0）
   - 文面は事実だけ（推奨の言葉なし・「リアルタイム」なし）。BANNED に当たる行は落とす
 
@@ -57,7 +57,8 @@ DOCS = HERE / "docs"
 SITE = "https://kaburadar.jp"
 JST = timezone(timedelta(hours=9))
 FROM = "株レーダー <noreply@ruletrade.jp>"
-DAILY_CAP = 90           # 1日に送る上限（Resend 無料枠 100通/日）
+DAILY_CAP = 60           # 1日に送る上限（Resend 無料枠 100通/日はルールトレードの通知・掲示板のログインメールと共用。統括 11/10）
+WARN_AT = 50             # これを超えた日は Actions に警告（メール・銘柄は出さない）
 MOVE_PCT = 5.0           # 値動きの閾値（前日比の絶対値）
 MAX_LINES = 2            # 1銘柄の行数
 UNCONFIRMED_DAYS = 7
@@ -297,7 +298,7 @@ def compose(F, codes, token):
         tail.append(("相場の温度計", f"{REGIME_JP.get(reg, reg)}（{reg}）" + (f"・{md(upd)} {upd[11:16]}の判定" if len(upd) >= 16 else ""), f"{SITE}/radar.html?{UTM}"))
     tail.append(("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}"))
     tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", f"{SITE}/hold.html?{UTM}"))
-    note = "事実の一覧で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は前々営業日までの提出分です。"
+    note = "事実の一覧で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
 
     text = [head, ""]
     for c, n, ls in blocks:
@@ -431,8 +432,8 @@ def main():
         if m:
             todo.append((r, m))
     print(f"確認済み {len(rows)} 人・今日送る {len(todo)} 人（出来事のない人には送らない）")
-    if len(rows) > DAILY_CAP * 0.8:
-        print(f"::warning::確認済みが {len(rows)} 人。1日の上限 {DAILY_CAP} 通（Resend 無料枠 100通/日）に近い")
+    if len(todo) > WARN_AT:
+        print(f"::warning::今日送るのは {len(todo)} 通（{WARN_AT} 通超え）。上限 {DAILY_CAP} 通・Resend の無料枠 100通/日はルールトレードの通知・ログインメールと共用")
     if len(todo) > DAILY_CAP:
         print(f"::warning::今日送る {len(todo)} 人のうち {len(todo) - DAILY_CAP} 人は上限で送らない")
         todo = todo[:DAILY_CAP]
