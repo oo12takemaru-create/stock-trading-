@@ -112,7 +112,9 @@ const PLAN = {
   // cron-job.org の Morning Digest を止めるための受け皿。
   "07:15": ["morning-digest.yml"],
   // edinet-daily: 積上③ 大量保有報告書（前日ぶん＋直近1年の遡及を40分ずつ）
-  "07:30": ["karauri-daily.yml", "kessan-daily.yml", "edinet-daily.yml"],
+  // notify-morning: 株レーダーの保有銘柄の「朝の1通」（2026-11-10）。前の晩までの公開 JSON から作るので、同じ枠の3本を待たない。
+  //   最後に叩く（朝の流れの最後）。大量保有は 7:30 の取り込みの前なので前々営業日の提出分まで（notify_morning.py）
+  "07:30": ["karauri-daily.yml", "kessan-daily.yml", "edinet-daily.yml", "notify-morning.yml"],
   "08:00": ["daily-signal.yml"],
   "08:30": ["kessan-react-daily.yml", "board.yml"],
 };

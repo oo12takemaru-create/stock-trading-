@@ -1,0 +1,62 @@
+name: Notify Morning (保有銘柄の朝の1通)
+
+# 株レーダーの保有ボードで申し込んだ人に、保有の銘柄に前営業日の出来事があった日だけメールを1通送る（notify_morning.py）。
+# 起動文: kaburadar\起動文_実務_保有銘柄の朝の1通_2026-11-10.md
+#   申込み・確認・停止は kaburadar の api/board.js（Supabase の kr_notify）。ここは読んで送るだけ
+#
+# ■ 起動: cron-worker（Cloudflare）が平日 07:30 JST に workflow_dispatch（src/index.js の PLAN）。
+#   GitHub の schedule は置かない（数時間遅れて昼に届くより、届かないほうがよい。新しい cron も足さない）
+#   休場日は cron-worker が起こさない。notify_morning.py も休場日は何もしない
+# ■ 二重に走っても、今日送った人（last_sent が今日）には送らない
+# ■ 手で走らせるとき: mode=dry-run（何人に送るかを出すだけ）/ only=me（本人＝Secrets の NOTIFY_TO の1通だけ送る＝試し）
+#   このリポジトリの Actions のログは公開なので、メールアドレス・保有の銘柄・token はログに出さない（行の番号だけ）
+#
+# Secrets: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY（既存）/ RESEND_API_KEY（kaburadar の Vercel と同じ鍵。無い間は送らずに終わる）
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'send（送る）/ dry-run（送らない・書かない）'
+        required: false
+        default: 'send'
+      only:
+        description: 'me＝本人（Secrets の NOTIFY_TO）の1人だけに送る（試し・確認済みの登録が要る）。空なら全員'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify-morning
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Test
+        run: python -X utf8 tests/test_notify_morning.py
+
+      - name: Send
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          MODE: ${{ github.event.inputs.mode || 'send' }}
+          ONLY: ${{ github.event.inputs.only || '' }}
+        run: |
+          ARGS=""
+          if [ "$MODE" = "dry-run" ]; then ARGS="--dry-run"; fi
+          if [ -n "$ONLY" ]; then ARGS="$ARGS --only $ONLY"; fi
+          python -X utf8 notify_morning.py $ARGS
