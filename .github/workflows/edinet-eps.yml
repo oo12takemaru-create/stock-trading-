@@ -1,7 +1,11 @@
-name: EDINET EPS (有報の EPS と PER の過去の幅)
+name: EDINET EPS (有報の EPS と PER の過去の幅・業績の5期)
 
 # 有価証券報告書の「主要な経営指標等の推移」から5期分の EPS を取り込み、期末の株価で各期の PER を出す
 #   → docs/eps/_state.json・docs/eps/records.json（記録）/ docs/eps_hist.json（銘柄カルテの「PER 過去5期の幅」の元）
+# ★2026-11-10 追加★ 同じ有報の「主要な経営指標等の推移」の売上高・経常利益・純利益など5期 → docs/yuho/latest.json
+#   （edinet_yuho.py・銘柄カルテの「業績の5期」の元）。どの有報を読むかは edinet_eps.py の _state.json をそのまま使う
+#   ので、edinet_eps.py の後に走らせる（新しい cron を足さない）。起動文: kaburadar\起動文_実務_業績5期の収集_2026-11-10.md
+#   初回の遡及: 約3,800社 × 約3秒（手元で実測3.3秒）＝約3時間。1回40分で約5日。以後は新しい有報だけ（6月の提出の山の時期は数日かかる）
 # 起動文: kaburadar\起動文_実務_第2波_競合から取り込む_2026-10-29.md の担当F（計画の12）
 #
 # ■ 起動
@@ -20,6 +24,10 @@ on:
         description: '有報の読み込みに使う分数'
         required: false
         default: '40'
+      yuho_minutes:
+        description: '業績の5期（edinet_yuho.py）の読み込みに使う分数'
+        required: false
+        default: '40'
 
 permissions:
   contents: write
@@ -31,7 +39,7 @@ concurrency:
 jobs:
   eps:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 110
 
     steps:
       - name: Checkout repository
@@ -59,16 +67,29 @@ jobs:
           M="${{ github.event.inputs.max_minutes }}"
           python -X utf8 edinet_eps.py --backfill-days 400 --max-minutes "${M:-40}"
 
+      - name: Ingest EDINET 有報の業績の5期
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
+        run: |
+          M="${{ github.event.inputs.yuho_minutes }}"
+          # 読み取りのテストが通ったときだけ取り込む。どちらが失敗しても EPS の結果はコミットする
+          if python -X utf8 tests/test_edinet_yuho.py; then
+            python -X utf8 edinet_yuho.py --max-minutes "${M:-40}" || echo "::warning::edinet_yuho.py が失敗（eps は公開する）"
+          else
+            echo "::warning::業績の5期の読み取りのテストが失敗したので取り込まない（eps は公開する）"
+          fi
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/eps docs/eps_hist.json
+          [ -d docs/yuho ] && git add -f docs/yuho
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
           fi
-          git commit -m "📐 有報の EPS と PER の過去の幅を更新"
+          git commit -m "📐 有報の EPS・PER の過去の幅・業績の5期を更新"
           for i in 1 2 3 4 5; do
             git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
             echo "push 失敗。${i}回目のリトライ待ち"

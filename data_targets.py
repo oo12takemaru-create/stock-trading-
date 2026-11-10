@@ -130,6 +130,9 @@ TARGETS = [
     # ★2026-10-29 追加（第2波F）★ PER の過去の幅（edinet-eps.yml・毎朝08:37 JST）。銘柄カルテの「PER 過去5期の幅」の元。
     #   有報は年1回だが、分割の反映と updated は毎朝進む
     ("docs/eps_hist.json",      "PERの過去の幅（有報のEPS）", 2),
+    # ★2026-11-10 追加★ 業績の5期（edinet-eps.yml の edinet_yuho.py・毎朝08:37 JST）。銘柄カルテの「業績の5期」の元。
+    #   有報は年1回だが updated は毎朝進む（読む書類が無い日も書き直す）
+    ("docs/yuho/latest.json",   "業績の5期（有報の主要な経営指標）", 2),
 ]
 
 # トップのバッジには出さないもの。board.json 自身は「自分の鮮度」なので無意味。
