@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-10T18:05:27+09:00",
+ "updated": "2026-11-10T21:05:10+09:00",
  "asof": "2026-11-10",
  "position": {
   "regime": "BEARISH",
@@ -14,7 +14,7 @@
    "high_d": "2026-10-13",
    "dist": -10.8,
    "asof": "2026-11-10",
-   "radar_n225": 58775.5
+   "radar_n225": 60459.58
   },
   "topix": {
    "name": "TOPIX（1306.T で代用）",
@@ -24,7 +24,7 @@
    "dist": -5.09,
    "asof": "2026-11-10"
   },
-  "vix": 19.92,
+  "vix": 20.01,
   "gauge": {
    "lit": 3,
    "total": 5,
@@ -142,11 +142,11 @@
    "regime": "BEARISH",
    "streak_band": "1–5日",
    "dist_band": "−10%超",
-   "vix_band": "15–20"
+   "vix_band": "20–30"
   },
   "cut": "2026-05-24",
   "whole": {
-   "n": 1,
+   "n": 2,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -157,7 +157,7 @@
    "major": null
   },
   "built": {
-   "n": 1,
+   "n": 2,
    "enough": false,
    "sankou": true,
    "up": null,
@@ -191,15 +191,26 @@
   },
   "cases": [
    {
-    "d": "2024-08-02",
+    "d": "2024-08-07",
     "res": "down",
-    "res_d": "2024-08-05",
+    "res_d": "2024-08-08",
     "k": 1,
-    "ret20": 9.79,
-    "dd20": -10.75,
-    "dist": -14.95,
-    "vix": 18.59,
-    "streak": 1
+    "ret20": 5.81,
+    "dd20": 0.54,
+    "dist": -16.9,
+    "vix": 27.71,
+    "streak": 2
+   },
+   {
+    "d": "2026-03-09",
+    "res": "down",
+    "res_d": "2026-03-13",
+    "k": 4,
+    "ret20": -0.18,
+    "dd20": -4.6,
+    "dist": -10.4,
+    "vix": 29.49,
+    "streak": 2
    }
   ],
   "alt_with_gauge": {
@@ -216,7 +227,7 @@
     "major": "down"
    },
    "whole": {
-    "n": 1,
+    "n": 2,
     "enough": false,
     "sankou": true,
     "up": null,
@@ -227,14 +238,14 @@
     "major": null
    },
    "gauge_series_period": [
-    "2021-11-09",
-    "2026-11-09"
+    "2021-11-10",
+    "2026-11-10"
    ]
   },
   "v1": {
    "rule": "初期値で固定（起動文の値）。上抜け＝判定日の直近高値（20営業日の終値の最高値）を上回る／崩れ＝直近高値から−5%以下 または 温度計 BEARISH/PANIC 2営業日連続。傾斜計3つ以上の条項は、過去5年の9割超の日が該当するため判定から外し保留",
    "whole": {
-    "n": 1,
+    "n": 2,
     "enough": false,
     "sankou": true,
     "up": null,
