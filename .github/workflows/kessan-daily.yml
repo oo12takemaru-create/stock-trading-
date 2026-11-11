@@ -49,11 +49,17 @@ jobs:
       - name: Build kessan.json
         run: python kessan_fetch.py
 
+      # 決算発表予定の全社を日付ごとに残す（サイトの kessan-yotei/YYYY-MM-DD.html・2026-11-11）。
+      # kessan.json は過ぎた日を主要銘柄だけに縮めるので、過ぎる前の全社をここに置く。失敗しても kessan.json は出す
+      - name: Keep kessan schedule history
+        run: python -X utf8 kessan_yotei_hist.py || echo "::warning::kessan_yotei_hist.py が失敗（kessan.json は公開する）"
+
       - name: Commit kessan.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/kessan.json
+          git add -f docs/kessan_yotei_hist/ 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

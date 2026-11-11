@@ -63,11 +63,19 @@ jobs:
       - name: Score splits
         run: python -X utf8 split_score.py || echo "::warning::split_score.py が失敗（splits.json は公開する）"
 
+      # TOB・MBO の記録（2026-11-11・サイトの tob.html／tob/YYYY.html）。TDnet の表題（tdnet_hist・tdnet_list）と
+      # 開始・意見表明・結果の PDF（買付価格・期間・成立）、対象の会社だけ yfinance（発表前1か月・プレミアム・発表後）。
+      # 初回は TDnet に残っている直近30日を取り直す。失敗しても株式分割の公開は止めない
+      - name: TOB and MBO
+        run: |
+          python -X utf8 tests/test_daylist.py && python -X utf8 tob_fetch.py || echo "::warning::tob_fetch.py が失敗（splits は公開する）"
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/splits.json docs/split_stats.json docs/splits_hist/
+          git add -f docs/tob.json 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
