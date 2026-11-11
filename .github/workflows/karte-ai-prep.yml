@@ -55,10 +55,14 @@ jobs:
           echo "モード: $M"
 
       # 0件（出来事の無い日）は exit 3 → ブランチを作らずに成功で終える
+      # 2026-11-11〜 平日の2バッチ目に「朝の1通」に登録された銘柄コードを足す（kr_notify の codes だけを読む。
+      # メールは読まない・ログには件数だけ）。Secrets が無い・表が無いときは足さずに今までどおり
       - name: Build prompts
         id: build
         env:
           M: ${{ steps.mode.outputs.mode }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set +e
           python -X utf8 karte_ai_prep.py "$M" --out karte_prompt

@@ -13,6 +13,14 @@
   - top  : 日曜。ヒートマップの銘柄を売買代金の大きい順に TOP_N（150）→ 50ずつ3バッチ
   - event: 平日 19:30。その日に出来事があった銘柄（決算速報・ストップ高/安・大口の空売りの新規報告・株式分割の発表）
            を売買代金の大きい順に最大 EVENT_MAX（50）→ 1バッチ。0件ならブランチを作らない（exit 3）
+           （2026-11-11〜）2バッチ目＝朝の1通に登録された銘柄（kr_notify の codes・コードだけ）＋カルテの閲覧上位20
+           を最大 WATCH_MAX（50）。定期実行が2回起きる日だけ書かれる（1回なら今までどおり1バッチ目だけ）。
+           1バッチ目の末尾に「今日の発見」（hakken.py が選んだ3銘柄と材料）を足す
+
+■ 書くもの（2026-11-11〜）
+  - t: AIの読み上げ（今までどおり）
+  - o: アーサーのひとこと（40〜70字・です・ます。カルテの冒頭・保有ボード・朝の1通に出る）
+  - hakken: 今日の発見の3銘柄の見出しと3文（1バッチ目だけ）
 
 ■ 入力の作り
   - 1銘柄の事実は ROW_MAX（600）字以内。数字と出所の日付だけで、説明文は入れない
@@ -25,6 +33,7 @@
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -59,11 +68,43 @@ ROLE = """あなたは株レーダー（kaburadar.jp）の銘柄カルテに載�
    大口の空売りの新規報告／ストップ高・安の直近の日付／PER が過去の幅の外にある。目立つ点が無ければ、事実の中から2つを短く並べる。
 6. 銘柄名と証券コードは本文に書かない（ページの見出しにある）。
 
+■ もう1つ: 各銘柄の「アーサーのひとこと」（o）（2026-11-11〜）
+株レーダー専属AIエコノミスト「アーサー・グレイ」として、銘柄ごとに1つ書きます。上の t とは別の文です。
+1. 40〜70字・1〜2文。丁寧語（です・ます）。名乗らない（「アーサーです」「私は」を書かない）。
+2. 中身は「この銘柄でいま一番目を引く事実（数字を1つ）」と「次に見る数字（日付があれば日付も）」。
+   例「決算は増収増益でしたが、空売りの報告が同じ日に増えています。次は11/17の信用残です。」
+   次に見る日付は、その銘柄の事実の行の日付か、下の「共通の日付」の日付だけを使う。
+3. 上の1・3・4・6を守る（数字は事実の行か共通の日付にそのまま書いてあるものだけ・将来の値動きを言わない・
+   判断の言葉と「買い」「売り」を使わない・銘柄名と証券コードを書かない）。
+   さらに「予想」「リアルタイム」「必ず」「狙い目」「有望」「チャンス」「推奨」「おすすめ」を使わない。
+4. 信用倍率・信用買い残・信用売り残・大口の空売り残高の数値（◯倍・◯%・◯ポイント・◯株）は ひとこと に書かない
+   （メールにも載るため）。「空売りの報告が増えています」のように言葉で言うのは可。
+5. 書けない銘柄（目立つ事実が無い）は o を "" にする（空のひとことはどこにも出ない）。
+
 ■ 出力（これだけを ai_answer.json に書く。前後に説明を付けない）
-{"batch": "<この PROMPT の batch の値>", "items": [{"c": "<証券コード>", "t": "<1〜2文>"}, ...]}
+{"batch": "<この PROMPT の batch の値>", "items": [{"c": "<証券コード>", "t": "<1〜2文>", "o": "<アーサーのひとこと>"}, ...]}
 - items は下の銘柄すべてを、下と同じ順で1件ずつ（抜かさない・足さない）
 - 書く前に、自分の各文の数字が、その銘柄の行にそのまま書いてあるかを1つずつ確かめる。無い数字はその部分を消して書き直す
+- この PROMPT の最後に「■ 今日の発見」の節があるときは、その節の指示どおり "hakken" も同じ JSON に足す
 """
+
+# 「今日の発見」（平日の出来事の回の1バッチ目だけ。選ぶのは機械＝hakken.py、語るのはアーサー）
+HAKKEN_ROLE = """
+■ 今日の発見（アーサーが気になった3銘柄）
+下の銘柄は、その日の出来事の「珍しさ」の点で機械が選びました（点の内訳つき）。選び直さず、下の順のまま書きます。
+各銘柄について、見出し h と本文 t を書きます。
+- h: 15字以内のひとこと。銘柄名・証券コード・数字は入れない。判断の言葉を使わない（例「決算の翌日に張り付き」）
+- t: 3文。丁寧語（です・ます）。名乗らない。
+  1文目＝何が起きたか（数字で）。
+  2文目＝なぜ目を引くか（ほかの数字とつなぐ。材料に「過去の同じ形」があれば、それを1つだけ使ってよい）。
+  3文目＝「次に見るのは〜です。」の形で、次に見る数字と日付（その銘柄の材料の日付か、共通の日付）。
+- 1銘柄 200字以内。数字はその銘柄の「材料」か共通の日付にそのまま書いてあるものだけ（桁・小数点も同じ。数え直し・計算をしない）。
+- 将来の値動きを言わない。上がった・下がったは数字のまま。上の判断の言葉と「買い」「売り」、
+  「予想」「リアルタイム」「必ず」「狙い目」「有望」「チャンス」「推奨」「おすすめ」「面白い」を使わない。
+- 出力: 同じ ai_answer.json に "hakken": [{"c": "<証券コード>", "h": "<見出し>", "t": "<3文>"}, ...] を足す（下の銘柄すべて・同じ順）
+"""
+WATCH_MAX = 50       # 保有ボードの銘柄（朝の1通の登録）とよく見られる銘柄のバッチの上限（平日・event の2バッチ目）
+VIEWS_TOP = 20       # views.json の7日の閲覧上位から足す数
 
 
 def jload(name):
@@ -218,7 +259,7 @@ def facts_row(S, c, ev):
             if fl.get(kk) is not None:
                 part.append(f"{a} 前年同期比{fl[kk]:+.1f}%")
         if fl.get("fc_rev") in ("上方", "下方"):
-            part.append(f"会社予想 {fl['fc_rev']}修正")
+            part.append(f"会社の業績見通しを{fl['fc_rev']}修正")   # 「予想」は禁止語なので言い換える（2026-11-11）
         if fl.get("progress_op") is not None and fl["progress_op"] >= 0:
             part.append(f"営業利益の進捗率 {fl['progress_op']:.1f}%")
         lines.append("・".join(part))
@@ -283,6 +324,67 @@ def pick(S, mode):
     return [(c, S.events(c)) for c in cand[:EVENT_MAX]]
 
 
+def notify_codes():
+    """朝の1通（kr_notify・確認済み）に登録された銘柄コード（コードだけ。メールは読まない）。
+    Secrets が無い・表が無い・失敗したときは空（今までどおり動く）"""
+    if not (os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY")):
+        return []
+    try:
+        import notify_morning as NM
+        rows = NM.sb("kr_notify?select=codes&confirmed=eq.true&limit=1000") or []
+    except (SystemExit, Exception) as e:      # 表が無い（SQL の前）・通信の失敗。理由だけ出す（中身は出さない）
+        print(f"  朝の1通の銘柄: 読めない（{type(e).__name__}）→ 足さない", file=sys.stderr)
+        return []
+    out = []
+    for r in rows:
+        for c in r.get("codes") or []:
+            c = str(c).strip().upper()
+            if c and c not in out:
+                out.append(c)
+    return out
+
+
+def views_codes():
+    """よく見られる銘柄（views.json の7日の閲覧上位・カルテのページ）"""
+    v = jload("views.json") or {}
+    return [x["code"] for x in (v.get("top7") or [])[:VIEWS_TOP] if x.get("code")]
+
+
+def pick_watch(S, taken):
+    """平日の2バッチ目: 保有ボードの銘柄（朝の1通の登録）→ よく見られる銘柄。1バッチ目に入った銘柄は除く"""
+    nt, vw = notify_codes(), views_codes()
+    seen, out = set(taken), []
+    for c in sorted((c for c in nt if c in S.price), key=lambda c: -S.turnover(c)) + [c for c in vw if c in S.price]:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    # 公開リポジトリのログなので、件数だけ出す（どの銘柄が登録されているかは出さない）
+    print(f"  2バッチ目（保有ボードとよく見られる銘柄）: 朝の1通の銘柄 {len(nt)}・閲覧上位 {len(vw)} → {min(len(out), WATCH_MAX)}",
+          file=sys.stderr)
+    return [(c, S.events(c)) for c in out[:WATCH_MAX]]
+
+
+def hakken_section(S, today):
+    """今日の発見の3銘柄（機械が選ぶ）と、アーサーに渡す材料。選べなければ (None, None)"""
+    try:
+        import hakken as HK
+        r = HK.pick(DOCS, date.fromisoformat(today))
+    except Exception as e:                    # 発見の失敗で読み上げ（本体）を止めない
+        print(f"::warning::今日の発見の選定に失敗: {e}", file=sys.stderr)
+        return None, None
+    picks = r["picks"]
+    print(f"  今日の発見: 候補 {r['n_cand']}・直近5営業日に選んだので外した {len(r['skipped_recent'])} → {len(picks)}銘柄",
+          file=sys.stderr)
+    if not picks:
+        return None, None
+    D = r["D"]
+    mat = {x["c"]: HK.material(D, x, facts_row(S, x["c"], S.events(x["c"]))) for x in picks}
+    txt = HAKKEN_ROLE + "\n" + "\n\n".join(f"### {x['c']} {x['n']}\n{mat[x['c']]}" for x in picks) + "\n"
+    H = {"date": today, "v": HK.FORMULA_V, "price_date": D.price_date, "n_cand": r["n_cand"],
+         "skipped_recent": r["skipped_recent"], "picks": picks, "material": mat}
+    return txt, H
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["top", "event"])
@@ -291,33 +393,47 @@ def main():
     a = ap.parse_args()
     S = Src(a.date)
     sel = pick(S, a.mode)
-    if not sel:
+    groups = [(sel[i:i + BATCH], "週1回・売買代金の上位" if a.mode == "top" else "その日に出来事があった銘柄")
+              for i in range(0, len(sel), BATCH)]
+    if a.mode == "event" and S.price_date == a.date:     # 休場日（株価がその日のものでない）は足さない
+        w = pick_watch(S, [c for c, _ in sel])
+        if w:
+            groups.append((w, "保有ボードに入っている銘柄と、よく見られる銘柄"))
+    if not groups:
         print("対象の銘柄が0件 → ブランチを作らない", file=sys.stderr)
         sys.exit(3)
+    try:
+        import hakken as HK
+        common = HK.next_dates(date.fromisoformat(a.date))
+    except Exception:
+        common = ""
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     made = []
-    for i in range(0, len(sel), BATCH):
-        n = i // BATCH + 1
-        part = sel[i:i + BATCH]
+    for i, (part, label) in enumerate(groups):
+        n = i + 1
         rows = {c: facts_row(S, c, ev) for c, ev in part}
         body = "\n\n".join(rows[c] for c, _ in part)
+        hk_txt, H = (hakken_section(S, a.date) if (a.mode == "event" and n == 1 and sel) else (None, None))
         bid = f"karte-{a.date}-{n}"
-        sig = hashlib.sha1(body.encode("utf-8")).hexdigest()[:10]
+        sig = hashlib.sha1((body + (hk_txt or "")).encode("utf-8")).hexdigest()[:10]
         batch = f"{bid}:{sig}"
-        prompt = (ROLE + f"\nbatch: {batch}\n対象: {len(part)}銘柄（{'週1回・売買代金の上位' if a.mode == 'top' else 'その日に出来事があった銘柄'}）\n"
+        prompt = (ROLE + f"\nbatch: {batch}\n対象: {len(part)}銘柄（{label}）\n"
+                  + (f"\n■ 共通の日付（ひとこと・今日の発見の「次に見る数字」に使ってよい）: {common}\n" if common else "")
                   + f"\n■ 銘柄ごとの事実（{a.date} 時点・出所は JPX・TDnet・EDINET・Yahoo!ファイナンスの配信値）\n\n"
-                  + body + "\n")
+                  + body + "\n" + (hk_txt or ""))
         d = out / str(n)
         d.mkdir(exist_ok=True)
         (d / "PROMPT.txt").write_text(prompt, encoding="utf-8")
-        (d / "facts.json").write_text(json.dumps(
-            {"batch": batch, "date": a.date, "mode": a.mode, "model": MODEL,
+        F = {"batch": batch, "date": a.date, "mode": a.mode, "model": MODEL,
              "codes": [c for c, _ in part], "events": {c: ev for c, ev in part if ev},
-             "facts": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
+             "facts": rows, "common": common}
+        if H:
+            F["hakken"] = H
+        (d / "facts.json").write_text(json.dumps(F, ensure_ascii=False, indent=1), encoding="utf-8")
         per = [len(rows[c]) for c, _ in part]
-        print(f"  {bid}: {len(part)}銘柄・PROMPT {len(prompt):,}字（事実 1銘柄 平均{sum(per) / len(per):.0f}字・最大{max(per)}字）",
-              file=sys.stderr)
+        print(f"  {bid}: {len(part)}銘柄（{label}）・PROMPT {len(prompt):,}字（事実 1銘柄 平均{sum(per) / len(per):.0f}字・最大{max(per)}字）"
+              + (f"・今日の発見 {len(H['picks'])}銘柄（{len(hk_txt):,}字）" if H else ""), file=sys.stderr)
         made.append(str(n))
     (out / "batches.txt").write_text("\n".join(made) + "\n", encoding="utf-8")
 

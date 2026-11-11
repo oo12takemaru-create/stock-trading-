@@ -64,6 +64,7 @@ WARN_AT = 50             # これを超えた日は Actions に警告（メー�
 MOVE_PCT = 5.0           # 値動きの閾値（前日比の絶対値）
 MAX_LINES = 2            # 1銘柄の行数
 UNCONFIRMED_DAYS = 7
+ONE_DAYS = 7             # アーサーのひとことを出す日数（これより古い文は出さない）
 UTM = "utm_source=notify&utm_medium=email"
 HOLD_URL = f"{SITE}/hold.html?{UTM}"   # 冒頭のボタン（毎日サイトを開く入口）
 WD = "月火水木金土日"
@@ -161,6 +162,8 @@ class Facts:
         self.names = {}
         self.price_date = None
         self.regime = None
+        self.one = {}          # code → (アーサーのひとこと, 日付)
+        self.hakken = None     # 今日の発見の日付（前営業日のものがあるときだけ）
 
     def add(self, code, rank, text):
         if BANNED.search(text):
@@ -293,6 +296,19 @@ class Facts:
         if rd.get("regime"):
             self.regime = (rd["regime"], (rd.get("scanner_timestamp") or rd.get("updated") or "")[:16])
 
+        # アーサーのひとこと（2026-11-11）。収集側の karte_ai_ingest.py が検査した文（JPX の数値は入っていない）。
+        # 7日より古い文は出さない。各銘柄の最後の行に出す（出来事のある銘柄だけ＝メールに載る銘柄だけ）
+        one = load("karte_ai/one.json") or {}
+        cut = (self.today - timedelta(days=ONE_DAYS)).isoformat()
+        for c, v in (one.get("items") or {}).items():
+            o = (v.get("o") or "").strip()
+            if o and (v.get("d") or "") >= cut and not BANNED.search(o):
+                self.one[c] = (o, v["d"])
+        # 今日の発見（前営業日の夜に選んだ3銘柄）。末尾に1行のリンク
+        hk = load("hakken/latest.json") or {}
+        if hk.get("date") == p1 and hk.get("picks"):
+            self.hakken = hk["date"]
+
     def weight(self, code):
         """銘柄の並び順に使う段（いちばん重い出来事の段）"""
         return min((TIER.get(r, 9) for r, _ in self.ev.get(code) or []), default=9)
@@ -325,12 +341,19 @@ def compose(F, codes, token):
         tail.append(("相場の温度計", f"{REGIME_JP.get(reg, reg)}（{reg}）" + (f"・{md(upd)} {upd[11:16]}の判定" if len(upd) >= 16 else ""), f"{SITE}/radar.html?{UTM}"))
     tail.append(("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}"))
     tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", HOLD_URL))
+    if F.hakken:
+        tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
     note = "事実の一覧で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
+    one = {c: F.one[c] for c, _, _ in blocks if c in F.one}
+    if one:
+        note += "「アーサー」の行は株レーダー専属AIエコノミスト（AI）の文です。"
 
     text = [head, f"保有ボードで損益を見る → {HOLD_URL}", ""]
     for c, n, ls in blocks:
         text.append(f"■ {n}（{c}）")
         text += [f"・{x}" for x in ls]
+        if c in one:
+            text.append(f"・アーサー（{md(one[c][1])}）：{one[c][0]}")
         text.append(f"  {karte(c)}")
         text.append("")
     text.append("―――")
@@ -348,6 +371,8 @@ def compose(F, codes, token):
         h.append(f'<div style="margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px">'
                  f'<div style="font-size:16px;font-weight:bold"><a href="{karte(c)}" style="color:#0b6b3a;text-decoration:none">{escape(n)}（{c}）</a></div>'
                  + "".join(f'<div style="margin-top:4px">・{escape(x)}</div>' for x in ls)
+                 + (f'<div style="margin-top:6px;color:#4a5560;font-size:14px">アーサー（{md(one[c][1])}）：{escape(one[c][0])}</div>'
+                    if c in one else "")
                  + f'<div style="margin-top:6px"><a href="{karte(c)}" {A}>カルテを見る →</a></div></div>')
     h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
     h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
