@@ -1,6 +1,6 @@
 {
- "target_date": "2026-11-09",
- "generated_at": "2026-11-10T21:03:47+09:00",
+ "target_date": "2026-11-10",
+ "generated_at": "2026-11-11T18:03:09+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,42 +8,41 @@
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -37.4
+   "kairi": -31.76
   },
   {
    "judge": "signal",
    "code": "3436",
    "name": "SUMCO",
    "sector": "半導体",
-   "kairi": -33.69
+   "kairi": -27.51
   },
   {
    "judge": "signal",
-   "code": "9984",
-   "name": "ソフトバンクG",
-   "sector": "投資会社",
-   "kairi": -30.66
+   "code": "6976",
+   "name": "太陽誘電",
+   "sector": "電子部品",
+   "kairi": -23.81
   }
  ],
- "asof": "2026-11-10",
+ "asof": "2026-11-11",
  "stale": false,
- "signals_today_date": "2026-11-10",
- "is_halt": true,
- "halt_reason": "日経1ヶ月-15.3%下落(急落)",
- "signals_today_count": 5,
+ "signals_today_date": "2026-11-11",
+ "is_halt": false,
+ "signals_today_count": 3,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 5,
+  "BNF-LITE": 3,
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-11-10",
+  "scan_date": "2026-11-11",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
   "code": "4183",
   "name": "三井化学",
   "sector": "化学",
-  "reason": "乖離率-22.4%",
+  "reason": "乖離率-16.3%",
   "carried_over": true
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
