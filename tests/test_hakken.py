@@ -127,5 +127,14 @@ ok("・アーサー（11/11）：営業利益は前年同期比+63.9%" in m["tex
 ok("アーサー（11/11）：" in m["html"], "ひとことの行（HTML）")
 ok("/hakken/2026-11-11.html" in m["text"], "今日の発見のリンク")
 
+# 朝の1通の銘柄は確認済みの登録者3人以上の銘柄だけ（統括判断 2026-11-11）
+import os                      # noqa: E402
+import karte_ai_prep as KP     # noqa: E402
+os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "https://x.supabase.co", "k"
+N.sb = lambda path, *a, **k: [{"codes": ["1111", "2222"]}, {"codes": ["1111", "2222", "2222"]}, {"codes": ["1111", "3333"]}]
+eq(KP.notify_codes(), ["1111"], "3人以上の銘柄だけ（同じ人の重複は1人）")
+del os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+eq(KP.notify_codes(), [], "Secrets が無ければ空")
+
 print("OK" if NG == 0 else f"NG {NG}件")
 sys.exit(1 if NG else 0)
