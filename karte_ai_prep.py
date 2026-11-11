@@ -105,6 +105,7 @@ HAKKEN_ROLE = """
 """
 WATCH_MAX = 50       # 保有ボードの銘柄（朝の1通の登録）とよく見られる銘柄のバッチの上限（平日・event の2バッチ目）
 VIEWS_TOP = 20       # views.json の7日の閲覧上位から足す数
+NOTIFY_MIN = 3       # 朝の1通の銘柄は、確認済みの登録者がこの人数以上持っている銘柄だけ（統括判断 2026-11-11）
 
 
 def jload(name):
@@ -335,13 +336,13 @@ def notify_codes():
     except (SystemExit, Exception) as e:      # 表が無い（SQL の前）・通信の失敗。理由だけ出す（中身は出さない）
         print(f"  朝の1通の銘柄: 読めない（{type(e).__name__}）→ 足さない", file=sys.stderr)
         return []
-    out = []
+    # 統括判断（2026-11-11）: 公開リポジトリのブランチに載るので、確認済みの登録者が NOTIFY_MIN 人以上持っている銘柄だけ。
+    # それ未満の銘柄は入れない（件数もログに出さない）。誰の登録かは分からない形で、コードだけを集計する
+    cnt = {}
     for r in rows:
-        for c in r.get("codes") or []:
-            c = str(c).strip().upper()
-            if c and c not in out:
-                out.append(c)
-    return out
+        for c in {str(x).strip().upper() for x in (r.get("codes") or []) if str(x).strip()}:
+            cnt[c] = cnt.get(c, 0) + 1
+    return sorted(c for c, n in cnt.items() if n >= NOTIFY_MIN)
 
 
 def views_codes():
@@ -358,9 +359,8 @@ def pick_watch(S, taken):
         if c not in seen:
             seen.add(c)
             out.append(c)
-    # 公開リポジトリのログなので、件数だけ出す（どの銘柄が登録されているかは出さない）
-    print(f"  2バッチ目（保有ボードとよく見られる銘柄）: 朝の1通の銘柄 {len(nt)}・閲覧上位 {len(vw)} → {min(len(out), WATCH_MAX)}",
-          file=sys.stderr)
+    # 公開リポジトリのログなので、朝の1通の銘柄の件数は出さない（合計だけ）
+    print(f"  2バッチ目（保有ボードとよく見られる銘柄）: {min(len(out), WATCH_MAX)}銘柄", file=sys.stderr)
     return [(c, S.events(c)) for c in out[:WATCH_MAX]]
 
 
