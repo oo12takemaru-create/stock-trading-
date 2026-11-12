@@ -5,3 +5,4 @@ rich>=13.0.0
 matplotlib>=3.7.0
 requests>=2.31.0
 exchange_calendars==4.13.2
+pymupdf>=1.24  # 業績予想の修正の PDF の表（fc_revision_pdf.py）
