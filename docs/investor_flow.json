@@ -1,59 +1,59 @@
 {
- "updated": "2026-11-06T00:12:35+09:00",
- "week": "2026年10月第3週 2026/10 week3 ( 10/19 - 10/23 )",
+ "updated": "2026-11-12T16:31:15+09:00",
+ "week": "2026年11月第1週 2026/11 week1 ( 11/2 - 11/6 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
- "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002k0uf-att/stock_1_w_20261019_20261023.xlsx",
+ "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002kp6f-att/stock_1_w_20261102_20261106.xlsx",
  "sheet": "TSE Prime",
  "items": [
   {
    "key": "foreigners",
    "label": "海外投資家",
-   "sell_oku": 260361,
-   "buy_oku": 260665,
-   "net_oku": 304,
-   "prev_net_oku": -3435
+   "sell_oku": 317415,
+   "buy_oku": 316598,
+   "net_oku": -818,
+   "prev_net_oku": 2063
   },
   {
    "key": "individuals",
    "label": "個人投資家",
-   "sell_oku": 89206,
-   "buy_oku": 88529,
-   "net_oku": -678,
-   "prev_net_oku": 2134
+   "sell_oku": 96035,
+   "buy_oku": 91599,
+   "net_oku": -4435,
+   "prev_net_oku": -79
   },
   {
    "key": "trust_banks",
    "label": "信託銀行（年金など）",
-   "sell_oku": 8470,
-   "buy_oku": 6242,
-   "net_oku": -2228,
-   "prev_net_oku": -764
+   "sell_oku": 6697,
+   "buy_oku": 8953,
+   "net_oku": 2256,
+   "prev_net_oku": -2931
   },
   {
    "key": "inv_trusts",
    "label": "投資信託",
-   "sell_oku": 5620,
-   "buy_oku": 6031,
-   "net_oku": 412,
-   "prev_net_oku": 1381
+   "sell_oku": 5344,
+   "buy_oku": 6369,
+   "net_oku": 1024,
+   "prev_net_oku": -2405
   },
   {
    "key": "business",
    "label": "事業法人（自社株買いなど）",
-   "sell_oku": 3044,
-   "buy_oku": 4087,
-   "net_oku": 1043,
-   "prev_net_oku": 1633
+   "sell_oku": 3253,
+   "buy_oku": 6261,
+   "net_oku": 3008,
+   "prev_net_oku": -993
   },
   {
    "key": "proprietary",
    "label": "証券自己（プロップ）",
-   "sell_oku": 40354,
-   "buy_oku": 41068,
-   "net_oku": 714,
-   "prev_net_oku": -96
+   "sell_oku": 41533,
+   "buy_oku": 42302,
+   "net_oku": 769,
+   "prev_net_oku": 4716
   }
  ]
 }
