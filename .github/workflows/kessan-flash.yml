@@ -68,6 +68,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/tdnet_list.json docs/kessan_flash.json docs/kessan_flash_hist/ docs/dividend_hist/
+          git add -f docs/tdnet_hist/ 2>/dev/null || true   # 日ごとの開示の記録（2026-11-11・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

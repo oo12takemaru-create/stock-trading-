@@ -77,6 +77,12 @@ jobs:
         run: |
           python -X utf8 tests/test_stophigh.py && python -X utf8 stophigh.py || echo "::warning::stophigh.py が失敗（prices/movers は公開する）"
 
+      # 適時開示のあとの値動き（2026-11-11・サイトの kaiji/YYYY-MM-DD.html の答え合わせ）。同じ .cache/ohlc_recent.pkl を読む。
+      # 開示した会社ごとに、基準の日の終値から次の営業日・5営業日後の終値まで。失敗しても prices / movers の公開は止めない
+      - name: After disclosures
+        if: steps.done.outputs.skip != '1'
+        run: python -X utf8 kaiji_after.py || echo "::warning::kaiji_after.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -88,6 +94,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_kakudai.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
+          git add -f docs/kaiji_after 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

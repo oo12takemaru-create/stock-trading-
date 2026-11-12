@@ -35,6 +35,10 @@ OUT = HERE / "docs" / "tdnet_list.json"
 BASE = "https://www.release.tdnet.info/inbs/"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0; +https://kaburadar.jp)"}
 KEEP_DAYS = 10          # 保持する営業日数
+# 日ごとの記録（2026-11-11・サイトの「今日の適時開示まとめ」kaiji/YYYY-MM-DD.html の元）。tdnet_list.json は10営業日で
+# 押し出されるので、その日の一覧を1日1ファイルで残す（消さない）。列を絞って軽くする（PDF の URL は id から作れる）
+HIST = HERE / "docs" / "tdnet_hist"
+HIST_COLS = ["c", "n", "t", "ti", "id", "x", "p"]   # コード・社名・時刻・表題・id（PDF の名前）・XBRL の有無・市場
 MAX_PAGES = 30          # 1日1,600件超の日があるので余裕をみる（1ページ100件）
 SLEEP = 1.0             # TDnetへの間隔（秒）
 
@@ -120,6 +124,23 @@ def fetch_day(dateISO):
     return {"d": dateISO, "count": len(uniq), "total_disclosures": total, "items": uniq}
 
 
+def write_hist(day):
+    """その日の一覧を docs/tdnet_hist/YYYY-MM-DD.json に（取れた日だけ・同じ日は新しい方で置き換える）"""
+    HIST.mkdir(parents=True, exist_ok=True)
+    rows = [[it["code"], it["name"], it["time"], it["title"], it["id"], 1 if it.get("xbrl_url") else 0, it.get("place") or ""]
+            for it in day["items"]]
+    (HIST / f"{day['d']}.json").write_text(json.dumps(
+        {"d": day["d"], "count": day["count"], "total_disclosures": day.get("total_disclosures"),
+         "updated": datetime.now(JST).isoformat(timespec="seconds"),
+         "pdf_base": BASE, "cols": HIST_COLS, "rows": rows},
+        ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    dates = sorted(p.stem for p in HIST.glob("????-??-??.json"))
+    (HIST / "index.json").write_text(json.dumps(
+        {"updated": datetime.now(JST).isoformat(timespec="seconds"), "dates": dates,
+         "note": "TDnet の当日一覧を1日1ファイルで残したもの（PDF は再配布しない。URL は pdf_base＋id＋.pdf）"},
+        ensure_ascii=False), encoding="utf-8")
+
+
 def main():
     args = [a for a in sys.argv[1:] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", a)]
     days = args or [datetime.now(JST).strftime("%Y-%m-%d")]
@@ -132,6 +153,27 @@ def main():
         except Exception as e:
             print(f"  前回ファイルが読めない（新規として続行）: {e}", file=sys.stderr)
 
+    # 日ごとの記録（2026-11-11）: まだ記録の無い日は、手元の10営業日ぶんから先に書く（初回の埋め戻し）
+    for d, day in sorted(prev.items()):
+        if not (HIST / f"{d}.json").exists() and day.get("items") is not None:
+            try:
+                write_hist(day)
+            except Exception as e:
+                print(f"  {d}: 日ごとの記録を書けない {e}", file=sys.stderr)
+    # 日付の指定が無い回は、前の営業日（手元の一覧で今日より前の最後の日）も取り直す。
+    # この取得は15:30/16:30/18:30 の3回だけなので、前の日の18:30より後の開示が抜けていた（適時開示まとめの件数が欠ける）
+    #   取り直すのは、その日の記録がまだその日のうちに取ったもの（updated の日付＝その日）のときだけ（翌日の1回目で済む）
+    if not args:
+        before = [d for d in prev if d < days[0] and (prev[d].get("count") or 0) > 0]
+        if before:
+            last = max(before)
+            try:
+                upd = json.loads((HIST / f"{last}.json").read_text(encoding="utf-8")).get("updated", "")[:10]
+            except Exception:
+                upd = last
+            if upd <= last:
+                days = [last] + days
+
     ok = 0
     for d in days:
         got = fetch_day(d)
@@ -140,6 +182,10 @@ def main():
             continue
         prev[d] = got
         ok += 1
+        try:
+            write_hist(got)
+        except Exception as e:      # 記録が書けなくても tdnet_list.json は出す
+            print(f"  {d}: 日ごとの記録を書けない {e}", file=sys.stderr)
         print(f"  {d}: {got['count']}件（TDnet全体 {got['total_disclosures']}件）")
         time.sleep(SLEEP)
 
