@@ -6,6 +6,7 @@ name: Kessan Flash (kaburadar.jp)
 #                                                 → docs/kessan_flash_hist/YYYY-MM.json（月別・追記のみ）
 #                  （同じzipから配当の状況）        → docs/dividend_hist/YYYY-MM.jsonl（月別・追記のみ・表示はまだしない）
 #   fc_revision.py : 業績予想・配当予想の修正の XBRL（0912 の zip）から修正前→修正後と向き → docs/fc_revision/YYYY-MM.json
+#                    XBRL の無い修正の開示は PDF の表を読む（fc_revision_pdf.py・検算が合ったものだけ・1件ずつ1秒あける）
 #                    tdnet_hist・tdnet_list.json の該当行に rv を足す（2026-11-12・足すだけ）
 # TDnetの一覧は約1か月で消えるので、月別履歴が資産になる。
 #
@@ -52,11 +53,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 標準ライブラリだけで動く（pip install 不要）
+      # 決算速報は標準ライブラリだけで動く。PyMuPDF は業績修正の PDF を読むためだけ（2026-11-12）。
+      # 入らなくても止めない（fc_revision.py は XBRL だけで動く）
+      - name: Install PyMuPDF
+        run: pip install -q pymupdf || echo "::warning::PyMuPDF を入れられなかった（業績修正の PDF は読まない）"
+
       - name: Test parser
         run: |
           python -X utf8 tests/test_kessan_flash.py
           python -X utf8 tests/test_fc_revision.py
+          python -X utf8 tests/test_fc_revision_pdf.py
 
       - name: Fetch TDnet list
         env:
@@ -71,7 +77,7 @@ jobs:
           DATES: ${{ github.event.inputs.dates }}
         run: python -X utf8 kessan_flash.py $DATES
 
-      - name: Read forecast revisions (XBRL)
+      - name: Read forecast revisions (XBRL / PDF)
         env:
           DATES: ${{ github.event.inputs.dates }}
           FC_BACKFILL: ${{ github.event.inputs.fc_backfill }}
