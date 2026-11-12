@@ -5,6 +5,8 @@ name: Kessan Flash (kaburadar.jp)
 #   kessan_flash.py: 決算短信のXBRLから数字を抜く → docs/kessan_flash.json（直近60日）
 #                                                 → docs/kessan_flash_hist/YYYY-MM.json（月別・追記のみ）
 #                  （同じzipから配当の状況）        → docs/dividend_hist/YYYY-MM.jsonl（月別・追記のみ・表示はまだしない）
+#   fc_revision.py : 業績予想・配当予想の修正の XBRL（0912 の zip）から修正前→修正後と向き → docs/fc_revision/YYYY-MM.json
+#                    tdnet_hist・tdnet_list.json の該当行に rv を足す（2026-11-12・足すだけ）
 # TDnetの一覧は約1か月で消えるので、月別履歴が資産になる。
 #
 # 15:00の決算集中に合わせて 15:30 / 16:30 / 18:30 JST の3回。
@@ -16,6 +18,10 @@ on:
     inputs:
       dates:
         description: '取り込む日（YYYY-MM-DD を空白区切りで複数可。空なら当日）。検証やバックフィル用'
+        required: false
+        default: ''
+      fc_backfill:
+        description: '業績修正の向き（fc_revision.py）を直近N営業日さかのぼって読む（空なら当日ぶんだけ）。TDnet は約1か月で消える'
         required: false
         default: ''
 
@@ -48,7 +54,9 @@ jobs:
 
       # 標準ライブラリだけで動く（pip install 不要）
       - name: Test parser
-        run: python -X utf8 tests/test_kessan_flash.py
+        run: |
+          python -X utf8 tests/test_kessan_flash.py
+          python -X utf8 tests/test_fc_revision.py
 
       - name: Fetch TDnet list
         env:
@@ -63,12 +71,21 @@ jobs:
           DATES: ${{ github.event.inputs.dates }}
         run: python -X utf8 kessan_flash.py $DATES
 
+      - name: Read forecast revisions (XBRL)
+        env:
+          DATES: ${{ github.event.inputs.dates }}
+          FC_BACKFILL: ${{ github.event.inputs.fc_backfill }}
+        run: |
+          # 失敗しても決算速報は公開する（rv が無くてもサイトは今までどおり動く）
+          python -X utf8 fc_revision.py ${FC_BACKFILL:+--backfill $FC_BACKFILL} $DATES || echo "::warning::fc_revision.py が失敗（決算速報は公開する）"
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/tdnet_list.json docs/kessan_flash.json docs/kessan_flash_hist/ docs/dividend_hist/
           git add -f docs/tdnet_hist/ 2>/dev/null || true   # 日ごとの開示の記録（2026-11-11・無い回は飛ばす）
+          git add -f docs/fc_revision/ 2>/dev/null || true  # 業績・配当予想の修正前→修正後（2026-11-12・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
