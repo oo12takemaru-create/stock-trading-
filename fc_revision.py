@@ -10,7 +10,9 @@
   TDnet の一覧の XBRL 欄の zip 名は、決算短信が「0812＋id の後ろ」、業績予想・配当予想の修正が「0912＋id の後ろ」。
   0912 の zip の中身は tse-rvfc-*-ixbrl.htm（業績予想の修正）か tse-rvdf-*-ixbrl.htm（配当予想の修正）。
   ただし **修正の開示に XBRL が付くのは一部だけ**（11/12: 表題が業績修正の124件のうち23件。10/30〜11/11 も2〜5割）。
-  XBRL の無い開示（PDF だけ）は読まない＝向きは「不明」のまま。PDF の文字起こしはしない。
+  XBRL の無い開示（PDF だけ）は、PDF の「前回発表予想（A）／今回修正予想（B）／増減額／増減率」の表を
+  fc_revision_pdf.py で読む（2026-11-12 追加・記録に src="pdf"）。検算（B−A＝増減額）が合わないもの・表の型に
+  合わないもの・画像だけの PDF は採用しない（dir 空・why に理由）。XBRL がある開示は XBRL だけを読む（XBRL 優先）。
 
 ■ 要素（tse-ed-t: の名前は決算短信のサマリーと同じ。読み方は kessan_flash.facts_html を使う）
   売上高 NetSales / OperatingRevenues / OrdinaryRevenuesBK（銀行）/ *IFRS / *US
@@ -31,6 +33,8 @@
 使い方:
   python -X utf8 fc_revision.py                  # docs/tdnet_list.json にある日（直近10営業日）
   python -X utf8 fc_revision.py 2026-11-12       # 日付を絞る
+  python -X utf8 fc_revision.py --no-pdf         # PDF は読まない（XBRL だけ）
+  python -X utf8 fc_revision.py --backfill 30 --max-pdf 3000   # 遡及で PDF を上限まで読む（手元で。1件 約1.5秒）
   python -X utf8 fc_revision.py --backfill 30    # 直近30営業日。手元の一覧に無い日は TDnet の一覧を取り直す
                                                  #（TDnet は約1か月で消える。2026-11-12 時点で 10/5 まで残っていた）
 """
@@ -55,6 +59,11 @@ BASE = "https://www.release.tdnet.info/inbs/"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0; +https://kaburadar.jp)"}
 SLEEP = 1.0
 RV_ZIP = re.compile(r"/0912\d+\.zip$")      # 修正の XBRL（0812 は決算短信）
+# 業績予想・配当予想の修正の表題（PDF を読む対象）。新株予約権の「行使価額修正条項付」は除く
+RV_TITLE = re.compile(r"(業績|配当|予想)[^。]{0,30}修正|修正.{0,10}予想")
+RV_TITLE_NG = re.compile(r"行使価額修正")
+PDF_VER = 1        # PDF の読み方の版。上げると、TDnet に残っている間の PDF の記録を読み直す
+MAX_PDF = 300      # 1回の実行で読む PDF の上限（残りは次の回。1件 約1.3秒）
 
 ITEMS = [  # (キー, 表示名, 要素名の候補)
     ("sales", "売上高", ["NetSales", "OperatingRevenues", "OrdinaryRevenuesBK", "OrdinaryRevenuesIN",
@@ -227,8 +236,9 @@ def save_months(store):
     for m, items in sorted(store.items()):
         (OUT / f"{m}.json").write_text(json.dumps(
             {"updated": datetime.now(JST).isoformat(timespec="seconds"),
-             "note": "TDnet の業績予想・配当予想の修正の開示のうち XBRL があるものの修正前・修正後（百万円・配当は円）。"
-                     "XBRL の無い開示は載らない。dir=主の利益（営業→経常→純利益）の向き、mix=向きの割れた項目",
+             "note": "TDnet の業績予想・配当予想の修正の開示の修正前・修正後（百万円・配当は円）。XBRL があれば XBRL、"
+                     "無ければ PDF の表（src=pdf・B−A と増減額の検算が合ったものだけ。合わなければ dir 空で why に理由）。"
+                     "dir=主の利益（営業→経常→純利益）の向き、mix=向きの割れた項目",
              "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     months = sorted(p.stem for p in OUT.glob("????-??.json"))
     (OUT / "index.json").write_text(json.dumps(
@@ -238,24 +248,58 @@ def save_months(store):
 
 def rv_of(rec):
     """行に足す形（日付・社名など行にあるものは省く）"""
-    return {k: v for k, v in rec.items() if k not in ("d", "c", "n", "t", "ti", "id")}
+    return {k: v for k, v in rec.items() if k not in ("d", "c", "n", "t", "ti", "id", "pv", "skip")}
 
 
-def collect(day, store, fetched):
-    """その日の一覧（tdnet_list の形）の 0912 の zip を読む。読んだことのある id は読み直さない"""
+def is_rv_title(title):
+    return bool(title) and bool(RV_TITLE.search(title)) and not RV_TITLE_NG.search(title)
+
+
+def pdf_reader():
+    """PDF を読む関数（PyMuPDF が無ければ None＝XBRL だけで動く）"""
+    import fc_revision_pdf
+    try:
+        import pymupdf  # noqa: F401
+    except ImportError:
+        try:
+            import fitz  # noqa: F401
+        except ImportError as e:
+            print(f"  PyMuPDF が無いので PDF は読まない（XBRL だけ）: {e}", file=sys.stderr)
+            return None
+    return fc_revision_pdf.parse_pdf
+
+
+def collect(day, store, fetched, read_pdf=None):
+    """その日の一覧（tdnet_list の形）の 0912 の zip を読む。XBRL の無い修正の開示は PDF の表を読む（read_pdf があれば）。
+    読んだことのある id は読み直さない（PDF は読み方の版 PDF_VER が上がったときだけ読み直す）"""
     n_new = 0
     for it in day.get("items") or []:
         url = it.get("xbrl_url") or ""
-        if not RV_ZIP.search(url):
-            continue
         m = day["d"][:7]
-        box = store.setdefault(m, load_month(m))
-        if it["id"] in box and not box[it["id"]].get("err"):
+        if RV_ZIP.search(url):
+            box = store.setdefault(m, load_month(m))
+            old = box.get(it["id"])
+            if old and not old.get("err") and old.get("src") != "pdf":
+                continue
+            try:
+                rec = parse(get(url)) or {"err": "ixbrl が無い"}
+            except Exception as e:
+                rec = {"err": str(e)[:80]}
+        elif read_pdf and it.get("pdf_url") and is_rv_title(it.get("title")):
+            box = store.setdefault(m, load_month(m))
+            old = box.get(it["id"])
+            if old and not old.get("err") and (old.get("src") != "pdf" or old.get("pv", 0) >= PDF_VER):
+                continue
+            if fetched[1] >= MAX_PDF:
+                continue                           # 残りは次の回
+            try:
+                rec = read_pdf(get(it["pdf_url"]), it.get("title") or "")
+                rec["pv"] = PDF_VER
+            except Exception as e:
+                rec = {"src": "pdf", "err": str(e)[:80]}
+            fetched[1] += 1
+        else:
             continue
-        try:
-            rec = parse(get(url)) or {"err": "ixbrl が無い"}
-        except Exception as e:
-            rec = {"err": str(e)[:80]}
         time.sleep(SLEEP)
         fetched[0] += 1
         n_new += 1
@@ -299,6 +343,11 @@ def add_to_rows(store):
         LIST.write_text(json.dumps(j, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
+def adopted(r):
+    """向きか配当の増減が取れた記録"""
+    return r.get("dir") in ("上方", "下方", "据置") or bool((r.get("div") or {}).get("dir"))
+
+
 def bizdays_back(n, today):
     from jp_bizday import is_bizday
     out, d = [], today
@@ -311,6 +360,13 @@ def bizdays_back(n, today):
 
 def main(argv):
     backfill = None
+    global MAX_PDF
+    use_pdf = "--no-pdf" not in argv
+    argv = [a for a in argv if a != "--no-pdf"]
+    if "--max-pdf" in argv:
+        i = argv.index("--max-pdf")
+        MAX_PDF = int(argv[i + 1])
+        argv = argv[:i] + argv[i + 2:]
     if "--backfill" in argv:
         i = argv.index("--backfill")
         backfill = int(argv[i + 1])
@@ -323,7 +379,9 @@ def main(argv):
     want = dates or sorted(days)
     if backfill:
         want = sorted(set(want) | set(bizdays_back(backfill, datetime.now(JST).date())))
-    store, fetched = {}, [0]
+    store, fetched = {}, [0, 0]
+    read_pdf = pdf_reader() if use_pdf else None
+    t0 = time.time()
     for d in want:
         day = days.get(d)
         if day is None and backfill:
@@ -333,9 +391,12 @@ def main(argv):
         if not day:
             print(f"  {d}: 一覧なし（TDnet から消えた日・休日）")
             continue
-        n = collect(day, store, fetched)
+        n = collect(day, store, fetched, read_pdf)
         box = [r for r in store.get(d[:7], {}).values() if r["d"] == d]
-        print(f"  {d}: 修正の XBRL {len(box)}件（今回読んだ {n}件）・向き "
+        xb = [r for r in box if r.get("src") != "pdf"]
+        pf = [r for r in box if r.get("src") == "pdf"]
+        print(f"  {d}: 修正の XBRL {len(xb)}件・PDF {len(pf)}件（うち向き・配当が取れた {sum(1 for r in pf if adopted(r))}件）"
+              f"（今回読んだ {n}件）・向き "
               + " ".join(f"{k}{sum(1 for r in box if r.get('dir') == k)}" for k in ("上方", "下方", "据置"))
               + f"・配当 {sum(1 for r in box if r.get('div'))}件")
     if not store:
@@ -343,7 +404,8 @@ def main(argv):
         return 0
     save_months(store)
     add_to_rows(store)
-    print(f"→ docs/fc_revision/: {', '.join(sorted(store))}（今回 TDnet から {fetched[0]}件）")
+    print(f"→ docs/fc_revision/: {', '.join(sorted(store))}（今回 TDnet から {fetched[0]}件・うち PDF {fetched[1]}件・"
+          f"{time.time() - t0:.0f}秒）" + ("（PDF は上限で打ち切り・残りは次の回）" if fetched[1] >= MAX_PDF else ""))
     return 0
 
 
