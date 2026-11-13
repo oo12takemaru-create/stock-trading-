@@ -7,6 +7,8 @@
   1. Supabase の kr_notify（確認済み・今日まだ送っていない人）を読む。申込み・確認・停止は kaburadar の api/board.js
   2. このリポジトリの docs/ の公開 JSON（前の晩までに出来ている分）から、銘柄ごとの「前営業日の出来事」を作る
   3. 出来事が1つでもある人にだけ Resend で1通送り、last_sent を書く。何も無い人には送らない
+     銘柄を登録していない人（codes が空＝「地合いと AI朝刊の結論だけ」で申し込んだ人・2026-11-13）には、
+     温度計の判定と今朝の AI朝刊の結論（見立てと1行）を毎営業日1通（compose_market）。どちらも無い日は送らない
   4. 確認されないまま7日たった申込みを消す
 
 ■ 出来事（1銘柄1〜2行。3つ目からは「ほか n 件」）
@@ -72,6 +74,7 @@ Q_JP = {"1Q": "第1四半期", "2Q": "第2四半期", "3Q": "第3四半期", "�
 STOP_JP = {"close_high": "終値ストップ高", "touch_high": "一時ストップ高",
            "close_low": "終値ストップ安", "touch_low": "一時ストップ安"}
 REGIME_JP = {"BULLISH": "強気", "NEUTRAL": "中立", "BEARISH": "弱気", "PANIC": "パニック"}
+AI_JP = {"attack": "攻め", "lean_attack": "やや攻め", "neutral": "中立", "lean_defense": "やや守り", "defense": "守り"}
 # 文面に入れない言葉（推奨・断定・リアルタイム）。当たった行は落とす
 BANNED = re.compile(r"買い時|売り時|買うべき|売るべき|おすすめ|オススメ|推奨|狙い目|チャンス|必ず|確実|絶対|急騰確定|リアルタイム")
 
@@ -164,6 +167,7 @@ class Facts:
         self.regime = None
         self.one = {}          # code → (アーサーのひとこと, 日付)
         self.hakken = None     # 今日の発見の日付（前営業日のものがあるときだけ）
+        self.ai = None         # 今朝の AI朝刊の結論 (見立て, 1行, 生成時刻)。今日の号があるときだけ（2026-11-13）
 
     def add(self, code, rank, text):
         if BANNED.search(text):
@@ -308,6 +312,11 @@ class Facts:
         hk = load("hakken/latest.json") or {}
         if hk.get("date") == p1 and hk.get("picks"):
             self.hakken = hk["date"]
+        # 今朝の AI朝刊（6:15 ごろの定期実行が書く ai_analysis.json）。今日の号だけ。1行（headline）は使わない言葉に当たれば出さない
+        L = (load("ai_analysis.json") or {}).get("latest") or {}
+        if L.get("stance") in AI_JP and (L.get("date") or (L.get("updated") or "")[:10]) == self.today.isoformat():
+            hd = (L.get("headline") or "").strip()
+            self.ai = (L["stance"], "" if (not hd or BANNED.search(hd) or len(hd) > 80) else hd, (L.get("updated") or "")[:16])
 
     def weight(self, code):
         """銘柄の並び順に使う段（いちばん重い出来事の段）"""
@@ -326,8 +335,61 @@ def karte(code):
     return f"{SITE}/stocks/{code}.html?{UTM}"
 
 
+def compose_market(F, token):
+    """銘柄を登録していない人の1通（2026-11-13）: 温度計の判定と今朝の AI朝刊の結論だけ。どちらも無い日は None"""
+    if not F.regime and not F.ai:
+        return None
+    stop = f"{SITE}/api/board?a=nstop&t={token}"
+    radar, ai = f"{SITE}/radar.html?{UTM}", f"{SITE}/ai.html?{UTM}"
+    head = f"{mdw(F.today.isoformat())} の朝の、今日の地合いと AI朝刊の結論です。"
+    rows = []
+    if F.regime:
+        reg, upd = F.regime
+        rows.append(("今日の地合い（相場の温度計）", f"{REGIME_JP.get(reg, reg)}（{reg}）" + (f"・{md(upd)} {upd[11:16]}の判定" if len(upd) >= 16 else ""), radar,
+                     "日経平均・S&P500・VIX から機械が判定。上げ下げの見立てではなく、戦略を選ぶための判定です"))
+    if F.ai:
+        st, hd, upd = F.ai
+        rows.append((f"AI朝刊（{md(upd) + ' ' + upd[11:16] if len(upd) >= 16 else '今朝'}）", f"見立て「{AI_JP[st]}」" + (f"：{hd}" if hd else ""), ai,
+                     "AI による一般的な市況の要約です"))
+    tail = []
+    if F.hakken:
+        tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
+    tail.append(("保有ボード", "銘柄を入れて「通知の銘柄を更新」を押すと、その銘柄の出来事もこの1通に入ります", HOLD_URL))
+    note = "事実と AI による一般的な市況の要約で、売買の推奨ではありません。"
+    text = [head, ""]
+    for a, b, u, n in rows:
+        text += [f"■ {a}", f"・{b}", f"  {n}", f"  {u}", ""]
+    text.append("―――")
+    text += [f"{a}：{b}  {u}" for a, b, u in tail]
+    text += ["", note, "このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。",
+             f"配信を止める（押すとすぐ止まり、メールアドレスを消します）：{stop}"]
+    A = 'style="color:#0b6b3a"'
+    h = ['<div style="max-width:600px;margin:0 auto;padding:0 16px;font-size:15px;line-height:1.7;color:#1f2933">',
+         f'<p style="margin:16px 0 10px">{escape(head)}</p>']
+    for a, b, u, n in rows:
+        h.append(f'<div style="margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px">'
+                 f'<div style="font-size:16px;font-weight:bold">{escape(a)}</div>'
+                 f'<div style="margin-top:4px">{escape(b)}</div>'
+                 f'<div style="margin-top:4px;color:#4a5560;font-size:14px">{escape(n)}</div>'
+                 f'<div style="margin-top:6px"><a href="{u}" {A}>開く →</a></div></div>')
+    h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
+    h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
+    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。<br>'
+             f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスを消します）</p>'
+             '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
+    parts = []
+    if F.regime:
+        parts.append(f"地合い {REGIME_JP.get(F.regime[0], F.regime[0])}")
+    if F.ai:
+        parts.append(f"AI朝刊 {AI_JP[F.ai[0]]}")
+    subject = f"株レーダー 朝の1通（{md(F.today.isoformat())}）" + "・".join(parts)
+    return {"subject": subject, "text": "\n".join(text), "html": "\n".join(h), "n": 0, "stop": stop}
+
+
 def compose(F, codes, token):
-    """codes のうち出来事のある銘柄だけで文面を作る。無ければ None"""
+    """codes のうち出来事のある銘柄だけで文面を作る。無ければ None。codes が空（地合いだけの申込み）は compose_market"""
+    if not codes:
+        return compose_market(F, token)
     blocks = [(c, F.names.get(c) or c, F.lines(c)) for c in codes]
     blocks = [b for b in blocks if b[2]]
     blocks.sort(key=lambda b: F.weight(b[0]))   # 重い出来事の銘柄から（同じ段はボードの順）
@@ -493,7 +555,7 @@ def main():
         m = compose(F, r.get("codes") or [], r["token"])
         if m:
             todo.append((r, m))
-    print(f"確認済み {len(rows)} 人・今日送る {len(todo)} 人（出来事のない人には送らない）")
+    print(f"確認済み {len(rows)} 人（うち地合いだけ {sum(1 for r in rows if not r.get('codes'))} 人）・今日送る {len(todo)} 人（出来事のない人には送らない）")
     if len(todo) > WARN_AT:
         print(f"::warning::今日送るのは {len(todo)} 通（{WARN_AT} 通超え）。上限 {DAILY_CAP} 通・Resend の無料枠 100通/日はルールトレードの通知・ログインメールと共用")
     if len(todo) > DAILY_CAP:
@@ -503,7 +565,7 @@ def main():
     if a.dry_run:
         # 文面（保有の銘柄）と停止のリンクの token はログに出さない。--only のときだけ本人の文面を token を伏せて出す
         for r, m in todo:
-            print(f"{who(r)}: {m['n']}銘柄に出来事")
+            print(f"{who(r)}: " + (f"{m['n']}銘柄に出来事" if m["n"] else "地合いと AI朝刊の結論だけ"))
             if a.only:
                 print(m["subject"] + "\n" + m["text"].replace(r["token"], "<token>"))
         return 0
