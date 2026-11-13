@@ -61,8 +61,9 @@ VIEW_JP = {"up": "上寄り", "flat": "横ばい", "down": "下寄り"}
 FLAT_BAND = 1.0   # 横ばい＝週間の騰落が ±1.0% 以内（金曜終値→翌週金曜終値）
 DAYS_DIR = "ai_weekly_days"   # docs/ai_weekly_days/<週末の土曜>-sat|sun.json（記録ページの元）
 
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-1"
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-2"
 MODEL_NAMES = {
+    "claude-fable-5-2": "Claude Fable 5.2",
     "claude-fable-5-1": "Claude Fable 5.1",
     "claude-opus-5": "Claude Opus 5",
     "claude-sonnet-5": "Claude Sonnet 5",

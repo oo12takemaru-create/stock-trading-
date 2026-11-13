@@ -8,7 +8,7 @@ name: AI Morning Ingest (routine → main)
 #   routine は main に直接 push できない（ルールセット: PR必須、Deploy key のみバイパス）ため。
 #
 # 回答が不正なら ai_analysis.py が exit 2 で落ち、ブランチは調査用に残る。
-# モデル表記: ブランチ先頭コミットのメッセージに「model=Claude Fable 5.1 (Claude Code 定期実行)」
+# モデル表記: ブランチ先頭コミットのメッセージに「model=Claude Fable 5.2 (Claude Code 定期実行)」
 #   のように書けばそれを使う。無ければ ai_analysis.py の既定（Claude (Claude Code 定期実行)）。
 on:
   push:
