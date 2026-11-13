@@ -529,6 +529,7 @@ PROMPT_SAT = """あなたは日本株市場を専門とするマクロアナリ�
 # 週次の需給
 {flow}
 
+{style}
 # 出力（JSONのみ。コードフェンスや前置きは書かない）
 {{
   "title": "今週を一言で（25字以内。例: 中銀2つを越えて、半導体が戻った週）",
@@ -593,6 +594,7 @@ PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリ�
 # 長い目で見るの材料（当サイトの集計・数字だけ）
 {long_material}
 {qa_section}
+{style}
 # 出力（JSONのみ。コードフェンスや前置きは書かない）
 {{
   "title": "来週の見立てを一言で（25字以内。例: CPI週、7万円の上は重い）",
@@ -733,6 +735,7 @@ def build_prompt(today):
             secl.append("  強かった順: " + "、".join(f"{s['n']}{s['c']:+.2f}%" for s in secw["strong"]))
             secl.append("  弱かった順: " + "、".join(f"{s['n']}{s['c']:+.2f}%" for s in secw["weak"]))
         prompt = PROMPT_SAT.format(
+            style=STYLE_MARK,
             word_rule=WORD_RULE,
             prev_view=prev_view_text(pv, out.get("weekend")),
             week_days="\n".join(week_day_lines(days)) or "(取得できず)",
@@ -753,6 +756,7 @@ def build_prompt(today):
         else:
             satt = "（今週の土曜版はありません）"
         prompt = PROMPT_SUN.format(
+            style=STYLE_MARK,
             word_rule=WORD_RULE, sat=satt,
             prev_view=prev_view_text(pv, None),
             market="\n".join(market_lines()) or "(取得できず)",
@@ -764,7 +768,26 @@ def build_prompt(today):
             event_stats="\n".join(event_stat_lines(ev)) or "(該当なし)",
             long_guide=_long_guide(), long_material="\n".join(long_material_lines()),
             qa_section=qa_section(today, mon, fri, ctx))
-    return prompt, ctx
+    return prompt.replace(STYLE_MARK, _style(prompt, today)), ctx
+
+
+# 2026-11-13〜 書き方の指針（ai_style_notes.md）を入れる場所の目印。プロンプトを作ってから差し替える
+STYLE_MARK = "\x00STYLE\x00"
+
+
+def _style(prompt, today):
+    """書き方の指針＋直近5号で続けた言い回し。読めない・空なら ""（今までどおりのプロンプト）"""
+    try:
+        import ai_style
+        texts = ai_style.recent_weekly_texts(days_dir(), today.isoformat())
+        tmpl = PROMPT_SAT if MODE == "sat" else PROMPT_SUN
+        # 言い回しを数えるとき、データの用語は外す。前の号の文（土曜版・先週末の見立て）はデータに数えない
+        ex = ai_style.data_only(prompt.replace(STYLE_MARK, ""), tmpl,
+                                drop_sections=("# 昨日（土曜）", "# 先週末の見立て"))
+        return ai_style.style_block(MODE, texts, exclude=ex)
+    except Exception as e:
+        print(f"  書き方の指針を入れられず（指針なしで書く）: {e}", file=sys.stderr)
+        return ""
 
 
 # 2026-11-08〜 アーサーの質問箱（日曜だけ・qa_material.py）。問いが無い週・材料が作れない週は何も足さない
@@ -827,6 +850,12 @@ def _inputs_only(prompt):
     """プロンプトから指示文（PROMPT_SUN の地の文・WORD_RULE・LONG_GUIDE）を取り除き、入力データだけにする。
     「400〜600字」などの指示の数字で、入力に無い数字が通ってしまわないように"""
     t = prompt
+    # 書き方の指針の節（「1〜3個」「30行」などの数字）も入力データではないので外す（2026-11-13〜）
+    try:
+        import ai_style
+        t = ai_style.strip_block(t)
+    except Exception:
+        pass
     try:
         import deep_material
         extra = [deep_material.LONG_GUIDE, WORD_RULE]
