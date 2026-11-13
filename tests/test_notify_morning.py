@@ -112,5 +112,31 @@ ok("（ほか2件はカルテで）" in F.lines("1111")[1], "3件目からはほ
 F.add("1111", 0, "今が買い時")
 ok(all("買い時" not in x for x in F.lines("1111")), "使わない言葉の行は落とす")
 
+# 地合いと AI朝刊の結論だけ（銘柄を登録していない人・2026-11-13）
+put("ai_analysis.json", {"latest": {"date": "2026-11-11", "updated": "2026-11-11T06:18:00+09:00", "stance": "lean_defense",
+                                    "headline": "金利上昇でやや守り"}})
+F3 = N.Facts(date(2026, 11, 11))
+F3.build()
+mm = N.compose(F3, [], "c" * 64)
+ok(mm and mm["n"] == 0, "銘柄なしでも地合いの1通を作る")
+ok("中立（NEUTRAL）" in mm["text"] and "見立て「やや守り」：金利上昇でやや守り" in mm["text"], "温度計と AI朝刊の結論")
+ok("radar.html?utm_source=notify" in mm["html"] and "ai.html?utm_source=notify" in mm["html"], "温度計・AI朝刊へのリンク")
+ok("a=nstop&t=" + "c" * 64 in mm["text"], "停止のリンク（地合いだけ）")
+ok(mm["subject"] == "株レーダー 朝の1通（11/11）地合い 中立・AI朝刊 やや守り", "件名（地合いだけ）")
+bodym = re.sub("売買の推奨ではありません", "", mm["text"] + mm["html"])
+eq([w for w in ("買い", "売り", "推奨", "おすすめ", "必ず", "リアルタイム", "予想", "狙い目") if w in bodym], [], "地合いの1通に使わない言葉を足さない")
+put("ai_analysis.json", {"latest": {"date": "2026-11-10", "stance": "attack", "headline": "x"}})
+F4 = N.Facts(date(2026, 11, 11))
+F4.build()
+m4 = N.compose(F4, [], "d" * 64)
+ok(m4 and "AI朝刊" not in m4["subject"] and "見立て「" not in m4["text"], "昨日の AI朝刊は出さない（温度計だけ）")
+put("ai_analysis.json", {"latest": {"date": "2026-11-11", "stance": "attack", "headline": "今が買い時"}})
+F5 = N.Facts(date(2026, 11, 11))
+F5.build()
+ok("買い時" not in N.compose(F5, [], "e" * 64)["text"] and "見立て「攻め」" in N.compose(F5, [], "e" * 64)["text"], "使わない言葉の1行は落とし見立てだけ")
+F5.regime = None
+F5.ai = None
+eq(N.compose(F5, [], "e" * 64), None, "温度計も AI朝刊も無い日は送らない")
+
 print("OK" if not NG else f"{NG} 件 NG")
 sys.exit(1 if NG else 0)
