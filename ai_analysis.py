@@ -45,13 +45,13 @@ PAGES = "https://oo12takemaru-create.github.io/stock-trading-"
 DOCS = Path("docs")
 
 # モデルは環境変数で差し替え可能(コストと品質のトレードオフ)
-#   claude-fable-5-1 (既定)
+#   claude-fable-5-2 (既定・2026-11-13〜。それまでは claude-fable-5-1)
 #   claude-opus-5
 #   claude-sonnet-5
 #   claude-haiku-4-5 (最安)
 # 1日1本なのでコスト差は無視できる。表示名は kaburadar-ai/publish.py の
 # MODEL_LABEL と ai.html の表記に必ず揃えること。
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-1"
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip() or "claude-fable-5-2"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
 
 RSS_FEEDS = [
@@ -673,6 +673,7 @@ def call_gemini(prompt, key):
 # APIのモデルIDをそのまま出すと「Claude claude-opus-5」のような二重表記になるので、
 # 表示用の名前に変換する。ここに無いIDはIDのまま出す（嘘の名前を作らない）。
 MODEL_NAMES = {
+    "claude-fable-5-2": "Claude Fable 5.2",
     "claude-fable-5-1": "Claude Fable 5.1",
     "claude-opus-5":    "Claude Opus 5",
     "claude-sonnet-5":  "Claude Sonnet 5",
