@@ -1,6 +1,23 @@
 {
  "issues": [
   {
+   "kind": "sat",
+   "date": "2026-11-14",
+   "issue": null,
+   "title": "金利高のなかで、銀行と電機が戻した週",
+   "first": "日経は週間+6.46%で61,142円、前半3日で戻しの大半を出しました",
+   "chars": 1334,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
    "kind": "morning",
    "date": "2026-11-13",
    "issue": 26,
@@ -457,5 +474,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-13T22:44:58+09:00"
+ "updated": "2026-11-14T08:12:42+09:00"
 }
