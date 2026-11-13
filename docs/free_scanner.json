@@ -1,6 +1,6 @@
 {
- "target_date": "2026-11-11",
- "generated_at": "2026-11-12T21:03:14+09:00",
+ "target_date": "2026-11-12",
+ "generated_at": "2026-11-13T18:03:30+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,35 +8,35 @@
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -27.37
+   "kairi": -26.83
   },
   {
    "judge": "signal",
-   "code": "2914",
-   "name": "JT",
-   "sector": "たばこ",
-   "kairi": -21.65
+   "code": "6981",
+   "name": "村田製作所",
+   "sector": "電子部品",
+   "kairi": -19.51
   },
   {
    "judge": "signal",
-   "code": "3436",
-   "name": "SUMCO",
-   "sector": "半導体",
-   "kairi": -18.84
+   "code": "6976",
+   "name": "太陽誘電",
+   "sector": "電子部品",
+   "kairi": -19.32
   }
  ],
- "asof": "2026-11-12",
+ "asof": "2026-11-13",
  "stale": false,
- "signals_today_date": "2026-11-12",
+ "signals_today_date": "2026-11-13",
  "is_halt": false,
- "signals_today_count": 2,
+ "signals_today_count": 4,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 2,
+  "BNF-LITE": 4,
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-11-12",
+  "scan_date": "2026-11-13",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
   "code": "4259",
