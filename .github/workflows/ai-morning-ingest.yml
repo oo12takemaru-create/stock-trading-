@@ -103,6 +103,8 @@ jobs:
       # 2026-11-13〜 号ごとの記録（見出し・書き出し・字数。反応の欄は統括が足す）。失敗しても朝刊は止めない
       - name: Record issue for feedback
         continue-on-error: true
+        env:
+          AI_TAPS_URL: ${{ vars.AI_TAPS_URL }}   # サイトの1タップの公開の集計（できたら変数に置く。空なら何もしない）
         run: python -X utf8 ai_feedback.py record morning
 
       - name: Build X post text and image
