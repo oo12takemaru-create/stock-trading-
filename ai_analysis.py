@@ -415,6 +415,7 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
 - どちらかを推す言葉(「〜すべき」「おすすめ」など)は書かない。両方の言い分を同じ温度で並べる
 - verdict は「機械の判定」と「それを動かさなかった/1段下げた理由」を1文で。stance と矛盾させない
 
+{style}
 {deep_guide}
 
 # 今朝の客観データ
@@ -560,6 +561,24 @@ def _deep_guide():
         return deep_material.DEEP_GUIDE
     except Exception:
         return ""
+
+
+def _style(dst, inputs, today):
+    """書き方の指針（ai_style_notes.md）＋直近5号で続けた言い回し（2026-11-13〜）。
+    読めない・空なら ""（今までどおりのプロンプト）。ここで朝刊は止めない"""
+    try:
+        import ai_style
+        texts = ai_style.recent_morning_texts(dst, today)
+        ex = ai_style.data_only(inputs, drop_sections=("## 前回のAI分析",))
+        return ai_style.style_block("morning", texts, exclude=ex)
+    except Exception as e:
+        print(f"書き方の指針を入れられず（指針なしで書く）: {e}", file=sys.stderr)
+        return ""
+
+
+def build_prompt(dst, inputs, today):
+    return PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide(),
+                                  style=_style(dst, inputs, today))
 
 
 def check_deep(data, source):
@@ -895,7 +914,7 @@ def run_prompt_out(dst, prompt_out, inputs_out):
         print("入力データが少なすぎるため中止", file=sys.stderr)
         sys.exit(1)
     Path(inputs_out).write_text(inputs, encoding="utf-8")
-    prompt = PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide())
+    prompt = build_prompt(dst, inputs, datetime.now(JST).strftime("%Y-%m-%d"))
     Path(prompt_out).write_text(prompt, encoding="utf-8")
     print(f"プロンプトを出力: {prompt_out} ({len(prompt)}文字) / 入力データ: {inputs_out}")
 
@@ -944,7 +963,7 @@ def run_api(dst):
     # make_x_post.py が数字を拾えるよう入力データを残す(デバッグにも使う)
     Path("inputs.txt").write_text(inputs, encoding="utf-8")
 
-    prompt = PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide())
+    prompt = build_prompt(dst, inputs, now.strftime("%Y-%m-%d"))
 
     data = None
     err = None

@@ -100,6 +100,13 @@ jobs:
           if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
           exit $rc
 
+      # 2026-11-13〜 号ごとの記録（見出し・書き出し・字数。反応の欄は統括が足す）。失敗しても朝刊は止めない
+      - name: Record issue for feedback
+        continue-on-error: true
+        env:
+          AI_TAPS_URL: ${{ vars.AI_TAPS_URL }}   # サイトの1タップの公開の集計（できたら変数に置く。空なら何もしない）
+        run: python -X utf8 ai_feedback.py record morning
+
       - name: Build X post text and image
         continue-on-error: true    # 投稿素材の失敗で朝刊の公開を止めない
         run: |
@@ -112,6 +119,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/ai_analysis.json docs/score3.json docs/x/x_card.png docs/x/x_post.txt
+          [ -f docs/ai_feedback.json ] && git add -f docs/ai_feedback.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0

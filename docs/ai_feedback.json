@@ -1,0 +1,461 @@
+{
+ "issues": [
+  {
+   "kind": "morning",
+   "date": "2026-11-13",
+   "issue": 26,
+   "title": "金急落と米金利上昇、先物+0.5%でもやや守り",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-1（トレンド-2・短期リスク0・需給+1）で、機械の判定は「やや守り」。",
+   "watch": "先物ベースの寄り付き想定は現物比+0.5%の61,150円近辺。",
+   "chars": 2140,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-12",
+   "issue": 25,
+   "title": "半導体高で先物+1.3%の高寄り想定、中立で戻りを試す",
+   "stance": "neutral",
+   "machine": "neutral",
+   "first": "3軸スコアは合計+0（トレンド-2・短期リスク0・需給+2）で、機械の判定は「中立」。",
+   "watch": "先物ベースの寄り付き想定は現物比+1.3%の62,025円近辺で、SOX+5.66%を受けた高寄りのあと、日経平均が200日線近辺のこの水準を保って引けられるか…",
+   "chars": 2106,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-11",
+   "issue": 24,
+   "title": "反発翌日は先物-0.7%の小安い寄り、やや守り継続",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-1（トレンド-2・短期リスク0・需給+1）で、機械の判定は「やや守り」。",
+   "watch": "先物ベースの寄り付き想定は現物比-0.7%の60,055円近辺で、前日+2.9%の反発の翌日に寄り後の日経平均が前日終値60,460円を回復できるかがまず焦点。",
+   "chars": 2319,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-10",
+   "issue": 23,
+   "title": "反発の朝だが25日線は遠く、CPI通過まで守り",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3（トレンド-2・短期リスク-1・需給0）で、機械の判定は「守り」。",
+   "watch": "先物ベースの寄り付き想定は現物比+3.7%の60,945円近辺で、米SOX指数+6.85%を受けた半導体主導のギャップアップが寄り後も保たれるか、前日終値58,…",
+   "chars": 2386,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-09",
+   "issue": 22,
+   "title": "急落後の反発余地はあるが、CPI前は守り継続",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-4（トレンド-2・短期リスク-2・需給0）で、機械の判定は「守り」。",
+   "watch": "先物ベースの寄り付き想定は現物比+1.4%の58,235円近辺で、前日の米SOX指数+4.21%を受けた半導体主導の反発が寄り後も続くか、上値を抑えられて前日終…",
+   "chars": 2247,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sun",
+   "date": "2026-11-08",
+   "issue": 5,
+   "title": "9%安の翌週、戻りを試すCPI週",
+   "first": "焦点は11/10 22:30の米CPIと11/13のマイナーSQ、決算は連日集中",
+   "chars": 3640,
+   "view": "up",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sat",
+   "date": "2026-11-07",
+   "issue": null,
+   "title": "米半導体急落が波及、日経が週間9%安の週",
+   "first": "日経は63,290円から57,435円へ週間-9.25%、金曜だけで-5.96%の急落",
+   "chars": 1503,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-06",
+   "issue": 21,
+   "title": "米株急落・先物-6.1%示唆、雇用統計の夜は守り",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-4（トレンド-2・短期リスク-2・需給0）で、機械の判定は「守り」。",
+   "watch": "先物ベースの寄り付き想定は現物比-6.1%の57,345円近辺で、寄り後にこの水準を割り込まずに推移できるかがまず焦点。",
+   "chars": 2108,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-05",
+   "issue": null,
+   "title": "先物+1.4%示唆も25日線下、雇用統計前はやや守り",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-2（トレンド-1・短期リスク-1・需給0）で、機械の判定は「やや守り」。",
+   "watch": "CME先物63,045円（現物比+1.38%）が示す反発スタートを、SOX指数-3.13%の重しに対して寄り後も維持できるかをまず確認したい。",
+   "chars": 2350,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-04",
+   "issue": null,
+   "title": "祝日明け、VIX20.9と雇用統計前で守り継続",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3（トレンド-1・短期リスク-2・需給0）で、機械の判定は「守り」。",
+   "watch": "CME先物63,035円は現物比-0.07%とほぼフラットで、休場中の米株反発とドル円158.71円（前日+0.7%）を織り込んだ寄り付きが上下どちらに振れるか…",
+   "chars": 2020,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-03",
+   "issue": null,
+   "title": "VIX21台と米株安、3軸-3で機械判定どおり守り",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3で、トレンド-1・短期リスク-2・需給0となり、機械の判定は「守り」。",
+   "watch": "CME先物62,785円が示唆する現物比-0.5%程度の安寄りの後、25日線より上の銘柄比率44%が切り上がるか、VIX21.59が落ち着くかを確認したい。",
+   "chars": 1988,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-11-02",
+   "issue": null,
+   "title": "米株急落とVIX急伸、3軸-2のやや守りを維持",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-2で、トレンド-1・短期リスク-1・需給0となり、機械の判定は「やや守り」。",
+   "watch": "CME先物62,600円が示唆する現物比-1.1%程度の安寄りの後、日経が200日線の上を保てるかと、VIX19.4が20の節目を超えないかを確認したい。",
+   "chars": 1985,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sun",
+   "date": "2026-10-31",
+   "issue": null,
+   "title": "休場挟む4日間、25日線の下で戻り売り寄り",
+   "first": "日経は週間+0.95%の63,290円も、金曜は64,659円から-2.1%と失速",
+   "chars": 1892,
+   "view": "down",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-30",
+   "issue": null,
+   "title": "日銀結果を昼に控え、3軸-2からさらに一段守り",
+   "stance": "defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-2で、トレンド-1・短期リスク-1・需給0となり、機械の判定は「やや守り」。",
+   "watch": "CME先物64,145円(現物比-0.80%)が示唆する小幅安寄りの後、昼ごろの日銀会合結果を受けたドル円157.64円と米10年債利回り4.99%への反応、そ…",
+   "chars": 2366,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-29",
+   "issue": null,
+   "title": "続伸でも3軸-3、FOMC・日銀通過までは守り",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3で、トレンド・短期リスク・需給がそろって-1となり、機械の判定は「守り」(defense)。",
+   "watch": "CME先物64,365円（現物比+0.64%）が示唆する小幅高寄りの後、本日午前3時に発表されたFOMC結果を受けた米10年債利回り5.05%とドル円157.7…",
+   "chars": 1872,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-28",
+   "issue": null,
+   "title": "反発でも3軸-3の守り、FOMC・日銀を前に様子見",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3で、トレンド・短期リスク・需給がいずれも-1となり、機械の判定は「守り」(defense)。",
+   "watch": "CME先物64,405円(現物比+1.8%)が示唆する高寄りを大引けまで維持できるか、25日線66,200円との乖離-4.4%をどこまで縮められるかが焦点。",
+   "chars": 2053,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-27",
+   "issue": null,
+   "title": "3軸-3で守り継続、FOMC前の戻りは限定的か",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3で、トレンド・短期リスク・需給の3軸がいずれも-1となり、機械の判定は「守り」(defense)。",
+   "watch": "CME日経先物は62,900円で現物比+1.14%、62,900円近辺の反発スタートが示唆されるが、寄り付き後にこのギャップを維持して25日線との乖離-6.1%…",
+   "chars": 2275,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-26",
+   "issue": null,
+   "title": "3軸-3で守り、FOMC・日銀前の様子見局面",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "3軸スコアは合計-3で、トレンド・短期リスク・需給の3軸すべてが-1となり、機械の判定は「守り」(defense)。",
+   "watch": "CME日経先物は62,640円で現物比-0.08%、寄り付きは62,600円台でのほぼ横ばいスタートが示唆される。",
+   "chars": 1957,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sun",
+   "date": "2026-10-24",
+   "issue": null,
+   "title": "中銀2つとTOPIX入替の週、戻り鈍く下寄り",
+   "first": "日経は週間-4.03%の62,693円。",
+   "chars": 1479,
+   "view": "down",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-23",
+   "issue": null,
+   "title": "先物-0.9%の安寄り示唆、3軸-1でやや守り",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "3軸スコアは合計-1で、機械の判定は「やや守り」(lean_defense)。",
+   "watch": "CME日経先物62,330円は現物比-0.92%で、寄り付きは62,300円近辺の安寄りが想定される。",
+   "chars": 1734,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
+   "date": "2026-10-21",
+   "issue": null,
+   "title": "先物+0.35%の高寄り示唆、3軸+1でやや強気",
+   "stance": "lean_attack",
+   "machine": "lean_attack",
+   "first": "3軸スコアは合計+1で、機械の判定は「やや強気」(lean_attack)。",
+   "watch": "CME日経先物65,145円は現物比+0.35%で、寄り付きは65,100円台の高寄りが想定される。",
+   "chars": 1811,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sun",
+   "date": "2026-10-17",
+   "issue": null,
+   "title": "半導体急落の余波、25日線回復まで下寄り",
+   "first": "日経は週間-8.01%の64,426円、25日線66,508円を下抜けた",
+   "chars": 1715,
+   "view": "down",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "sun",
+   "date": "2026-10-10",
+   "issue": null,
+   "title": "4日間のCPI週、7万円の手前でもみ合い",
+   "first": "日経は火曜に7万円台で引けたあと2日で戻し、週間+1.06%の69,031円。",
+   "chars": 1286,
+   "view": "flat",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  }
+ ],
+ "about": "AI朝刊・週末版の号ごとの記録（ai_feedback.py が書く）。m と note は統括が足す欄で、機械は上書きしない。数字が分からない欄は null のまま",
+ "fields": {
+  "ga4_views": "GA4: その号のページの表示回数（公開から7日）",
+  "ga4_sec": "GA4: 平均エンゲージメント時間（秒）",
+  "tap_good": "サイトの1タップ「役に立った」の人数",
+  "tap_bad": "サイトの1タップ「いまいち」の人数",
+  "x_imp": "X: その号を紹介した投稿の表示回数",
+  "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
+ },
+ "updated": "2026-11-13T22:44:58+09:00"
+}

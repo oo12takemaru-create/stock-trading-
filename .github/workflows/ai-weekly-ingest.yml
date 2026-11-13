@@ -104,6 +104,17 @@ jobs:
           if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
           exit $rc
 
+      # 2026-11-13〜 号ごとの記録と、日曜だけ直近7号の振り返り一覧（docs/ai_review/YYYY-MM-DD.md・統括が読んで
+      # ai_style_notes.md を直す）。失敗しても週末版は止めない
+      - name: Record issue and weekly review
+        continue-on-error: true
+        env:
+          MODE: ${{ steps.br.outputs.mode }}
+          AI_TAPS_URL: ${{ vars.AI_TAPS_URL }}   # サイトの1タップの公開の集計（空なら何もしない）
+        run: |
+          python -X utf8 ai_feedback.py record "$MODE"
+          if [ "$MODE" = "sun" ]; then python -X utf8 ai_feedback.py review; fi
+
       - name: Commit ai_weekly.json
         env:
           MODE: ${{ steps.br.outputs.mode }}
@@ -113,6 +124,8 @@ jobs:
           git add -f docs/ai_weekly.json
           # 2026-11-07〜 記録（kaburadar の weekly/YYYY-MM-DD.html の元）
           git add -f docs/ai_weekly_days
+          [ -f docs/ai_feedback.json ] && git add -f docs/ai_feedback.json
+          [ -d docs/ai_review ] && git add -f docs/ai_review
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
