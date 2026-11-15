@@ -1,0 +1,416 @@
+{
+ "name": "相場の温度計",
+ "updated": "2026-11-15T23:22:46+09:00",
+ "trade_date": "2026-11-13",
+ "value": 20,
+ "regime": "BEARISH",
+ "regime_jp": "弱気",
+ "band": {
+  "lo": 15,
+  "hi": 39
+ },
+ "position_in_band": 22.9,
+ "overall_position": 17.5,
+ "regime_changed": false,
+ "prev_regime": "BEARISH",
+ "compare": {
+  "yesterday": {
+   "d": "2026-11-12",
+   "value": 21,
+   "regime": "BEARISH",
+   "regime_jp": "弱気",
+   "diff": -1
+  },
+  "week": {
+   "d": "2026-11-06",
+   "value": 16,
+   "regime": "BEARISH",
+   "regime_jp": "弱気",
+   "diff": 4
+  },
+  "month": {
+   "d": "2026-10-15",
+   "value": 44,
+   "regime": "NEUTRAL",
+   "regime_jp": "中立",
+   "diff": -24
+  }
+ },
+ "year": {
+  "from": "2025-11-13",
+  "high": {
+   "d": "2026-05-29",
+   "value": 99
+  },
+  "low": {
+   "d": "2026-03-30",
+   "value": 14
+  }
+ },
+ "components": [
+  {
+   "key": "n225_ma200",
+   "label": "日経平均と200日線の差",
+   "unit": "%",
+   "direction": "高いほど温度が上がる",
+   "raw": -1.59,
+   "pos": 18.4,
+   "weight": 0.2
+  },
+  {
+   "key": "n225_ma50",
+   "label": "日経平均と50日線の差",
+   "unit": "%",
+   "direction": "高いほど温度が上がる",
+   "raw": -5.54,
+   "pos": 4.8,
+   "weight": 0.2
+  },
+  {
+   "key": "n225_chg22",
+   "label": "日経平均の22営業日前比",
+   "unit": "%",
+   "direction": "高いほど温度が上がる",
+   "raw": -9.75,
+   "pos": 2.6,
+   "weight": 0.2
+  },
+  {
+   "key": "sp500_ma200",
+   "label": "S&P500と200日線の差",
+   "unit": "%",
+   "direction": "高いほど温度が上がる",
+   "raw": 3.02,
+   "pos": 26.9,
+   "weight": 0.2
+  },
+  {
+   "key": "vix",
+   "label": "VIX（米国株の値動きの荒さ）",
+   "unit": "",
+   "direction": "低いほど温度が上がる",
+   "raw": 19.3,
+   "pos": 34.6,
+   "weight": 0.2
+  }
+ ],
+ "bands": [
+  {
+   "regime": "PANIC",
+   "jp": "総崩れ",
+   "lo": 0,
+   "hi": 14
+  },
+  {
+   "regime": "BEARISH",
+   "jp": "弱気",
+   "lo": 15,
+   "hi": 39
+  },
+  {
+   "regime": "NEUTRAL",
+   "jp": "中立",
+   "lo": 40,
+   "hi": 59
+  },
+  {
+   "regime": "BULLISH",
+   "jp": "強気",
+   "lo": 60,
+   "hi": 100
+  }
+ ],
+ "definition": "相場の温度計（0〜100）は、日経平均・S&P500・VIX の今の位置を過去10年と比べて、日本株の地合いを1つの数字にまとめたものです。0に近いほど総悲観、100に近いほど過熱を表します。数字の帯は温度計の4段階の判定と一致します（総崩れ0〜14・弱気15〜39・中立40〜59・強気60〜100）。帯の中の位置は、判定に使う5つの値（日経平均と200日線・50日線の差、日経平均の22営業日前比、S&P500と200日線の差、VIX）が過去10年の中でどのあたりにあるかを平均し、過去10年の同じ判定の日と比べて決めます。判定が変わった日は数字が大きく動きます。これは地合いの要約で、売買の合図ではありません。",
+ "definition_short": "日経平均・S&P500・VIX の位置を過去10年と比べて0〜100にまとめた地合いの要約（0が総悲観・100が過熱）。",
+ "method": {
+  "regime": "daily_scanner_v2_8_0.detect_market_regime（温度計の判定そのもの）",
+  "position": "5つの入力それぞれの、その日までの過去2450営業日（約10年）の中の位置を平均し（overall_position）、それを同じ期間の同じ判定の日の中での位置にしたもの（position_in_band）",
+  "temperature": "帯の下限 + 位置 ×（帯の上限 − 下限）を四捨五入",
+  "lookback": "昨日=1営業日前・1週間前=5営業日前・1か月前=20営業日前（履歴の並びで数える）",
+  "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）"
+ },
+ "history_file": "thermo100_hist.json",
+ "history_days": 2442,
+ "stats": {
+  "period": [
+   "2016-11-14",
+   "2026-11-13"
+  ],
+  "how": "温度が出た日の終値から、5営業日後・20営業日後の終値までの騰落（%）。続いた日は1つのかたまりとして episodes に数える（日ごとの値は期間が重なるので独立ではない）。手数料・税金は含まない。",
+  "note_scale": "日経平均（^N225）で集計。温度計ページの既存の成績表は TOPIX 連動ETF（1306）を翌営業日の寄り付きから測っているので、物差しが違う。1306 の同じ集計を etf に並べる（終値から終値・分割調整済み）。",
+  "sankou_rule": "かたまりが5未満、または20営業日後の件数が30未満なら参考値（sankou=true）",
+  "groups": [
+   {
+    "key": "le20",
+    "label": "温度20以下",
+    "n225": {
+     "n_days": 305,
+     "episodes": 35,
+     "r5": {
+      "n": 302,
+      "avg": 0.47,
+      "med": 0.76,
+      "up_pct": 59.6
+     },
+     "r20": {
+      "n": 300,
+      "avg": 2.52,
+      "med": 3.34,
+      "up_pct": 70.0
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 305,
+     "episodes": 35,
+     "r5": {
+      "n": 301,
+      "avg": 0.47,
+      "med": 0.71,
+      "up_pct": 61.5
+     },
+     "r20": {
+      "n": 299,
+      "avg": 2.43,
+      "med": 3.13,
+      "up_pct": 72.9
+     },
+     "sankou": false
+    }
+   },
+   {
+    "key": "ge80",
+    "label": "温度80以上",
+    "n225": {
+     "n_days": 462,
+     "episodes": 58,
+     "r5": {
+      "n": 462,
+      "avg": 0.39,
+      "med": 0.25,
+      "up_pct": 56.1
+     },
+     "r20": {
+      "n": 462,
+      "avg": 1.24,
+      "med": 1.51,
+      "up_pct": 60.6
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 462,
+     "episodes": 58,
+     "r5": {
+      "n": 462,
+      "avg": 0.35,
+      "med": 0.25,
+      "up_pct": 54.8
+     },
+     "r20": {
+      "n": 462,
+      "avg": 1.03,
+      "med": 1.48,
+      "up_pct": 69.3
+     },
+     "sankou": false
+    }
+   },
+   {
+    "key": "band_PANIC",
+    "label": "総崩れの帯（0〜14）",
+    "n225": {
+     "n_days": 28,
+     "episodes": 5,
+     "r5": {
+      "n": 28,
+      "avg": 1.71,
+      "med": 4.17,
+      "up_pct": 64.3
+     },
+     "r20": {
+      "n": 28,
+      "avg": 8.62,
+      "med": 8.94,
+      "up_pct": 78.6
+     },
+     "sankou": true
+    },
+    "etf1306": {
+     "n_days": 28,
+     "episodes": 5,
+     "r5": {
+      "n": 27,
+      "avg": 2.26,
+      "med": 3.83,
+      "up_pct": 66.7
+     },
+     "r20": {
+      "n": 27,
+      "avg": 8.26,
+      "med": 8.34,
+      "up_pct": 88.9
+     },
+     "sankou": true
+    }
+   },
+   {
+    "key": "band_BEARISH",
+    "label": "弱気の帯（15〜39）",
+    "n225": {
+     "n_days": 742,
+     "episodes": 77,
+     "r5": {
+      "n": 737,
+      "avg": 0.58,
+      "med": 0.72,
+      "up_pct": 61.5
+     },
+     "r20": {
+      "n": 735,
+      "avg": 1.94,
+      "med": 2.07,
+      "up_pct": 67.8
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 742,
+     "episodes": 77,
+     "r5": {
+      "n": 736,
+      "avg": 0.51,
+      "med": 0.6,
+      "up_pct": 62.0
+     },
+     "r20": {
+      "n": 734,
+      "avg": 1.62,
+      "med": 1.99,
+      "up_pct": 68.8
+     },
+     "sankou": false
+    }
+   },
+   {
+    "key": "band_NEUTRAL",
+    "label": "中立の帯（40〜59）",
+    "n225": {
+     "n_days": 736,
+     "episodes": 146,
+     "r5": {
+      "n": 736,
+      "avg": 0.05,
+      "med": 0.26,
+      "up_pct": 55.3
+     },
+     "r20": {
+      "n": 723,
+      "avg": 0.6,
+      "med": 0.72,
+      "up_pct": 58.2
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 736,
+     "episodes": 146,
+     "r5": {
+      "n": 736,
+      "avg": 0.09,
+      "med": 0.32,
+      "up_pct": 55.8
+     },
+     "r20": {
+      "n": 723,
+      "avg": 0.85,
+      "med": 1.24,
+      "up_pct": 63.5
+     },
+     "sankou": false
+    }
+   },
+   {
+    "key": "band_BULLISH",
+    "label": "強気の帯（60〜100）",
+    "n225": {
+     "n_days": 936,
+     "episodes": 107,
+     "r5": {
+      "n": 936,
+      "avg": 0.22,
+      "med": 0.16,
+      "up_pct": 53.2
+     },
+     "r20": {
+      "n": 936,
+      "avg": 0.77,
+      "med": 0.69,
+      "up_pct": 56.1
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 936,
+     "episodes": 107,
+     "r5": {
+      "n": 936,
+      "avg": 0.18,
+      "med": 0.22,
+      "up_pct": 54.4
+     },
+     "r20": {
+      "n": 936,
+      "avg": 0.72,
+      "med": 1.02,
+      "up_pct": 61.2
+     },
+     "sankou": false
+    }
+   },
+   {
+    "key": "all",
+    "label": "全期間",
+    "n225": {
+     "n_days": 2442,
+     "episodes": 1,
+     "r5": {
+      "n": 2437,
+      "avg": 0.29,
+      "med": 0.35,
+      "up_pct": 56.5
+     },
+     "r20": {
+      "n": 2422,
+      "avg": 1.17,
+      "med": 1.19,
+      "up_pct": 60.5
+     },
+     "sankou": false
+    },
+    "etf1306": {
+     "n_days": 2442,
+     "episodes": 1,
+     "r5": {
+      "n": 2435,
+      "avg": 0.28,
+      "med": 0.37,
+      "up_pct": 57.2
+     },
+     "r20": {
+      "n": 2420,
+      "avg": 1.12,
+      "med": 1.34,
+      "up_pct": 64.5
+     },
+     "sankou": false
+    }
+   }
+  ]
+ },
+ "radar_check": {
+  "radar_json_regime": "BEARISH",
+  "radar_json_day": "2026-11-13",
+  "same": true
+ }
+}
