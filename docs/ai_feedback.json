@@ -1,6 +1,26 @@
 {
  "issues": [
   {
+   "kind": "morning",
+   "date": "2026-11-16",
+   "issue": 27,
+   "title": "米半導体安と金利5.15%、戻りは一服しやすい朝",
+   "stance": "lean_defense",
+   "machine": "lean_defense",
+   "first": "今日はやや守りの構えです。",
+   "watch": "9:00の寄りで前日終値の61,142円を保てるかが最初の分かれ目で、上なら米半導体安をこなした、下なら戻りの一服と読みます。",
+   "chars": 1523,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
    "kind": "sun",
    "date": "2026-11-15",
    "issue": 6,
@@ -492,5 +512,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-15T17:40:17+09:00"
+ "updated": "2026-11-16T06:18:00+09:00"
 }
