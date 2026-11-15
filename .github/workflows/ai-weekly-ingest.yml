@@ -11,26 +11,100 @@ name: AI Weekly Ingest (routine → main)
 #
 # 回答が不正なら weekly.py が exit 2 で落ち、ブランチは調査用に残る。
 # モデル表記: ブランチ先頭コミットのメッセージに「model=...」があればそれを使う。
+#
+# 2026-11-15〜 日曜版は土曜の朝に書いておき、日曜の朝に公開する（本人決定）。
+#   ai-weekly/<日曜>-sun が日曜 7:00 JST より前に push されたら、取り込まずに保留する（ブランチは残す）。
+#   日曜 7:00 / 8:00 / 9:00 / 12:00 JST の schedule（GitHub の schedule は遅れるので複数回）が、
+#   待っている ai-weekly/<今日>-sun を取り込む。取り込み済み（ブランチが消えている）なら何もしない。
+#   取り込みは weekly.py --date <ブランチの日付> で行う（号の日付・Vol・号数はブランチの日付で決まる）。
+#   土曜版を取り込んだら ai-weekly-prep.yml を mode=sun で呼び、日曜版のプロンプトを土曜版入りで作り直させる
+#   （作り直すかどうかは prep 側の weekly_prep_gate.py が決める）。
 on:
   push:
     branches: ['ai-weekly/**']
+  schedule:
+    - cron: '0 22 * * 6'   # 22:00 UTC(土) = 7:00 JST(日)
+    - cron: '0 23 * * 6'   # 23:00 UTC(土) = 8:00 JST(日)・予備
+    - cron: '0 0 * * 0'    # 00:00 UTC(日) = 9:00 JST(日)・予備
+    - cron: '0 3 * * 0'    # 03:00 UTC(日) = 12:00 JST(日)・予備
   workflow_dispatch:
     inputs:
       branch:
-        description: '取り込むブランチ名（例: ai-weekly/2026-10-10-sat）'
-        required: true
+        description: '取り込むブランチ名（例: ai-weekly/2026-10-10-sat）。空なら今日の日曜版（ai-weekly/<今日>-sun）'
+        required: false
+        default: ''
+      force:
+        description: '日曜版を日曜 7:00 JST より前でも取り込むときだけ true'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
+  actions: write   # 土曜版の取り込み後に ai-weekly-prep.yml（mode=sun）を呼ぶ
 
 concurrency:
   group: ai-weekly            # ai-weekly.yml と同じ
   cancel-in-progress: false
 
 jobs:
-  ingest:
+  # 取り込むブランチを決め、日曜版を日曜 7:00 JST まで保留する（go=false なら ingest は動かない）
+  gate:
     # ブランチ削除の push では動かさない
-    if: github.event_name == 'workflow_dispatch' || github.event.deleted != true
+    if: github.event_name != 'push' || github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.br.outputs.go }}
+      branch: ${{ steps.br.outputs.branch }}
+      mode: ${{ steps.br.outputs.mode }}
+      date: ${{ steps.br.outputs.date }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve branch and mode
+        id: br
+        env:
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          FORCE: ${{ github.event.inputs.force }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          BR="$REF_NAME"
+          [ "$EVENT_NAME" = "push" ] || BR="$INPUT_BRANCH"
+          if [ -z "$BR" ]; then
+            # schedule / 空の手動実行: 待っている今日の日曜版
+            BR="ai-weekly/$(TZ='Asia/Tokyo' date +%Y-%m-%d)-sun"
+            if ! git ls-remote --exit-code --heads origin "$BR" >/dev/null 2>&1; then
+              echo "待っている $BR は無い（取り込み済み・まだ書かれていない）→ 何もしない"
+              echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          fi
+          if ! printf '%s' "$BR" | grep -Eq '^ai-weekly/[A-Za-z0-9._-]+-(sat|sun|review|outlook)$'; then
+            echo "::error::ブランチ名が規則(ai-weekly/YYYY-MM-DD-<sat|sun|review|outlook>)に合いません: $BR"; exit 1
+          fi
+          M="${BR##*-}"
+          case "$M" in review) M=sat ;; outlook) M=sun ;; esac
+          D=$(printf '%s' "${BR#ai-weekly/}" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+          echo "mode=$M" >> "$GITHUB_OUTPUT"
+          echo "date=$D" >> "$GITHUB_OUTPUT"
+          echo "取り込むブランチ: $BR / モード: $M / 号の日付: ${D:-（ブランチ名に無し→今日）}"
+          if [ "$M" = "sun" ] && [ -n "$D" ] && [ "$FORCE" != "true" ]; then
+            # 公開は号の日付（日曜）の 7:00 JST から。それより前は保留（ブランチは残し、日曜の schedule が取り込む）
+            NOW=$(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M')
+            if [ "$NOW" \< "$D 07:00" ]; then
+              echo "保留: 日曜版 $D の公開は $D 07:00 JST から（いま $NOW JST）。日曜の schedule が取り込む"
+              echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
+
+  ingest:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -38,19 +112,14 @@ jobs:
       - name: Resolve branch and mode
         id: br
         env:
-          INPUT_BRANCH: ${{ github.event.inputs.branch }}
-          REF_NAME: ${{ github.ref_name }}
-          EVENT_NAME: ${{ github.event_name }}
+          BR: ${{ needs.gate.outputs.branch }}
+          M: ${{ needs.gate.outputs.mode }}
+          D: ${{ needs.gate.outputs.date }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then BR="$INPUT_BRANCH"; else BR="$REF_NAME"; fi
-          if ! printf '%s' "$BR" | grep -Eq '^ai-weekly/[A-Za-z0-9._-]+-(sat|sun|review|outlook)$'; then
-            echo "::error::ブランチ名が規則(ai-weekly/YYYY-MM-DD-<sat|sun|review|outlook>)に合いません: $BR"; exit 1
-          fi
-          M="${BR##*-}"
-          case "$M" in review) M=sat ;; outlook) M=sun ;; esac
           echo "branch=$BR" >> "$GITHUB_OUTPUT"
           echo "mode=$M" >> "$GITHUB_OUTPUT"
-          echo "取り込むブランチ: $BR / モード: $M"
+          echo "date=$D" >> "$GITHUB_OUTPUT"
+          echo "取り込むブランチ: $BR / モード: $M / 号の日付: $D"
 
       - name: Checkout main
         uses: actions/checkout@v4
@@ -97,9 +166,12 @@ jobs:
         env:
           MODEL_LABEL: ${{ steps.take.outputs.model_label }}
           MODE: ${{ steps.br.outputs.mode }}
+          D: ${{ steps.br.outputs.date }}
         run: |
           set +e
-          python -X utf8 weekly.py --answer ai_answer.json --model-label "$MODEL_LABEL" --prompt-file PROMPT.txt "$MODE" docs/ai_weekly.json
+          # 号の日付はブランチ名の日付（日曜版を日曜 7:00 以降に取り込んでも、遅れて取り込んでも日付がずれない）
+          DA=""; [ -n "$D" ] && DA="--date $D"
+          python -X utf8 weekly.py --answer ai_answer.json --model-label "$MODEL_LABEL" --prompt-file PROMPT.txt $DA "$MODE" docs/ai_weekly.json
           rc=$?
           if [ $rc -eq 2 ]; then echo "::error::回答不正（ai_answer.json が検証に落ちた）。理由は上のログ。ブランチは残す"; fi
           exit $rc
@@ -118,6 +190,7 @@ jobs:
       - name: Commit ai_weekly.json
         env:
           MODE: ${{ steps.br.outputs.mode }}
+          D: ${{ steps.br.outputs.date }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -130,7 +203,7 @@ jobs:
             echo "変更なし"
             exit 0
           fi
-          git commit -m "🗓️ 週末版AI(${MODE})を更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          git commit -m "🗓️ 週末版AI(${MODE})を更新 (${D:-$(TZ='Asia/Tokyo' date +%Y-%m-%d)})"
           git pull --rebase origin main
           git push origin HEAD:main
 
@@ -140,3 +213,12 @@ jobs:
         env:
           BR: ${{ steps.br.outputs.branch }}
         run: git push origin --delete "$BR"
+
+      # 2026-11-15〜 土曜版を取り込んだら、日曜版のプロンプトを土曜版入りで作り直させる（prep 側が作り直すか決める・
+      # 土曜 9:00 JST を過ぎていれば何もしない）。失敗しても土曜版は止めない
+      - name: Refresh Sunday prompt with Saturday edition
+        if: success() && steps.br.outputs.mode == 'sat'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ai-weekly-prep.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=sun
