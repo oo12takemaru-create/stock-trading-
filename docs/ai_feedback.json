@@ -1,6 +1,24 @@
 {
  "issues": [
   {
+   "kind": "sun",
+   "date": "2026-11-15",
+   "issue": 6,
+   "title": "6%戻した翌週、金利高が重しになりやすい",
+   "first": "焦点は月曜、米半導体安を受けた日経の始まり方です",
+   "chars": 2988,
+   "view": "down",
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
    "kind": "sat",
    "date": "2026-11-14",
    "issue": null,
@@ -474,5 +492,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-14T08:12:42+09:00"
+ "updated": "2026-11-15T17:40:17+09:00"
 }
