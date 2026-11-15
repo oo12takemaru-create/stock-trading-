@@ -1,0 +1,74 @@
+name: Thermo 0-100 Daily (kaburadar.jp)
+
+# 2026-11-15 追加。相場の温度計に 0〜100 の「温度」を足す（thermo100.py）。
+#   docs/thermo100.json（今日・比較・内訳・定義・極端な日の集計）
+#   docs/thermo100_hist.json（過去10年の日次の温度・判定・日経平均の終値と翌営業日の騰落）
+#
+# ■ 既存には触らない
+#   判定は detect_market_regime() を呼ぶだけ。radar.json・radar_history.json・score3・
+#   AI朝刊・verify.json は読みも書きもしない（radar.json は照合のために読むだけ）。
+#   pipeline-daily.yml / radar-publish.yml も変えず、その完了を workflow_run で待つ。
+#
+# ■ 起動
+#   夕方のパイプライン（radar.json が出たあと）の完了で1回。予備に 22:30 JST の cron。
+#   入力は Yahoo の公開の指数だけなので、パイプラインが失敗した日でも計算はできる。
+on:
+  workflow_run:
+    workflows: ["Pipeline Daily (日次パイプライン)", "Radar Publish (kaburadar.jp)"]
+    types: [completed]
+  schedule:
+    - cron: '30 13 * * 1-5'   # 予備: 22:30 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thermo100-daily
+  cancel-in-progress: false
+
+jobs:
+  thermo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}   # main のルールセットを通す（radar-publish.yml と同じ）
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -q -r requirements.txt
+
+      - name: Test (帯と判定の一致・欠損日・休場日)
+        run: python -X utf8 tests/test_thermo100.py
+
+      - name: Publish thermo100.json (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python -X utf8 thermo100.py
+            git add -f docs/thermo100.json docs/thermo100_hist.json
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "🌡 相場の温度計（0〜100）を更新"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
