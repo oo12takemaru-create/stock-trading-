@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-15T23:32:45+09:00",
+ "updated": "2026-11-16T08:03:43+09:00",
  "trade_date": "2026-11-13",
  "value": 20,
  "regime": "BEARISH",
@@ -410,7 +410,7 @@
  },
  "radar_check": {
   "radar_json_regime": "BEARISH",
-  "radar_json_day": "2026-11-13",
-  "same": true
+  "radar_json_day": "2026-11-15",
+  "same": null
  }
 }
