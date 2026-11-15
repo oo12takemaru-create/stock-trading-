@@ -9,6 +9,14 @@ JPXが公表する「決算発表予定日」を集計する。上場企業が�
   kessan.xlsx        … 直近の更新分（日付が変わった会社など）
   月別を先に読み、kessan.xlsx を後から上書きして最新状態にする。
 
+■ 基準日は2種類ある（2026-11-15 調査）
+  月別ファイル … Excelの3行目に「2026年11月5日 現在」。JPXが「期末の翌月上旬に掲載し、
+                  その後適宜更新」するもので、更新は不定期（月に数回のこともある）
+  kessan.xlsx  … 「毎営業日 午後5時頃に、3月期・9月期決算会社の翌営業日分を更新」。
+                  中に「現在」の日付は無い。indexページの「YYYY/MM/DD 更新」が実質の基準
+  asof は月別ファイルの基準日（従来どおり）。翌営業日分の鮮度は jpx.page_updated / jpx.daily_for。
+  月別の基準日が7日以上古いとログに警告を出す（こちらの取得ではなくJPX側の更新待ちのことが多い）
+
 ■ 予定日は変わる
   会社の都合で前後するため毎日取り直す。「未定」の会社も21社ほどあるので
   消さずに別枠で出す（未定を消すと「決算がない」と誤解される）。
@@ -38,6 +46,7 @@ UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0)"}
 
 PAST_DAYS = 3        # 過去何日ぶんを残すか（「昨日の決算」を見たい人がいる）
 FUTURE_DAYS = 90     # 先何日ぶんを出すか
+STALE_DAYS = 7       # 月別ファイルの基準日がこれ以上古ければ警告
 RUSH = 150           # この社数以上を「決算ラッシュ」とみなす
 W = "月火水木金土日"
 
@@ -93,23 +102,42 @@ def parse(data):
     return out, asof
 
 
+def page_updated(html):
+    """indexページの「2026/11/13 更新」→ '2026-11-13'（無ければ None）"""
+    m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})\s*更新", html)
+    return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+
+
+def warn(msg):
+    """GitHub Actions の注釈（::warning::）と標準エラーの両方に出す"""
+    print(f"::warning::{msg}")
+    print(f"警告: {msg}", file=sys.stderr)
+
+
 def main():
     html = http(BASE + INDEX).decode("utf-8", "replace")
+    pupd = page_updated(html)
     urls = find_files(html)
     if not urls:
         print("JPXのページから決算予定ファイルを見つけられませんでした", file=sys.stderr)
         sys.exit(1)
 
-    merged, asof = {}, None
+    merged, asof, files, daily_for = {}, None, [], None
     for u in urls:
+        name = u.rsplit('/', 1)[-1]
         try:
             got, a = parse(http(u))
         except Exception as e:
-            print(f"取得/解析失敗 {u.rsplit('/',1)[-1]}: {e}", file=sys.stderr)
+            print(f"取得/解析失敗 {name}: {e}", file=sys.stderr)
             continue
-        asof = a or asof
+        if a and (asof is None or a > asof):
+            asof = a                # 月別ファイルの基準日（複数あれば新しい方）
+        if name == "kessan.xlsx":
+            ds = sorted({v["d"] for v in got.values() if v["d"]})
+            daily_for = ds[-1] if ds else None
+        files.append({"f": name, "asof": a, "n": len(got)})
         merged.update(got)          # 後勝ち＝kessan.xlsx が最新
-        print(f"  {u.rsplit('/',1)[-1]}: {len(got):,}社")
+        print(f"  {name}: {len(got):,}社" + (f"（{a} 現在）" if a else ""))
         time.sleep(0.5)
 
     if len(merged) < 100:
@@ -128,6 +156,15 @@ def main():
         print(f"主要銘柄リストを読めませんでした（フラグなしで続行）: {e}", file=sys.stderr)
 
     today = datetime.now(JST).date()
+    age = (today - datetime.strptime(asof, "%Y-%m-%d").date()).days if asof else None
+    if asof is None:
+        warn("JPXの月別ファイルから基準日（〇年〇月〇日 現在）を読めませんでした。形式変更を疑ってください")
+    elif age >= STALE_DAYS:
+        warn(f"JPXの月別ファイルの基準日が {asof}（{age}日前）。JPX側の更新待ちの可能性が高い"
+             f"（翌営業日分 kessan.xlsx: ページ更新 {pupd or '不明'}・{daily_for or '不明'} 分）")
+    if not any(f["f"] == "kessan.xlsx" for f in files):
+        warn("翌営業日分（kessan.xlsx）を取れませんでした。直前の変更が反映されていない可能性があります")
+
     lo = today - timedelta(days=PAST_DAYS)
     hi = today + timedelta(days=FUTURE_DAYS)
 
@@ -165,6 +202,17 @@ def main():
     data = {
         "updated": datetime.now(JST).isoformat(timespec="seconds"),
         "asof": asof,
+        # JPX側の鮮度（2026-11-15）。asof＝月別ファイルの基準日、page_updated＝JPXのページの更新日、
+        # daily_for＝翌営業日分ファイルが対象にしている開示日、fetched＝こちらが取りに行った時刻
+        "jpx": {
+            "asof_monthly": asof,
+            "asof_age_days": age,
+            "stale": bool(age is not None and age >= STALE_DAYS),
+            "page_updated": pupd,
+            "daily_for": daily_for,
+            "fetched": datetime.now(JST).isoformat(timespec="seconds"),
+            "files": files,
+        },
         "today": today.strftime("%Y-%m-%d"),
         "summary": {
             "total": len(merged),
@@ -183,7 +231,8 @@ def main():
 
     kb = OUT.stat().st_size // 1024
     print(f"OK kessan.json ({kb}KB): 全{len(merged):,}社 / 今後{len(future)}日に{data['summary']['listed']:,}社 "
-          f"/ 未定{len(undecided)}社 / 基準日{asof}")
+          f"/ 未定{len(undecided)}社 / 基準日{asof}（{age}日前）"
+          f" / JPXページ更新{pupd} / 翌営業日分={daily_for}")
     for x in future[:5]:
         mark = " ★ラッシュ" if x["rush"] else ""
         print(f"  {x['d']}({x['w']}) {x['n']:>4}社  主要{x['major']:>3}社{mark}")
