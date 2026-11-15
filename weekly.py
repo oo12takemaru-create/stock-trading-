@@ -51,6 +51,10 @@ UA = {"User-Agent": "Mozilla/5.0 (compatible; kaburadar.jp/1.0)"}
 # 引数は main() で解釈する（--prompt-out / --answer の追加に伴い 2026-10-05 に移動）
 MODE = "sat"
 OUT = Path("docs/ai_weekly.json")
+# 2026-11-15〜 その号の日付（--date）。日曜版は土曜の朝に書いておき日曜の朝に公開するため、
+#   prep は土曜に --date <日曜> で日曜の日付のプロンプトを作り、ingest はブランチ名の日付で取り込む。
+#   None なら今日（JST）
+TODAY = None
 MODE_ALIASES = {"review": "sat", "outlook": "sun"}
 ROUTINE_LABEL = "Claude (Claude Code 定期実行)"
 # --answer で読む回答JSONに最低限必要なキー（APIモードは従来どおり検証しない）
@@ -702,6 +706,10 @@ def check_banned(data):
     return None
 
 
+# 日曜版のプロンプトで、その週末の土曜版がまだ無いときの文（weekly_prep_gate.py が作り直しの判定に使う）
+NO_SAT = "（今週の土曜版はありません）"
+
+
 def build_prompt(today):
     """入力データを集めて完成プロンプトを作る。sat で採点対象が無ければ exit 1。
     返り値: (prompt, ctx)。ctx は書き出し（write_entry）でも使う機械の確定値"""
@@ -754,7 +762,7 @@ def build_prompt(today):
                     + "\n".join(f"  ・{p}" for p in sat.get("points") or [])
                     + (f"\n  教訓: {sat['lesson']}" if sat.get("lesson") else ""))
         else:
-            satt = "（今週の土曜版はありません）"
+            satt = NO_SAT
         prompt = PROMPT_SUN.format(
             style=STYLE_MARK,
             word_rule=WORD_RULE, sat=satt,
@@ -933,9 +941,14 @@ def issue_of(views, d):
     return len(ds) if d in ds else None
 
 
+def edition_date(now):
+    """その号の日付（--date があればそれ・無ければ今日 JST）"""
+    return TODAY or now.date()
+
+
 def write_entry(data, label, now, ctx):
-    """回答 → entry 組み立て → 書き出し（API / --answer 共通）"""
-    today = now.date()
+    """回答 → entry 組み立て → 書き出し（API / --answer 共通）。日付は edition_date（updated は実際の時刻）"""
+    today = edition_date(now)
     mon, fri = ctx["mon"], ctx["fri"]
     wsat = weekend_sat(today)
     entry = {
@@ -1019,9 +1032,9 @@ def write_entry(data, label, now, ctx):
 def run_prompt_out(prompt_out):
     """APIを呼ばず、完成したプロンプトだけを書き出す（routine 用）"""
     now = datetime.now(JST)
-    prompt, _ctx = build_prompt(now.date())
+    prompt, _ctx = build_prompt(edition_date(now))
     Path(prompt_out).write_text(prompt, encoding="utf-8")
-    print(f"モード: {MODE} / プロンプトを出力: {prompt_out} ({len(prompt)}文字)")
+    print(f"モード: {MODE} / 号の日付: {edition_date(now)} / プロンプトを出力: {prompt_out} ({len(prompt)}文字)")
 
 
 def validate(data, ctx):
@@ -1034,7 +1047,7 @@ def run_answer(answer_path, label, prompt_file=None):
     LOCAL_FIRST = True
     now = datetime.now(JST)
     print(f"モデル: {label} / モード: {MODE}")
-    _prompt, ctx = build_prompt(now.date())
+    _prompt, ctx = build_prompt(edition_date(now))
     try:
         text = Path(answer_path).read_text(encoding="utf-8-sig")
         m = re.search(r"\{.*\}", text, re.S)
@@ -1082,7 +1095,7 @@ def run_api():
         print("ANTHROPIC_API_KEY 未設定", file=sys.stderr)
         sys.exit(1)
 
-    prompt, ctx = build_prompt(now.date())
+    prompt, ctx = build_prompt(edition_date(now))
 
     print(f"モデル: {MODEL_NAMES.get(ANTHROPIC_MODEL, ANTHROPIC_MODEL)} / モード: {MODE}")
     data, err = None, None
@@ -1108,7 +1121,7 @@ def run_api():
 
 
 def main():
-    global MODE, OUT
+    global MODE, OUT, TODAY
     import argparse
     ap = argparse.ArgumentParser(description="週末版AI朝刊")
     ap.add_argument("mode", nargs="?", default="sat", help="sat(=review) / sun(=outlook)")
@@ -1117,6 +1130,7 @@ def main():
     ap.add_argument("--answer", help="APIを呼ばず、このAI回答JSONを検証して書き出す")
     ap.add_argument("--model-label", default="", help=f"--answer 時の model 表記(既定: {ROUTINE_LABEL})")
     ap.add_argument("--prompt-file", default="", help="--answer 時に long_view の数字を突き合わせる PROMPT.txt（prep が作ったもの）")
+    ap.add_argument("--date", default="", help="その号の日付 YYYY-MM-DD（既定: 今日 JST）。土曜に日曜版を作る・ブランチの日付で取り込むとき")
     ap.add_argument("--reindex", action="store_true", help="docs/ai_weekly_days/index.json だけを作り直す")
     a = ap.parse_args()
     MODE = MODE_ALIASES.get(a.mode.lower(), a.mode.lower())
@@ -1126,6 +1140,15 @@ def main():
     if MODE not in ("sat", "sun"):
         print(f"モード不正: {a.mode}（sat / sun / review / outlook）", file=sys.stderr)
         sys.exit(1)
+    if a.date:
+        try:
+            TODAY = datetime.strptime(a.date, "%Y-%m-%d").date()
+        except ValueError:
+            print(f"--date 不正: {a.date}（YYYY-MM-DD）", file=sys.stderr)
+            sys.exit(1)
+        want = {"sat": 5, "sun": 6}[MODE]
+        if TODAY.weekday() != want:
+            print(f"警告: --date {TODAY} は{'土日'[want - 5]}曜ではありません（{MODE}）", file=sys.stderr)
 
     if a.reindex:
         ix = rebuild_days_index()

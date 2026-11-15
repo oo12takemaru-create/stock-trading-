@@ -14,17 +14,31 @@ name: AI Weekly Prep (data → prompt branch)
 #   2回走っても routine 側で重複を弾く。
 # コミットメッセージ1行目は「prompt: weekly YYYY-MM-DD sat|sun」に固定（routine が push イベントから種別を判別する）。
 #
+# 2026-11-15〜 日曜版（来週の地図）も土曜の朝に作る（本人決定。日曜の routine が週の利用上限で2週続けて落ちたため）。
+#   土曜に sat で動いたら、同じ実行で ai-prompt/<明日=日曜>-sun も作る（weekly.py --date <日曜>）。
+#   金曜引けから数字は変わらないので、日曜の日付・Vol・号数・採点のまま作れる。土曜夜のニュースは入らない。
+#   土曜版がまだ main に無い時刻に作った日曜版は「昨日（土曜）の振り返り」の節が空なので、
+#   土曜版を取り込んだ ai-weekly-ingest.yml が mode=sun でここを呼び直し、土曜 9:00 JST までに限り作り直す
+#   （routine が読み始めた後に差し替えないため。日曜版の routine は土曜 9:10 以降に置く）。
+#   日曜に mode=sun で動いたとき（cron-worker の 7:40 / 8:00・schedule）は予備: 既に作ってあれば何もしない。
+#   公開（main への取り込み）は日曜 7:00 JST 以降だけ（ai-weekly-ingest.yml が保留する）。
+#
 on:
   schedule:
     # 2026-11-07〜 土曜＝今週の振り返り（sat）／日曜＝来週の地図（sun）の2本に戻した（本命は cron-worker の dispatch）
+    # 2026-11-15〜 土曜の実行で日曜版も作る。日曜の実行は日曜版の予備（作ってあれば何もしない）
     - cron: '40 22 * * 5,6'   # 22:40 UTC(金・土) = 7:40 JST(土・日)
     - cron: '0 23 * * 5,6'    # 23:00 UTC(金・土) = 8:00 JST(土・日)
   workflow_dispatch:
     inputs:
       mode:
-        description: 'sat=土曜・今週の振り返り / sun=日曜・来週の地図'
+        description: 'sat=土曜・今週の振り返り（土曜なら日曜版も作る） / sun=日曜・来週の地図（土曜に動かすと明日の日曜版）'
         required: true
         default: 'sat'
+      date:
+        description: '号の日付 YYYY-MM-DD（空なら自動。sun を土曜に動かすと明日）。指定したときは既にあっても作り直す'
+        required: false
+        default: ''
       force_sun:
         description: '日曜版の初回（2026-11-08）より前に、あえて日曜版を作るときだけ true'
         required: false
@@ -40,7 +54,7 @@ concurrency:
 jobs:
   prep:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -53,29 +67,56 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Decide mode
+      # 作るもの（targets）を「mode:日付:作り直し可否」で並べる。
+      #   土曜の sat … sat:<今日> と sun:<明日>
+      #   土曜の sun … sun:<明日>（土曜版を取り込んだ後の作り直し）
+      #   日曜の sun … sun:<今日>（予備）
+      - name: Decide targets
         id: mode
         env:
           INPUT_MODE: ${{ github.event.inputs.mode }}
+          INPUT_DATE: ${{ github.event.inputs.date }}
           FORCE_SUN: ${{ github.event.inputs.force_sun }}
         run: |
           M="$INPUT_MODE"
+          W=$(TZ='Asia/Tokyo' date +%u)   # 6=土, 7=日
           if [ -z "$M" ]; then
-            W=$(TZ='Asia/Tokyo' date +%u)   # 6=土, 7=日
             if [ "$W" = "6" ]; then M=sat; elif [ "$W" = "7" ]; then M=sun; else
               echo "::error::平日に起動されました（mode を指定してください）"; exit 1
             fi
           fi
           case "$M" in sat|sun) ;; *) echo "::error::mode 不正: $M"; exit 1 ;; esac
+          TODAY=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          TOMORROW=$(TZ='Asia/Tokyo' date -d tomorrow +%Y-%m-%d)
+          if [ -n "$INPUT_DATE" ]; then
+            if ! printf '%s' "$INPUT_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+              echo "::error::date 不正: $INPUT_DATE"; exit 1
+            fi
+            T="$M:$INPUT_DATE:force"
+          elif [ "$M" = "sat" ]; then
+            T="sat:$TODAY:force"
+            [ "$W" = "6" ] && T="$T sun:$TOMORROW:auto"
+          elif [ "$W" = "6" ]; then
+            T="sun:$TOMORROW:auto"
+          else
+            T="sun:$TODAY:auto"
+          fi
           # 2026-11-07〜 土日の2本（土=今週の振り返り / 日=来週の地図）。日曜版の初回は 11/8。
           # 10/31（土）に出た週末版（来週の地図）を、その週末の日曜版として扱うため、11/1（日）は作らない
           # （同じ週に見立てが2つ出て、二重に採点しないように）
-          D=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
-          if [ "$M" = "sun" ] && [ "$D" \< "2026-11-08" ] && [ "$FORCE_SUN" != "true" ]; then
-            echo "日曜版の初回は 2026-11-08 → 何もしない"; echo "mode=skip" >> "$GITHUB_OUTPUT"; exit 0
-          fi
+          OUTT=""
+          for t in $T; do
+            d=$(printf '%s' "$t" | cut -d: -f2)
+            if [ "${t%%:*}" = "sun" ] && [ "$d" \< "2026-11-08" ] && [ "$FORCE_SUN" != "true" ]; then
+              echo "日曜版の初回は 2026-11-08 → $d の日曜版は作らない"; continue
+            fi
+            OUTT="$OUTT $t"
+          done
+          OUTT=$(echo $OUTT)
+          if [ -z "$OUTT" ]; then echo "mode=skip" >> "$GITHUB_OUTPUT"; exit 0; fi
           echo "mode=$M" >> "$GITHUB_OUTPUT"
-          echo "モード: $M"
+          echo "targets=$OUTT" >> "$GITHUB_OUTPUT"
+          echo "モード: $M / 作るもの: $OUTT"
 
       # yfinance=世界の値動き・方向感の採点用の日経終値 / jpholiday=来週の休場日
       - name: Install dependencies
@@ -85,24 +126,43 @@ jobs:
       # sat で採点対象が1件も無ければ weekly.py が exit 1（＝ブランチを作らない）
       # 2026-11-15〜 日曜の質問箱は掲示板の #質問箱（kr_posts）から2問を選ぶ（読むだけ・kr-export.yml と同じ鍵）。
       #   鍵が無い・読めないときは「よく検索される問い」（qa_fallback.json）で埋める（日曜版は止めない）
-      - name: Build prompt
+      # 日曜版（auto）を作るかどうかは weekly_prep_gate.py が決める（作ってある・回答済み・公開済みなら作らない）
+      - name: Build and push prompt branches
         if: steps.mode.outputs.mode != 'skip'
         env:
+          TARGETS: ${{ steps.mode.outputs.targets }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python -X utf8 weekly.py --prompt-out PROMPT.txt ${{ steps.mode.outputs.mode }} docs/ai_weekly.json
-
-      - name: Push prompt branch
-        if: steps.mode.outputs.mode != 'skip'
-        env:
-          M: ${{ steps.mode.outputs.mode }}
         run: |
-          D=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f PROMPT.txt
-          git commit -m "prompt: weekly $D $M"
-          git push -f origin "HEAD:refs/heads/ai-prompt/$D-$M"
-          echo "push: ai-prompt/$D-$M"
-          echo "----- PROMPT.txt -----"
-          cat PROMPT.txt
+          BASE=$(git rev-parse HEAD)
+          FAIL=0
+          for t in $TARGETS; do
+            M=$(printf '%s' "$t" | cut -d: -f1); D=$(printf '%s' "$t" | cut -d: -f2); HOW=$(printf '%s' "$t" | cut -d: -f3)
+            BR="ai-prompt/$D-$M"
+            echo "===== $BR（$HOW） ====="
+            git checkout -q --detach "$BASE"
+            rm -f PROMPT.txt EXISTING.txt
+            if [ "$HOW" = "auto" ]; then
+              # 公開済み・回答済み（ai-weekly/<D>-sun が待っている）・作成済みなら作らない
+              ANS=0; git ls-remote --exit-code --heads origin "ai-weekly/$D-$M" >/dev/null 2>&1 && ANS=1
+              if git fetch -q --no-tags --depth=1 origin "+refs/heads/$BR:refs/remotes/origin/$BR" 2>/dev/null; then
+                git show "origin/$BR:PROMPT.txt" > EXISTING.txt 2>/dev/null || true
+              fi
+              # 0=作る / 10=作らない（それ以外＝判定が落ちた → 作る側に倒す）
+              rc=0; python -X utf8 weekly_prep_gate.py --date "$D" --answered "$ANS" --existing EXISTING.txt docs/ai_weekly.json || rc=$?
+              if [ "$rc" = "10" ]; then continue; fi
+              [ "$rc" = "0" ] || echo "::warning::weekly_prep_gate.py が rc=$rc で落ちた → 作る"
+            fi
+            if ! python -X utf8 weekly.py --date "$D" --prompt-out PROMPT.txt "$M" docs/ai_weekly.json; then
+              echo "::error::$BR を作れませんでした"; FAIL=1; continue
+            fi
+            git add -f PROMPT.txt
+            git commit -q -m "prompt: weekly $D $M"
+            git push -f origin "HEAD:refs/heads/$BR"
+            echo "push: $BR"
+            echo "----- PROMPT.txt -----"
+            cat PROMPT.txt
+          done
+          exit $FAIL
