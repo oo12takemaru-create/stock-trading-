@@ -74,7 +74,12 @@ ok("中立（NEUTRAL）" in m["text"], "温度計の1行")
 ok("大量保有の報告は1営業日遅れで載ります" in m["text"], "大量保有の遅れの1行")
 eq(N.DAILY_CAP, 60, "1日の上限 60 通")
 ok("hold.html" in m["text"] and "ai.html" in m["text"], "AI朝刊・AIに聞く")
-eq(N.compose(F, ["9999"], "a" * 64), None, "出来事が無ければ送らない")
+# 1通型（2026-11-15）: 出来事が無い日も地合いの1通が届き、「あなたの銘柄」の節に1行
+m0 = N.compose(F, ["9999"], "a" * 64)
+ok(m0 and m0["n"] == 0, "出来事が無くても地合いの1通を作る")
+ok("・今日は登録銘柄に予定・大きな動きはありません" in m0["text"] and "今日は登録銘柄に予定・大きな動きはありません" in m0["html"], "出来事なしの1行")
+eq(m0["subject"], "【株レーダー】11/11 の地合い｜中立", "件名（出来事なし＝銘柄に触れない）")
+ok("ai.html?utm_source=notify" in m0["text"], "AI朝刊の号が無い日も AI朝刊の入口")
 ok(not any(N.BANNED.search(x) for c in F.ev for x in F.lines(c)), "出来事の行に使わない言葉が入らない")
 # 増収増益などの札: 営業利益が無い会社（IFRS 等）は記録にある利益で判定・判定できなければ付けない
 eq(N.flash_verdict({"sales_yoy": 7.4, "op_yoy": 84.3, "np_yoy": 98.9, "verdict": "増収増益"}), "増収増益", "札（営業利益あり）")
@@ -88,11 +93,15 @@ eq(N.flash_verdict({"sales_yoy": None, "np_yoy": 5.0}), None, "札（売上の�
 m2 = N.compose(F, ["4444", "2222", "3333", "1111"], "b" * 64)
 order = [m2["text"].index(f"（{c}）") for c in ("1111", "3333", "2222", "4444")]
 eq(order, sorted(order), "重い出来事の銘柄から並ぶ")
-ok(m2["subject"].endswith("甲・丙 ほか2銘柄"), "件名は先頭2銘柄（形はそのまま）")
+eq(m2["subject"], "【株レーダー】11/11 の地合い｜登録銘柄に決算1件・大きな値動き2件ほか", "件名（出来事のある日は銘柄に触れる）")
+eq(m["subject"], "【株レーダー】11/11 の地合い｜登録銘柄に決算1件・大きな値動き1件", "件名（1銘柄）")
 
-# 冒頭の保有ボードのボタン・utm・文字の大きさ
+# 「あなたの銘柄」の節の頭に保有ボードのボタン・地合いはその上・utm・文字の大きさ
 H = "https://kaburadar.jp/hold.html?utm_source=notify&utm_medium=email"
-ok(m["text"].splitlines()[1] == f"保有ボードで損益を見る → {H}", "テキストの2行目に保有ボード")
+tl = m["text"].splitlines()
+i = tl.index("■■ あなたの銘柄（前営業日 11/10（火） までの出来事・1銘柄）")
+eq(tl[i + 1], f"保有ボードで損益を見る → {H}", "節の頭に保有ボード")
+ok("■ 今日の地合い（相場の温度計）" in tl[:i] and m["html"].index("今日の地合い") < m["html"].index("あなたの銘柄"), "地合いが上・銘柄が下")
 ok(m["html"].index("保有ボードで損益を見る →") < m["html"].index("（1111）"), "ボタンは銘柄より上")
 ok(f'href="{H}"' in m["html"], "ボタンの URL")
 for u in ("radar.html", "ai.html", "hold.html", "stocks/1111.html"):
@@ -137,6 +146,60 @@ ok("買い時" not in N.compose(F5, [], "e" * 64)["text"] and "見立て「攻�
 F5.regime = None
 F5.ai = None
 eq(N.compose(F5, [], "e" * 64), None, "温度計も AI朝刊も無い日は送らない")
+
+# ─── 1通型（銘柄ありの人にも毎朝の地合い・2026-11-15）
+put("ai_analysis.json", {"latest": {"date": "2026-11-11", "updated": "2026-11-11T06:18:00+09:00", "stance": "lean_defense",
+                                    "headline": "金利上昇でやや守り"}})
+G = N.Facts(date(2026, 11, 11))
+G.build()
+mk = N.compose(G, [], "f" * 64)
+g1 = N.compose(G, ["2222", "1111"], "f" * 64)
+g0 = N.compose(G, ["9999"], "f" * 64)
+ok(mk["subject"] == "株レーダー 朝の1通（11/11）地合い 中立・AI朝刊 やや守り", "銘柄なしの件名は今までどおり")
+ok("あなたの銘柄" not in mk["text"] and "今日は登録銘柄に" not in mk["text"], "銘柄なしの1通に銘柄の節は無い")
+for g, lab in ((g1, "出来事あり"), (g0, "出来事なし")):
+    for row in N.market_rows(G):              # 上の段は銘柄なしの1通と同じ中身
+        ok(f"■ {row[0]}" in g["text"] and f"・{row[1]}" in g["text"] and f"■ {row[0]}" in mk["text"], f"{lab}: 地合いの行 {row[0]}")
+    ok("見立て「やや守り」：金利上昇でやや守り" in g["text"], f"{lab}: AI朝刊の結論")
+    ok("a=nstop&t=" + "f" * 64 in g["text"] and "a=nstop&t=" + "f" * 64 in g["html"], f"{lab}: 停止のリンク")
+    ok("通知の銘柄を変える" in g["text"] and "通知の銘柄を変える" in g["html"], f"{lab}: 設定（通知の銘柄）を変えるリンク")
+    ok("お知らせ" not in g["text"], f"{lab}: 案内は notice のときだけ")
+    b = re.sub("売買の推奨ではありません|空売り|配当予想", "", g["text"] + g["html"])
+    eq([w for w in ("買い", "売り", "推奨", "おすすめ", "必ず", "リアルタイム", "予想", "狙い目", "有望", "チャンス", "面白い") if w in b], [],
+       f"{lab}: 使わない言葉")
+    ok(not re.search(r"信用倍率|信用残|投資部門", g["text"]), f"{lab}: JPX 由来の数値の項目を出さない")
+eq(g1["n"], 2, "出来事あり: 2銘柄")
+eq(g1["subject"], "【株レーダー】11/11 の地合い｜登録銘柄に決算1件・大きな値動き1件ほか", "件名（出来事あり・3種類目からは「ほか」）")
+eq(g0["subject"], "【株レーダー】11/11 の地合い｜中立・AI朝刊 やや守り", "件名（出来事なし）")
+ka = [x for x in g1["text"].splitlines() if "空売り残高" in x][0]
+eq(re.sub(r"\d+/\d+", "", ka).strip("・"), "大口の空売り残高の新しい報告がありました（新規の報告あり・合計が増加・公表）", "空売りの行は日付のほか数字なし")
+eq(N.compose(G, ["9999"], "f" * 64)["n"], 0, "出来事なしでも送る")
+G.regime = G.ai = None
+eq(N.compose(G, ["9999"], "f" * 64), None, "地合いも AI朝刊も出来事も無い日は送らない")
+ok(N.compose(G, ["1111"], "f" * 64)["n"] == 1, "地合いが無くても出来事があれば送る")
+
+# 切り替えの案内（初回だけ）: kr_notify の列を足さず last_sent と confirmed_at で判定
+S = "2026-11-16"
+eq(N.needs_notice({"codes": [], "last_sent": None, "confirmed_at": "2026-11-12T01:00:00Z"}), None, "銘柄なしの人には出さない")
+eq(N.needs_notice({"codes": ["1111"], "last_sent": "2026-11-13T22:31:00+00:00", "confirmed_at": "2026-11-12T01:00:00Z"}), "old",
+   "旧方式で受け取っていた人（last_sent が切替日より前）")
+eq(N.needs_notice({"codes": ["1111"], "last_sent": None, "confirmed_at": "2026-11-12T01:00:00Z"}), "old", "旧方式で登録・まだ1通も届いていない人")
+eq(N.needs_notice({"codes": ["1111"], "last_sent": "2026-11-15T22:31:00+00:00", "confirmed_at": "2026-11-12T01:00:00Z"}), None,
+   "1通型で1通届いたら出さない（11/16 7:31 JST）")
+eq(N.needs_notice({"codes": ["1111"], "last_sent": None, "confirmed_at": "2026-11-17T03:00:00Z"}), "new", "1通型で始めた人の最初の1通")
+eq(N.ONE_MAIL_SINCE.isoformat(), S, "切替日")
+G2 = N.Facts(date(2026, 11, 11))
+G2.build()
+go = N.compose(G2, ["1111"], "f" * 64, "old")
+gn = N.compose(G2, ["9999"], "f" * 64, "new")
+ok(go["text"].splitlines()[2].startswith("お知らせ：これまでは登録銘柄に出来事がある日だけ") and "11/16から" in go["text"], "旧方式の人への案内（冒頭）")
+ok(go["text"].splitlines()[3].startswith("配信を止める") and "a=nstop&t=" + "f" * 64 in go["text"].splitlines()[3], "案内のすぐ下に止めるリンク")
+ok(go["html"].index("お知らせ") < go["html"].index("今日の地合い（相場の温度計）"), "HTML でも案内は地合いより上")
+ok(gn["text"].splitlines()[2].startswith("お知らせ：この1通は毎朝") and "これまでは" not in gn["text"], "新しく始めた人への案内")
+for g in (go, gn):
+    b = re.sub("売買の推奨ではありません|空売り|配当予想", "", g["text"] + g["html"])
+    eq([w for w in ("買い", "売り", "推奨", "おすすめ", "必ず", "リアルタイム", "予想", "狙い目", "有望", "チャンス", "面白い") if w in b], [],
+       "案内つきの1通に使わない言葉")
 
 print("OK" if not NG else f"{NG} 件 NG")
 sys.exit(1 if NG else 0)

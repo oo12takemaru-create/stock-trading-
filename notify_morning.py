@@ -6,9 +6,13 @@
 ■ 流れ
   1. Supabase の kr_notify（確認済み・今日まだ送っていない人）を読む。申込み・確認・停止は kaburadar の api/board.js
   2. このリポジトリの docs/ の公開 JSON（前の晩までに出来ている分）から、銘柄ごとの「前営業日の出来事」を作る
-  3. 出来事が1つでもある人にだけ Resend で1通送り、last_sent を書く。何も無い人には送らない
+  3. Resend で1通送り、last_sent を書く
      銘柄を登録していない人（codes が空＝「地合いと AI朝刊の結論だけ」で申し込んだ人・2026-11-13）には、
      温度計の判定と今朝の AI朝刊の結論（見立てと1行）を毎営業日1通（compose_market）。どちらも無い日は送らない
+     銘柄を登録した人（2026-11-15 本人決定で「1通型」）にも毎営業日1通。上に地合い（compose_market と同じ中身）、
+     その下に「あなたの銘柄」の節。出来事の無い日は「今日は登録銘柄に予定・大きな動きはありません」の1行。
+     件名は出来事がある日だけ銘柄に触れる。地合いも AI朝刊も出来事も無い日は送らない
+     切り替えの案内: 1通型の最初の1通（last_sent が無いか ONE_MAIL_SINCE より前）だけ、冒頭に一言とすぐ止められるリンク
   4. 確認されないまま7日たった申込みを消す
 
 ■ 出来事（1銘柄1〜2行。3つ目からは「ほか n 件」）
@@ -25,12 +29,13 @@
   - 決算の予定（kessan.json）: 今日・明日（＝次の営業日）は毎日、今週のほかの日は週の最初の営業日だけ
   銘柄は出来事の重い順（決算の発表 → ストップ高/安・±5% → 空売り/大量保有/分割/配当 → 決算の予定）
   増収増益などの札は売上と営業利益の前年同期比（営業利益が無い会社は経常利益→純利益）。判定できなければ付けない
-  冒頭に保有ボードへのボタン。末尾に温度計の判定1行（radar.json）・AI朝刊・保有ボード（AIに聞く）のリンク、停止のリンク
+  上に地合い（温度計・AI朝刊）、「あなたの銘柄」の節の頭に保有ボードへのボタン。末尾に保有ボード（AIに聞く・通知の銘柄を変える）・今日の発見のリンク、停止のリンク
 
 ■ 守り
   - prices.json の trade_date が前営業日でなければ**誰にも送らない**（古いデータで届けない・exit 1 で気づく）
   - 同じ日に二重に送らない（last_sent が今日の人は飛ばす）
   - 1日の上限 DAILY_CAP=60 通（Resend の無料枠 100通/日はルールトレードの通知・ログインメールと共用）。50通を超えた日は警告、超える分は送らない
+    1通型（2026-11-15）で確認済みの人は全員が毎営業日1通＝1日の通数は確認済みの人数（受付の上限 50 人＝api/board.js の NOTIFY.max）
   - 表（kr_notify）が無い・RESEND_API_KEY が無いときは、何もせずに理由を出して終わる（exit 0）
   - 文面は事実だけ（推奨の言葉なし・「リアルタイム」なし）。BANNED に当たる行は落とす
 
@@ -38,8 +43,9 @@
   python notify_morning.py                     # 送る（平日の朝・cron-worker から notify-morning.yml）
   python notify_morning.py --dry-run           # 誰に何を送るかを表示するだけ（送らない・書かない）
   python notify_morning.py --only me           # 本人（Secrets の NOTIFY_TO）の1通だけ送る（試し。確認済みの登録が要る）
-  python notify_morning.py --preview 7203,6315 # Supabase を使わずに、その銘柄の文面を表示するだけ
+  python notify_morning.py --preview 7203,6315 # Supabase を使わずに、その銘柄の文面を表示するだけ（--preview market で銘柄なしの文面）
   --today YYYY-MM-DD で「今日」を変えられる（試し用）。--preview に --html out.html を足すと HTML も書く
+  --preview に --notice を足すと、切り替えの案内つき（1通型の最初の1通）の文面
 """
 import argparse
 import json
@@ -68,7 +74,15 @@ MAX_LINES = 2            # 1銘柄の行数
 UNCONFIRMED_DAYS = 7
 ONE_DAYS = 7             # アーサーのひとことを出す日数（これより古い文は出さない）
 UTM = "utm_source=notify&utm_medium=email"
-HOLD_URL = f"{SITE}/hold.html?{UTM}"   # 冒頭のボタン（毎日サイトを開く入口）
+HOLD_URL = f"{SITE}/hold.html?{UTM}"   # 「あなたの銘柄」の節のボタン（毎日サイトを開く入口）
+# 1通型（銘柄を登録した人にも毎朝の地合い＋登録銘柄の出来事・2026-11-15 本人決定）に切り替えた日（JST）。
+# 銘柄ありの人で last_sent が無いかこの日より前なら、その1通の冒頭に切り替えの案内を1回だけ出す（送ったら last_sent が進むので次からは出ない）。
+# 表（kr_notify）に列を足さずに「初回だけ」を判定するため。マージが遅れて旧方式の1通がこの日以降に届いた人には案内が出ない
+ONE_MAIL_SINCE = date(2026, 11, 16)
+NO_EVENT_LINE = "今日は登録銘柄に予定・大きな動きはありません"
+# 件名の「登録銘柄に決算1件」の数え方（出来事の順位 → 呼び名。数は銘柄の数）
+EV_LABEL = {0: "決算", 1: "大きな値動き", 2: "大きな値動き", 3: "空売り残高の報告", 4: "大量保有の報告",
+            5: "株式分割", 6: "配当予想の修正", 7: "決算の予定"}
 WD = "月火水木金土日"
 Q_JP = {"1Q": "第1四半期", "2Q": "第2四半期", "3Q": "第3四半期", "本決算": "本決算"}
 STOP_JP = {"close_high": "終値ストップ高", "touch_high": "一時ストップ高",
@@ -335,13 +349,13 @@ def karte(code):
     return f"{SITE}/stocks/{code}.html?{UTM}"
 
 
-def compose_market(F, token):
-    """銘柄を登録していない人の1通（2026-11-13）: 温度計の判定と今朝の AI朝刊の結論だけ。どちらも無い日は None"""
-    if not F.regime and not F.ai:
-        return None
-    stop = f"{SITE}/api/board?a=nstop&t={token}"
+A = 'style="color:#0b6b3a"'
+BOX = 'margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px'
+
+
+def market_rows(F):
+    """地合いの行（温度計の判定・今朝の AI朝刊の結論）。銘柄なしの1通と1通型の上の段で同じ中身"""
     radar, ai = f"{SITE}/radar.html?{UTM}", f"{SITE}/ai.html?{UTM}"
-    head = f"{mdw(F.today.isoformat())} の朝の、今日の地合いと AI朝刊の結論です。"
     rows = []
     if F.regime:
         reg, upd = F.regime
@@ -351,98 +365,180 @@ def compose_market(F, token):
         st, hd, upd = F.ai
         rows.append((f"AI朝刊（{md(upd) + ' ' + upd[11:16] if len(upd) >= 16 else '今朝'}）", f"見立て「{AI_JP[st]}」" + (f"：{hd}" if hd else ""), ai,
                      "AI による一般的な市況の要約です"))
-    tail = []
-    if F.hakken:
-        tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
-    tail.append(("保有ボード", "銘柄を入れて「通知の銘柄を更新」を押すと、その銘柄の出来事もこの1通に入ります", HOLD_URL))
-    note = "事実と AI による一般的な市況の要約で、売買の推奨ではありません。"
-    text = [head, ""]
-    for a, b, u, n in rows:
-        text += [f"■ {a}", f"・{b}", f"  {n}", f"  {u}", ""]
-    text.append("―――")
-    text += [f"{a}：{b}  {u}" for a, b, u in tail]
-    text += ["", note, "このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。",
-             f"配信を止める（押すとすぐ止まり、メールアドレスを消します）：{stop}"]
-    A = 'style="color:#0b6b3a"'
-    h = ['<div style="max-width:600px;margin:0 auto;padding:0 16px;font-size:15px;line-height:1.7;color:#1f2933">',
-         f'<p style="margin:16px 0 10px">{escape(head)}</p>']
-    for a, b, u, n in rows:
-        h.append(f'<div style="margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px">'
-                 f'<div style="font-size:16px;font-weight:bold">{escape(a)}</div>'
-                 f'<div style="margin-top:4px">{escape(b)}</div>'
-                 f'<div style="margin-top:4px;color:#4a5560;font-size:14px">{escape(n)}</div>'
-                 f'<div style="margin-top:6px"><a href="{u}" {A}>開く →</a></div></div>')
-    h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
-    h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
-    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。<br>'
-             f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスを消します）</p>'
-             '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
+    return rows
+
+
+def market_parts(F):
+    """件名に使う地合いの短い形（「地合い 中立」「AI朝刊 やや守り」）"""
     parts = []
     if F.regime:
         parts.append(f"地合い {REGIME_JP.get(F.regime[0], F.regime[0])}")
     if F.ai:
         parts.append(f"AI朝刊 {AI_JP[F.ai[0]]}")
-    subject = f"株レーダー 朝の1通（{md(F.today.isoformat())}）" + "・".join(parts)
+    return parts
+
+
+def rows_text(rows):
+    out = []
+    for a, b, u, n in rows:
+        out += [f"■ {a}", f"・{b}", f"  {n}", f"  {u}", ""]
+    return out
+
+
+def rows_html(rows):
+    return [f'<div style="{BOX}">'
+            f'<div style="font-size:16px;font-weight:bold">{escape(a)}</div>'
+            f'<div style="margin-top:4px">{escape(b)}</div>'
+            f'<div style="margin-top:4px;color:#4a5560;font-size:14px">{escape(n)}</div>'
+            f'<div style="margin-top:6px"><a href="{u}" {A}>開く →</a></div></div>' for a, b, u, n in rows]
+
+
+def compose_market(F, token):
+    """銘柄を登録していない人の1通（2026-11-13）: 温度計の判定と今朝の AI朝刊の結論だけ。どちらも無い日は None"""
+    if not F.regime and not F.ai:
+        return None
+    stop = f"{SITE}/api/board?a=nstop&t={token}"
+    head = f"{mdw(F.today.isoformat())} の朝の、今日の地合いと AI朝刊の結論です。"
+    rows = market_rows(F)
+    tail = []
+    if F.hakken:
+        tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
+    tail.append(("保有ボード", "銘柄を入れて「通知の銘柄を更新」を押すと、その銘柄の出来事もこの1通に入ります", HOLD_URL))
+    note = "事実と AI による一般的な市況の要約で、売買の推奨ではありません。"
+    text = [head, ""] + rows_text(rows)
+    text.append("―――")
+    text += [f"{a}：{b}  {u}" for a, b, u in tail]
+    text += ["", note, "このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。",
+             f"配信を止める（押すとすぐ止まり、メールアドレスを消します）：{stop}"]
+    h = ['<div style="max-width:600px;margin:0 auto;padding:0 16px;font-size:15px;line-height:1.7;color:#1f2933">',
+         f'<p style="margin:16px 0 10px">{escape(head)}</p>']
+    h += rows_html(rows)
+    h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
+    h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
+    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの「朝の1通」（地合いと AI朝刊の結論だけ）を申し込んだ方に送っています。<br>'
+             f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスを消します）</p>'
+             '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
+    subject = f"株レーダー 朝の1通（{md(F.today.isoformat())}）" + "・".join(market_parts(F))
     return {"subject": subject, "text": "\n".join(text), "html": "\n".join(h), "n": 0, "stop": stop}
 
 
-def compose(F, codes, token):
-    """codes のうち出来事のある銘柄だけで文面を作る。無ければ None。codes が空（地合いだけの申込み）は compose_market"""
+def ev_summary(F, codes):
+    """件名の「決算1件・大きな値動き2件」。呼び名ごとに出来事のある銘柄の数（重い順に2つまで）"""
+    cnt = {}
+    for c in codes:
+        for lab in {EV_LABEL.get(r) for r, _ in F.ev.get(c) or [] if EV_LABEL.get(r)}:
+            cnt[lab] = cnt.get(lab, 0) + 1
+    order = list(dict.fromkeys(EV_LABEL[r] for r in sorted(EV_LABEL)))
+    labs = [x for x in order if x in cnt]
+    s = "・".join(f"{x}{cnt[x]}件" for x in labs[:2])
+    return s + ("ほか" if len(labs) > 2 else "")
+
+
+def _jst_date(iso):
+    return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(JST).date()
+
+
+def needs_notice(r):
+    """1通型の切り替えの案内を出すか（銘柄ありの人の、1通型の最初の1通だけ）。
+    last_sent が無い（まだ1通も届いていない）か ONE_MAIL_SINCE より前（旧方式の「出来事の日だけ」で受け取っていた）なら出す。
+    "old"＝ONE_MAIL_SINCE より前に確認した人（「出来事の日だけ」と案内されていた）／"new"＝その後に始めた人／None＝出さない"""
+    if not r.get("codes"):
+        return None
+    ls = r.get("last_sent")
+    if ls and _jst_date(ls) >= ONE_MAIL_SINCE:
+        return None
+    ca = r.get("confirmed_at")
+    return "old" if (not ca or _jst_date(ca) < ONE_MAIL_SINCE) else "new"
+
+
+def compose(F, codes, token, notice=None):
+    """1通型（2026-11-15）: 上に地合い（compose_market と同じ中身）、下に「あなたの銘柄」の節。
+    codes が空（地合いだけの申込み）は compose_market。地合いも AI朝刊も出来事も無い日は None。
+    notice: None＝案内なし／"old"＝旧方式（出来事の日だけ）から切り替わった人／"new"＝1通型で始めた人（最初の1通）"""
     if not codes:
         return compose_market(F, token)
     blocks = [(c, F.names.get(c) or c, F.lines(c)) for c in codes]
     blocks = [b for b in blocks if b[2]]
     blocks.sort(key=lambda b: F.weight(b[0]))   # 重い出来事の銘柄から（同じ段はボードの順）
-    if not blocks:
+    rows = market_rows(F)
+    if not blocks and not rows:
         return None
     stop = f"{SITE}/api/board?a=nstop&t={token}"
-    head = f"前営業日 {mdw(F.p1.isoformat())} までの、保有ボードの銘柄の出来事です（{len(blocks)}銘柄）。"
-    tail = []
-    if F.regime:
-        reg, upd = F.regime
-        tail.append(("相場の温度計", f"{REGIME_JP.get(reg, reg)}（{reg}）" + (f"・{md(upd)} {upd[11:16]}の判定" if len(upd) >= 16 else ""), f"{SITE}/radar.html?{UTM}"))
-    tail.append(("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}"))
+    today = F.today.isoformat()
+    head = f"{mdw(today)} の朝の、今日の地合いと AI朝刊の結論、登録銘柄の出来事です。"
+    sec = (f"あなたの銘柄（前営業日 {mdw(F.p1.isoformat())} までの出来事・{len(blocks)}銘柄）" if blocks
+           else f"あなたの銘柄（登録 {len(codes)}銘柄）")
+    tail = [] if F.ai else [("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}")]   # 今朝の号がまだ無い日も入口は置く
     tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", HOLD_URL))
     if F.hakken:
         tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
-    note = "事実の一覧で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
+    note = "事実の一覧と AI による一般的な市況の要約で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
     one = {c: F.one[c] for c, _, _ in blocks if c in F.one}
     if one:
         note += "「アーサー」の行は株レーダー専属AIエコノミスト（AI）の文です。"
+    if notice == "old":
+        nt = (f"お知らせ：これまでは登録銘柄に出来事がある日だけお送りしていましたが、{md(ONE_MAIL_SINCE.isoformat())}から、"
+              "毎朝（平日 7:30 ごろ）の地合いの下に登録銘柄の出来事を載せた1通に変わりました。出来事の無い日も届きます。"
+              "毎朝は要らない場合は、下のリンクからすぐに止められます。")
+    elif notice == "new":
+        nt = ("お知らせ：この1通は毎朝（平日 7:30 ごろ）、今日の地合いの下に登録銘柄の出来事を載せて届きます。出来事の無い日も届きます。"
+              "要らなくなったら、下のリンクからすぐに止められます。")
+    else:
+        nt = ""
+    stop_label = "配信を止める（押すとすぐ止まり、メールアドレスと銘柄コードを消します）"
 
-    text = [head, f"保有ボードで損益を見る → {HOLD_URL}", ""]
-    for c, n, ls in blocks:
-        text.append(f"■ {n}（{c}）")
-        text += [f"・{x}" for x in ls]
-        if c in one:
-            text.append(f"・アーサー（{md(one[c][1])}）：{one[c][0]}")
-        text.append(f"  {karte(c)}")
-        text.append("")
+    text = [head, ""]
+    if nt:
+        text += [nt, f"{stop_label}：{stop}", ""]
+    text += rows_text(rows)
+    text += [f"■■ {sec}", f"保有ボードで損益を見る → {HOLD_URL}", ""]
+    if blocks:
+        for c, n, ls in blocks:
+            text.append(f"■ {n}（{c}）")
+            text += [f"・{x}" for x in ls]
+            if c in one:
+                text.append(f"・アーサー（{md(one[c][1])}）：{one[c][0]}")
+            text.append(f"  {karte(c)}")
+            text.append("")
+    else:
+        text += [f"・{NO_EVENT_LINE}", ""]
     text.append("―――")
     text += [f"{a}：{b}  {u}" for a, b, u in tail]
     text += ["", note, "このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。",
-             f"配信を止める（押すとすぐ止まり、メールアドレスと銘柄コードを消します）：{stop}"]
+             f"通知の銘柄を変える（保有ボードで「通知の銘柄を更新」）：{HOLD_URL}",
+             f"{stop_label}：{stop}"]
 
-    A = 'style="color:#0b6b3a"'
     # スマホの Gmail で読みやすく: 本文 15px・行間 1.7・最大 600px・左右の余白 16px・銘柄名 16px 太字
     h = ['<div style="max-width:600px;margin:0 auto;padding:0 16px;font-size:15px;line-height:1.7;color:#1f2933">',
-         f'<p style="margin:16px 0 10px">{escape(head)}</p>',
-         f'<p style="margin:0 0 18px"><a href="{HOLD_URL}" style="display:inline-block;padding:10px 18px;background:#0b6b3a;'
-         'color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">保有ボードで損益を見る →</a></p>']
-    for c, n, ls in blocks:
-        h.append(f'<div style="margin:14px 0;padding:10px 12px;border:1px solid #dde3ea;border-radius:8px">'
-                 f'<div style="font-size:16px;font-weight:bold"><a href="{karte(c)}" style="color:#0b6b3a;text-decoration:none">{escape(n)}（{c}）</a></div>'
-                 + "".join(f'<div style="margin-top:4px">・{escape(x)}</div>' for x in ls)
-                 + (f'<div style="margin-top:6px;color:#4a5560;font-size:14px">アーサー（{md(one[c][1])}）：{escape(one[c][0])}</div>'
-                    if c in one else "")
-                 + f'<div style="margin-top:6px"><a href="{karte(c)}" {A}>カルテを見る →</a></div></div>')
+         f'<p style="margin:16px 0 10px">{escape(head)}</p>']
+    if nt:
+        h.append(f'<div style="margin:10px 0 14px;padding:10px 12px;background:#f3f7f5;border-radius:8px;font-size:14px">{escape(nt)}<br>'
+                 f'<a href="{stop}" style="color:#0b6b3a">配信を止める</a>（押すとすぐ止まり、メールアドレスと銘柄コードを消します）</div>')
+    h += rows_html(rows)
+    h.append(f'<div style="margin:22px 0 8px;font-size:17px;font-weight:bold">{escape(sec)}</div>')
+    h.append(f'<p style="margin:0 0 12px"><a href="{HOLD_URL}" style="display:inline-block;padding:10px 18px;background:#0b6b3a;'
+             'color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">保有ボードで損益を見る →</a></p>')
+    if blocks:
+        for c, n, ls in blocks:
+            h.append(f'<div style="{BOX}">'
+                     f'<div style="font-size:16px;font-weight:bold"><a href="{karte(c)}" style="color:#0b6b3a;text-decoration:none">{escape(n)}（{c}）</a></div>'
+                     + "".join(f'<div style="margin-top:4px">・{escape(x)}</div>' for x in ls)
+                     + (f'<div style="margin-top:6px;color:#4a5560;font-size:14px">アーサー（{md(one[c][1])}）：{escape(one[c][0])}</div>'
+                        if c in one else "")
+                     + f'<div style="margin-top:6px"><a href="{karte(c)}" {A}>カルテを見る →</a></div></div>')
+    else:
+        h.append(f'<div style="{BOX};color:#4a5560">{escape(NO_EVENT_LINE)}</div>')
     h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
     h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
     h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。<br>'
+             f'<a href="{HOLD_URL}" style="color:#666">通知の銘柄を変える</a>（保有ボードで「通知の銘柄を更新」）<br>'
              f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスと銘柄コードを消します）</p>'
              '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
-    names = "・".join(n for _, n, _ in blocks[:2]) + (f" ほか{len(blocks) - 2}銘柄" if len(blocks) > 2 else "")
-    subject = f"株レーダー 朝の1通（{md(F.today.isoformat())}）{names}"
+    if blocks:
+        subject = f"【株レーダー】{md(today)} の地合い｜登録銘柄に{ev_summary(F, [c for c, _, _ in blocks])}"
+    else:
+        parts = ([REGIME_JP.get(F.regime[0], F.regime[0])] if F.regime else []) + ([f"AI朝刊 {AI_JP[F.ai[0]]}"] if F.ai else [])
+        subject = f"【株レーダー】{md(today)} の地合い｜" + "・".join(parts)   # 出来事の無い日は銘柄に触れない
     return {"subject": subject, "text": "\n".join(text), "html": "\n".join(h), "n": len(blocks), "stop": stop}
 
 
@@ -510,6 +606,7 @@ def main():
     ap.add_argument("--preview", default="")
     ap.add_argument("--today", default="")
     ap.add_argument("--html", default="", help="--preview の HTML をこのファイルに書く（手元の見た目の確認用）")
+    ap.add_argument("--notice", default="", choices=["", "old", "new"], help="--preview に切り替えの案内を付ける（old＝旧方式から／new＝新しく始めた人）")
     a = ap.parse_args()
 
     today = date.fromisoformat(a.today) if a.today else datetime.now(JST).date()
@@ -521,9 +618,9 @@ def main():
     print(f"今日 {today}・前営業日 {F.p1}（その前 {F.p2}・{F.p3}）・株価の日付 {F.price_date}・出来事のある銘柄 {len(F.ev)}")
 
     if a.preview:
-        codes = [c.strip().upper() for c in a.preview.split(",") if c.strip()]
-        m = compose(F, codes, "0" * 64)
-        print(m["subject"] + "\n\n" + m["text"] if m else "（出来事が無いので送らない日）")
+        codes = [] if a.preview.strip().lower() == "market" else [c.strip().upper() for c in a.preview.split(",") if c.strip()]
+        m = compose(F, codes, "0" * 64, a.notice or None)
+        print(m["subject"] + "\n\n" + m["text"] if m else "（地合いも AI朝刊も出来事も無いので送らない日）")
         if m and a.html:
             Path(a.html).write_text('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
                                     f'<title>{escape(m["subject"])}</title><body style="margin:0;background:#fff">' + m["html"],
@@ -536,7 +633,7 @@ def main():
         return 1
 
     try:
-        rows = sb("kr_notify?select=id,email,codes,token,last_sent&confirmed=eq.true&order=id.asc&limit=1000")
+        rows = sb("kr_notify?select=id,email,codes,token,last_sent,confirmed_at&confirmed=eq.true&order=id.asc&limit=1000")
     except NoTable:
         print("kr_notify がまだ無い（SQL を流す前）。何もしない")
         return 0
@@ -552,10 +649,11 @@ def main():
     for r in rows:
         if r.get("last_sent") and datetime.fromisoformat(r["last_sent"].replace("Z", "+00:00")).astimezone(JST).date().isoformat() == tstr:
             continue                                   # 今日はもう送った（二重に送らない）
-        m = compose(F, r.get("codes") or [], r["token"])
+        nt = needs_notice(r)                           # 1通型の最初の1通だけ、冒頭に切り替えの案内
+        m = compose(F, r.get("codes") or [], r["token"], nt)
         if m:
-            todo.append((r, m))
-    print(f"確認済み {len(rows)} 人（うち地合いだけ {sum(1 for r in rows if not r.get('codes'))} 人）・今日送る {len(todo)} 人（出来事のない人には送らない）")
+            todo.append((r, m, nt))
+    print(f"確認済み {len(rows)} 人（うち地合いだけ {sum(1 for r in rows if not r.get('codes'))} 人）・今日送る {len(todo)} 人（1通型: 銘柄ありの人も毎朝。うち切り替えの案内つき {sum(1 for _, _, nt in todo if nt)} 人）")
     if len(todo) > WARN_AT:
         print(f"::warning::今日送るのは {len(todo)} 通（{WARN_AT} 通超え）。上限 {DAILY_CAP} 通・Resend の無料枠 100通/日はルールトレードの通知・ログインメールと共用")
     if len(todo) > DAILY_CAP:
@@ -564,8 +662,9 @@ def main():
 
     if a.dry_run:
         # 文面（保有の銘柄）と停止のリンクの token はログに出さない。--only のときだけ本人の文面を token を伏せて出す
-        for r, m in todo:
-            print(f"{who(r)}: " + (f"{m['n']}銘柄に出来事" if m["n"] else "地合いと AI朝刊の結論だけ"))
+        for r, m, nt in todo:
+            print(f"{who(r)}: " + ((f"地合い＋{m['n']}銘柄に出来事" if m["n"] else "地合い＋登録銘柄（出来事なし）") if r.get("codes")
+                                   else "地合いと AI朝刊の結論だけ") + ("・切り替えの案内つき" if nt else ""))
             if a.only:
                 print(m["subject"] + "\n" + m["text"].replace(r["token"], "<token>"))
         return 0
@@ -575,7 +674,7 @@ def main():
         print("::warning::RESEND_API_KEY が無い（GitHub の Secrets に未登録）。送らずに終わる")
         return 0
     sent = failed = 0
-    for r, m in todo:
+    for r, m, _ in todo:
         ok, why = send_mail(api_key, r["email"], m)
         if ok:
             sent += 1
