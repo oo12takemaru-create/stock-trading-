@@ -1,16 +1,16 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-16T23:16:56+09:00",
+ "updated": "2026-11-17T03:10:20+09:00",
  "trade_date": "2026-11-16",
- "value": 19,
+ "value": 18,
  "regime": "BEARISH",
  "regime_jp": "弱気",
  "band": {
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 17.5,
- "overall_position": 14.5,
+ "position_in_band": 12.1,
+ "overall_position": 12.2,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -19,21 +19,21 @@
    "value": 20,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -1
+   "diff": -2
   },
   "week": {
    "d": "2026-11-09",
    "value": 19,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": 0
+   "diff": -1
   },
   "month": {
    "d": "2026-10-16",
    "value": 44,
    "regime": "NEUTRAL",
    "regime_jp": "中立",
-   "diff": -25
+   "diff": -26
   }
  },
  "year": {
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": 3.02,
-   "pos": 26.8,
+   "raw": 1.35,
+   "pos": 20.8,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 20.59,
-   "pos": 28.5,
+   "raw": 21.79,
+   "pos": 23.1,
    "weight": 0.2
   }
  ],
