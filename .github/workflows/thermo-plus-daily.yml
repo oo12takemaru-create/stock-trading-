@@ -1,0 +1,72 @@
+name: Thermo Plus Daily (kaburadar.jp)
+
+# 2026-11-17 追加。相場の温度計を強くするデータ（表示はサイト側が後で作る）。
+#   thermo_long.py → docs/thermo_long.json・docs/thermo_long_hist.json
+#       1990年からの温度（公開中の温度計と同じ計算）・有名な日の温度・温度ごとのその後（35年と10年）・今日の記録
+#   thermo_map.py  → docs/thermo_world.json（世界の株価指数の位置の温度）・docs/thermo_sector.json（TOPIX-17業種）
+#
+# ■ 既存には触らない
+#   thermo100.py・thermo100.json・thermo100_hist.json・radar.json・score3・AI朝刊・答え合わせは読み書きしない
+#   （thermo100_hist.json と thermo100.json は照合のために読むだけ）。thermo100-daily.yml の完了を待って動く。
+# ■ 取得は Yahoo の公開の指数と ETF だけ（3本＋約35本・1本ずつ1秒あける）。所要は約3分。
+on:
+  workflow_run:
+    workflows: ["Thermo 0-100 Daily (kaburadar.jp)"]
+    types: [completed]
+  schedule:
+    - cron: '10 14 * * 1-5'   # 予備: 23:10 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thermo-plus-daily
+  cancel-in-progress: false
+
+jobs:
+  thermo-plus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}   # main のルールセットを通す（thermo100-daily.yml と同じ）
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -q -r requirements.txt
+
+      - name: Test
+        run: python -X utf8 tests/test_thermo_plus.py
+
+      - name: Publish (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python -X utf8 thermo_long.py || echo "::warning::thermo_long.py が失敗"
+            python -X utf8 thermo_map.py || echo "::warning::thermo_map.py が失敗"
+            git add -f docs/thermo_long.json docs/thermo_long_hist.json docs/thermo_world.json docs/thermo_sector.json 2>/dev/null || true
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "🌡 温度計の記録・世界と業種の温度を更新"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1

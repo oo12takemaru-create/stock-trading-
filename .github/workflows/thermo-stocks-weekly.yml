@@ -1,0 +1,67 @@
+name: Thermo Stocks (kaburadar.jp)
+
+# 2026-11-17 追加。銘柄ごとの温度（約3,700銘柄）と東証33業種の温度 → docs/thermo_stocks.json・docs/thermo_sector33.json
+#   約3,700銘柄の11年の日足を200銘柄ずつ・間に2秒で取る（movers_daily.py と同じ作法・約5分）。
+#   2026-11-17 統括決定で平日の毎日に（既存の毎日のワークフローは延ばさない別ワークフロー）。
+#   夕方の全銘柄の株価（movers-daily.yml・18:07 JST 起動・約15分）が揃ったあとの 19:50 JST。土曜の朝の回も残す。
+#   既存のファイルは docs/prices.json（銘柄の一覧）と tenbagger_universe.csv（33業種の区分）を読むだけ。
+on:
+  schedule:
+    - cron: '50 10 * * 1-5'  # 平日 19:50 JST
+    - cron: '30 22 * * 5'   # 土曜 07:30 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thermo-stocks-weekly
+  cancel-in-progress: false
+
+jobs:
+  thermo-stocks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -q -r requirements.txt
+
+      - name: Test
+        run: python -X utf8 tests/test_thermo_plus.py
+
+      - name: Publish (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 取得と計算は1回だけ（push の再試行で取り直さない）
+          python -X utf8 thermo_stocks.py --out-dir /tmp/thermo_stocks
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            cp /tmp/thermo_stocks/thermo_stocks.json /tmp/thermo_stocks/thermo_sector33.json docs/
+            git add -f docs/thermo_stocks.json docs/thermo_sector33.json
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "🌡 銘柄の温度・33業種の温度を更新"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
