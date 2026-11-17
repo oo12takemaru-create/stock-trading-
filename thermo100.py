@@ -51,7 +51,12 @@ NAME = "相場の温度計"
 HIST_YEARS = 10           # 履歴として出す期間
 WINDOW = 2450             # 位置を測る過去の窓（日本の営業日で約10年）
 MIN_PERIODS = 250         # 窓の中にこれだけ無い入力は使わない
-FETCH_PERIOD = "21y"      # 履歴10年＋窓10年＋200日線の助走
+FETCH_PERIOD = "max"      # 2026-11-17 統括決定: 1987年から使う（下の FETCH_FROM）
+FETCH_FROM = "1987-01-01"  # 200日線の助走。これより前は捨てる（VIX は 1990-01-02 から）
+LONG_FROM = "1990-01-01"   # 35年版の集計（stats_long）を始める日
+# ★21年しか取らなかった 2026-11-17 までは、2006〜2016年の入力の位置が短い窓で測られ、
+#   2016-11〜2025-08 の温度が「窓が満杯の計算」と最大3（約2℃）ずれていた（thermo_long.py の照合で発覚）。
+#   期間を延ばして thermo_long.json（1990年からの版）と全日一致させた。今日の値と判定は変わらない
 
 # 判定 → 帯（両端を含む整数）。境目はここだけを見れば分かるようにまとめる
 BANDS = [
@@ -100,6 +105,7 @@ DEFINITION = (
     "過去10年の同じ判定の日と比べて決めます。"
     "判定が変わった日は数字が大きく動きます。これは地合いの要約で、売買の合図ではありません。"
     "表示では、0〜100 の位置を −20℃〜60℃ に読み替えて（℃ = 値 × 0.8 − 20）、0℃ を下回るほど冷え込んだ地合いとして示します。"
+    "2026-11-17 に計算に使う期間を延ばし（1987年からの指数を使う）、2016〜2025年の過去の値が最大2℃変わりました。"
 )
 DEFINITION_C = ("0〜100 の位置を −20℃〜60℃ に読み替えたもの（℃ = 値 × 0.8 − 20 を四捨五入）。"
                 "帯は 総崩れ −20〜−9℃・弱気 −8〜11℃・中立 12〜27℃・強気 28〜60℃。")
@@ -325,7 +331,8 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
     start = jp_dates[-1] - pd.Timedelta(days=int(365.25 * HIST_YEARS))
     # 判定は200日線が引ける日から（それより前は判定がデータ不足の扱いになる）
     calc = jp_dates[199:] if len(jp_dates) > 199 else jp_dates
-    rows = build_rows(g, regime_fn, calc, pos, keep_from=start)
+    rows_long = build_rows(g, regime_fn, calc, pos, keep_from=pd.Timestamp(LONG_FROM))
+    rows = [r for r in rows_long if r["d"] >= start]
     if not rows:
         raise RuntimeError("温度を1日も出せなかった")
 
@@ -371,6 +378,8 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
         if fwd_e is not None:
             g_["etf1306"] = summarize(ds, fwd_e, all_days, whole=key == "all")
         stats["groups"].append(g_)
+
+    stats_long = long_stats(rows_long, n225, groups_10y=hist)
 
     # 今日の値と比較
     last, cur = rows[-1], hist[-1]
@@ -428,6 +437,7 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
         "history_file": "thermo100_hist.json",
         "history_days": len(hist),
         "stats": stats,
+        "stats_long": stats_long,
     }
     hist_doc = {
         "name": NAME,
@@ -442,6 +452,77 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
         "items": hist,
     }
     return data, hist_doc
+
+
+STREAK_PARTS = [("first", "入った初日", 1, 1), ("d2_10", "2〜10日目", 2, 10), ("d11p", "11日目以降", 11, 10 ** 9)]
+LONG_HORIZONS = (5, 20, 60)
+
+
+def streak_days(flags: list[bool]) -> list[int]:
+    """条件を満たす日が、履歴の並びで続いた何日目か（満たさない日は 0）"""
+    out, k = [], 0
+    for f in flags:
+        k = k + 1 if f else 0
+        out.append(k)
+    return out
+
+
+def _groups_for(h: list[dict]) -> list[tuple]:
+    """stats.groups と同じ区分（key・label・label_c・日付の一覧）と、入った初日／2〜10日目／11日目以降の区分"""
+    all_days = [x["d"] for x in h]
+    base = [
+        ("le20", "温度20以下", f"{c_label(celsius(20))}以下", [x["d"] for x in h if x["t"] <= 20]),
+        ("ge80", "温度80以上", f"{c_label(celsius(80))}以上", [x["d"] for x in h if x["t"] >= 80]),
+    ] + [(f"band_{b['regime']}", f"{b['jp']}の帯（{b['lo']}〜{b['hi']}）",
+          f"{b['jp']}の帯（{c_label(bc['lo'])}〜{c_label(bc['hi'])}）",
+          [x["d"] for x in h if x["r"] == b["regime"]]) for b, bc in zip(BANDS, BANDS_C)] + [
+        ("all", "全期間", "全期間", all_days),
+    ]
+    streak = []
+    for key, label, cond in (("le20", "温度20以下", lambda x: x["t"] <= 20),
+                             ("ge80", "温度80以上", lambda x: x["t"] >= 80)):
+        k = streak_days([cond(x) for x in h])
+        lc = f"{c_label(celsius(20))}以下" if key == "le20" else f"{c_label(celsius(80))}以上"
+        for part, plabel, lo, hi in STREAK_PARTS:
+            streak.append((f"{key}_{part}", f"{label}・{plabel}", f"{lc}・{plabel}",
+                           [x["d"] for x, n in zip(h, k) if lo <= n <= hi]))
+    return base, streak
+
+
+def long_stats(rows_long: list[dict], n225: pd.Series, groups_10y: list[dict]) -> dict:
+    """stats（10年）と並べるための35年版（2026-11-17 統括決定）。物差しは日経平均の終値→n営業日後の終値だけ
+    （1306 は 2001年からしか無いので入れない）。入った初日／2〜10日目／11日目以降の区分は10年版も並べる"""
+    hl = [{"d": str(r["d"].date()), "t": r["t"], "r": r["regime"]} for r in rows_long]
+    all_l = [x["d"] for x in hl]
+    all_10 = [x["d"] for x in groups_10y]
+    fwd_l = forward_stats(hl, n225, LONG_HORIZONS)
+    base_l, streak_l = _groups_for(hl)
+    _, streak_10 = _groups_for(groups_10y)
+    s10 = {k: ds for k, _, _, ds in streak_10}
+    out = {
+        "period": [all_l[0], all_l[-1]] if all_l else None,
+        "how": "stats と同じ数え方（温度が出た日の終値から n 営業日後の終値までの日経平均の騰落%・続いた日は1つのかたまり・"
+               "手数料と税金は含まない）を、1990年からの温度で集計したもの。60営業日後も足した。"
+               "1990年は VIX の位置がまだ出ないため4つの入力で温度を出している。",
+        "note": "直近10年は上げ相場が長く、10年の集計では温度が低い日のあとの上昇が大きく出る。"
+                "35年で見ると、その傾向はほとんど見られない。",
+        "sankou_rule": "かたまりが5未満、または20営業日後の件数が30未満なら参考値（sankou=true）",
+        "groups": [{"key": k, "label": lb, "label_c": lc,
+                    "n225": summarize(ds, fwd_l, all_l, LONG_HORIZONS, whole=k == "all")}
+                   for k, lb, lc, ds in base_l],
+        "streak": {
+            "how": "温度20以下（80以上）が履歴の並びで続いた何日目か。入った初日＝1日目。y35 は1990年から、y10 は stats と同じ10年",
+            "groups": [],
+        },
+    }
+    fwd_10 = forward_stats(groups_10y, n225, LONG_HORIZONS)
+    for k, lb, lc, ds in streak_l:
+        out["streak"]["groups"].append({
+            "key": k, "label": lb, "label_c": lc,
+            "y35": summarize(ds, fwd_l, all_l, LONG_HORIZONS),
+            "y10": summarize(s10.get(k, []), fwd_10, all_10, LONG_HORIZONS),
+        })
+    return out
 
 
 def celsius_block(cur: dict, prev, week, month, hi: dict, lo: dict, yr_from: str) -> dict:
@@ -492,6 +573,7 @@ def main():
     from daily_scanner_v2_8_0 import detect_market_regime
     print("指数を取得中…", file=sys.stderr)
     g = {t: dl(t) for t in ("^N225", "^GSPC", "^VIX")}
+    g = {t: df[df.index >= pd.Timestamp(FETCH_FROM)] for t, df in g.items()}
     try:
         etf = topix_etf()
     except Exception as e:
