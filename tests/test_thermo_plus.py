@@ -186,6 +186,7 @@ r = r.where(r.abs() <= S.CLIP)
 exp = (1 + r.mean(axis=1).where(r.notna().sum(axis=1) >= S.MIN_MEMBERS).dropna()).cumprod() * 100
 ok(np.allclose(si["A"].values, exp.values), "33業種の指数 = 騰落の単純平均（外れ値を外す）")
 st, s33 = S.build(closes, sec33, NOW)
+ok("参考値" in s33["role"], "33業種の role")
 ok(st["count"] == len(items) and sum(st["band_counts"]) == st["count"], "銘柄の温度の件数")
 
 # ── 8. 言葉と列 ──
@@ -199,6 +200,8 @@ for name, txt in (("1990年版", L.DEFINITION), ("世界", M.DEF_WORLD), ("業�
     ok("売買の合図ではありません" in txt, f"{name}の定義文に「売買の合図ではありません」")
 for txt in (M.DEF_WORLD, M.DEF_SECTOR, S.DEF_STOCK, S.DEF_S33):
     ok("別の物差し" in txt, "相場の温度計と別の物差しと書く")
+ok("単純平均の参考値" in S.DEF_S33 and "数字が違うことがあります" in S.DEF_S33, "33業種は参考値と書く（2026-11-17 統括決定）")
+ok("週に1回" not in S.DEF_STOCK, "銘柄の温度は毎日")
 JPX = ("shinyo", "karauri", "margin", "investor", "mr", "mb", "sr", "sn", "信用", "空売り")
 data, hd = L.build(g, detect_market_regime, NOW, docs=Path("__none__"))
 ok(set(hd["items"][0].keys()) == {"d", "t", "tc", "r", "c"}, "1990年版の履歴の列")
