@@ -119,7 +119,9 @@ try:
     dst.write_text(json.dumps({"latest": None, "history": []}), encoding="utf-8")
     p_none = ai_analysis.build_prompt(str(dst), inputs, "2026-11-13")
     ok(ai_style.BEGIN not in p_none, "指針も言い回しも無ければ節は入らない（今までどおり）")
-    old = ai_analysis.PROMPT_TEMPLATE.replace("{style}\n", "").format(inputs=inputs, deep_guide=ai_analysis._deep_guide())
+    eg, es = ai_analysis._extra()   # 2026-11-17〜 新しい欄の書き方とスキーマ（指針とは別）
+    old = ai_analysis.PROMPT_TEMPLATE.replace("{style}\n", "").format(inputs=inputs, deep_guide=ai_analysis._deep_guide(),
+                                                                       extra_guide=eg, schema_extra=es)
     ok(p_none.replace("\n", "") == old.replace("\n", ""), "指針が無いときは改行以外いままでと同じ")
     ai_style.NOTES_PATH = notes(b"\xff\xfe\x00", "bin3.md")
     ok(ai_style.BEGIN not in ai_analysis.build_prompt(str(dst), inputs, "2026-11-13"), "壊れた指針でも朝刊は書ける")
