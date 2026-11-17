@@ -62,7 +62,12 @@ jobs:
         run: python -X utf8 score3.py docs/score3.json
 
       # 入力300字未満なら ai_analysis.py 自体が exit 1 で落ちる（＝ブランチを作らない）
+      # 2026-11-17〜 いまの場面（kaburadar.jp/data/bamen_now.json）・温度計の ℃・朝刊の成績・今週の問いを材料に足す
+      #   （ai_morning_extra.py。取れないものは入れないだけで朝刊は止めない）
+      #   AI_VOTE_URL: サイトの読者の1タップ（上で終わる／下で終わる）の公開の集計。形が決まったら変数に置く。空なら入れない
       - name: Build prompt
+        env:
+          AI_VOTE_URL: ${{ vars.AI_VOTE_URL }}
         run: python -X utf8 ai_analysis.py --prompt-out PROMPT.txt --inputs-out inputs.txt docs/ai_analysis.json
 
       - name: Check inputs

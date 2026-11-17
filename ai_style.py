@@ -54,7 +54,9 @@ SKIP_KEYS = {"match", "bias", "side", "wind", "k", "d", "type", "view", "view_jp
              "prev_stance", "stance", "machine_stance", "model", "date", "updated", "edition", "kind",
              "weekend", "note", "vol"}
 MORNING_KEYS = ("headline", "stance_shift", "stance_reason", "today_watch", "caution", "turn_attack",
-                "turn_defense", "review", "world_flow", "sectors", "debate", "deep")
+                "turn_defense", "review", "world_flow", "sectors", "debate", "deep",
+                # 2026-11-17〜 新しい欄（毎号ちがう文にしたいので、くり返しの言い回しを数える対象に入れる）
+                "one_line", "arthur_note", "changes", "scene", "week_answer", "reader_vote")
 WEEKLY_KEYS = ("title", "view_reason", "points", "world", "flip", "days", "sectors", "miss", "lesson",
                "long_view", "qa")
 

@@ -342,6 +342,16 @@ def deep_material_lines():
         return ["(取得できず)"]
 
 
+def extra_material_lines(dst, prev):
+    """新しい欄の材料（ai_morning_extra）。取れなくても朝刊は止めない"""
+    try:
+        import ai_morning_extra
+        return ai_morning_extra.material_lines(dst, prev)
+    except Exception as e:
+        print(f"新しい欄の材料を作れず: {e}", file=sys.stderr)
+        return []
+
+
 def build_inputs(dst):
     now = datetime.now(JST)
     prev, prev_lines = prev_analysis(dst)
@@ -378,6 +388,8 @@ def build_inputs(dst):
         "",
         "## 深掘りの材料（当サイトの集計・数字だけ）",
         *deep_material_lines(),
+        # 2026-11-17〜 いまの場面・温度計の ℃・朝刊の成績・読者の1タップ・今週の問い（取れたものだけ）
+        *extra_material_lines(dst, prev),
     ]
     return "\n".join(parts), prev
 
@@ -417,6 +429,7 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
 
 {style}
 {deep_guide}
+{extra_guide}
 
 # 今朝の客観データ
 
@@ -446,7 +459,7 @@ PROMPT_TEMPLATE = """あなたは日本株市場を専門とするマクロア�
     "bear": ["守り派の根拠1(同上)", "根拠2", "根拠3"],
     "verdict": "機械の判定と、それを動かさなかった/1段下げた理由を1文で"
   }},
-  "deep": {{"type": "history | world | why のどれか1つ", "q": "見出しの問い(30字以内・末尾は？か「か」)", "body": "4文だけ（事実→翻訳→なぜ→次に見る数字）・数字は5つまで・200〜300字"}}
+  "deep": {{"type": "history | world | why のどれか1つ", "q": "見出しの問い(30字以内・末尾は？か「か」)", "body": "4文だけ（事実→翻訳→なぜ→次に見る数字）・数字は5つまで・200〜300字"}}{schema_extra}
 }}
 
 world_flowは2〜4個、sectorsは3〜5個。
@@ -576,9 +589,33 @@ def _style(dst, inputs, today):
         return ""
 
 
+def _extra():
+    """新しい欄の書き方とスキーマ（読めなければ空＝今までどおりのプロンプト）"""
+    try:
+        import ai_morning_extra
+        return ai_morning_extra.EXTRA_GUIDE, ai_morning_extra.SCHEMA_EXTRA
+    except Exception:
+        return "", ""
+
+
 def build_prompt(dst, inputs, today):
+    guide, schema = _extra()
     return PROMPT_TEMPLATE.format(inputs=inputs, deep_guide=_deep_guide(),
-                                  style=_style(dst, inputs, today))
+                                  style=_style(dst, inputs, today),
+                                  extra_guide=guide, schema_extra=schema)
+
+
+def check_extras(data, source, dst, today_s):
+    """新しい欄（scene・changes・one_line・arthur_note・week_question・week_answer・reader_vote）を検査し、
+    落ちた欄だけ外す（本体は出す・2026-11-17）。検査は入力に無い数字・禁止語・字数"""
+    try:
+        import ai_morning_extra
+    except Exception as e:
+        for k in ("scene", "changes", "one_line", "arthur_note", "week_question", "week_answer", "reader_vote"):
+            data.pop(k, None)
+        print(f"警告: ai_morning_extra を読めず新しい欄を外した: {e}", file=sys.stderr)
+        return {}
+    return ai_morning_extra.check_extras(data, source, dst, today_s, BANNED_PATTERNS)
 
 
 def check_deep(data, source):
@@ -936,6 +973,7 @@ def run_answer(dst, answer_path, label, inputs_path="inputs.txt"):
     src = Path(inputs_path).read_text(encoding="utf-8") if inputs_path and Path(inputs_path).exists() else ""
     if isinstance(data, dict):
         check_deep(data, src)
+        check_extras(data, src, dst, now.strftime("%Y-%m-%d"))
     err = validate(data)
     if err is not None:
         print(f"回答不正: 検証NG: {err}", file=sys.stderr)
@@ -972,6 +1010,7 @@ def run_api(dst):
             cand = call(prompt)
             if isinstance(cand, dict):
                 check_deep(cand, inputs)
+                check_extras(cand, inputs, dst, now.strftime("%Y-%m-%d"))
             err = validate(cand)
             if err is None:
                 data = cand
