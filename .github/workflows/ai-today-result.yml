@@ -1,0 +1,85 @@
+name: AI Today Result (引け後の答え合わせ)
+
+# 2026-11-17 追加。その日の朝刊の構え → 日経平均の結果 → 当たり/外れ を、
+#   引け（15:30）のあとできるだけ早く docs/ai_today_result.json に出す（ai_today_result.py・LLM なし）。
+#   正式の成績表は今までどおり ai-record.yml（19:00・ai_record.json）。ここは速報で、判定のしかたは同じ。
+#
+# ■ 起動
+#   ヒートマップ（cron-worker が 15:30・16:00 JST に起こす）の完了で動く＝新しい定時の枠を増やさない。
+#   ヒートマップは場中も30分おきに動くので、15:30〜19:59 JST（UTC 06:30〜10:59）に作られた回のあとだけ動かす。
+#   予備に GitHub の schedule（遅れて走ってもよい・同じ中身なら書かない）。
+#   スクリプト側でも 15:35 JST 前・休場日・今日の朝刊が無い日・今日の終値がまだ無い日は書かない。
+on:
+  workflow_run:
+    workflows: ["Heatmap (kaburadar.jp)"]
+    types: [completed]
+  schedule:
+    - cron: '10 7 * * 1-5'    # 予備: 16:10 JST
+    - cron: '40 9 * * 1-5'    # 予備: 18:40 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-today-result
+  cancel-in-progress: false
+
+jobs:
+  result:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      contains(github.event.workflow_run.created_at, 'T06:3') ||
+      contains(github.event.workflow_run.created_at, 'T06:4') ||
+      contains(github.event.workflow_run.created_at, 'T06:5') ||
+      contains(github.event.workflow_run.created_at, 'T07:') ||
+      contains(github.event.workflow_run.created_at, 'T08:') ||
+      contains(github.event.workflow_run.created_at, 'T09:') ||
+      contains(github.event.workflow_run.created_at, 'T10:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}   # main のルールセットを通す（thermo100-daily.yml と同じ）
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -q yfinance pandas
+
+      - name: Test (判定・書かない日・今月と通算・今週の問い)
+        run: python -X utf8 tests/test_ai_today_result.py
+
+      - name: Publish ai_today_result.json (競合時はリベースして再試行)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3; do
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+            python -X utf8 ai_today_result.py
+            if [ ! -f docs/ai_today_result.json ]; then
+              echo "まだ書く日ではない → 完了"
+              exit 0
+            fi
+            git add -f docs/ai_today_result.json
+            if git diff --staged --quiet; then
+              echo "変更なし → 完了"
+              exit 0
+            fi
+            git commit -m "🎯 引け後の答え合わせ（ai_today_result.json）を更新"
+            if git push; then
+              echo "✓ 公開成功（試行${i}回目）"
+              exit 0
+            fi
+            echo "push失敗（試行${i}/3）→ 再試行"
+            sleep 7
+          done
+          echo "::error::3回試行してもpushできませんでした"
+          exit 1
