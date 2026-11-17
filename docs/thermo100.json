@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-17T21:32:56+09:00",
+ "updated": "2026-11-18T00:09:22+09:00",
  "trade_date": "2026-11-17",
  "value": 17,
  "regime": "BEARISH",
@@ -9,8 +9,8 @@
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 8.1,
- "overall_position": 10.2,
+ "position_in_band": 7.7,
+ "overall_position": 9.9,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": 1.01,
-   "pos": 19.4,
+   "raw": 0.62,
+   "pos": 18.3,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 22.55,
-   "pos": 20.6,
+   "raw": 22.61,
+   "pos": 20.5,
    "weight": 0.2
   }
  ],
@@ -245,10 +245,10 @@
      "n_days": 294,
      "episodes": 37,
      "r5": {
-      "n": 290,
+      "n": 289,
       "avg": 0.53,
-      "med": 0.73,
-      "up_pct": 62.4
+      "med": 0.76,
+      "up_pct": 62.6
      },
      "r20": {
       "n": 286,
@@ -362,10 +362,10 @@
      "n_days": 744,
      "episodes": 77,
      "r5": {
-      "n": 738,
+      "n": 737,
       "avg": 0.51,
       "med": 0.6,
-      "up_pct": 61.9
+      "up_pct": 62.0
      },
      "r20": {
       "n": 734,
@@ -407,10 +407,10 @@
       "up_pct": 55.8
      },
      "r20": {
-      "n": 725,
-      "avg": 0.83,
-      "med": 1.22,
-      "up_pct": 63.3
+      "n": 724,
+      "avg": 0.84,
+      "med": 1.23,
+      "up_pct": 63.4
      },
      "sankou": false
     }
@@ -479,13 +479,13 @@
      "n_days": 2441,
      "episodes": 1,
      "r5": {
-      "n": 2434,
+      "n": 2433,
       "avg": 0.27,
       "med": 0.37,
       "up_pct": 57.2
      },
      "r20": {
-      "n": 2419,
+      "n": 2418,
       "avg": 1.1,
       "med": 1.34,
       "up_pct": 64.4
