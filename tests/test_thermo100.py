@@ -205,5 +205,19 @@ ok("−20℃〜60℃" in T.DEFINITION and "−20℃〜60℃" in T.DEFINITION_C, 
 ok(not T.text_ok(T.DEFINITION_C), "℃ の定義文に使わない言葉")
 ok(hist["bands_c"] == T.BANDS_C and "tc" in hist["fields"], "履歴の ℃ の列の説明")
 
+# ── 9. 35年版の集計（stats_long・2026-11-17）──
+sl = data["stats_long"]
+ok([x["key"] for x in sl["groups"]] == [x["key"] for x in data["stats"]["groups"]], "stats_long の区分は stats と同じ")
+ok(all("r60" in x["n225"] for x in sl["groups"]), "stats_long は60営業日後も")
+sg = {x["key"]: x for x in sl["streak"]["groups"]}
+for key in ("le20", "ge80"):
+    for y, src in (("y35", {x["key"]: x["n225"] for x in sl["groups"]}),
+                   ("y10", {x["key"]: x["n225"] for x in data["stats"]["groups"]})):
+        tot = sum(sg[f"{key}_{p}"][y]["n_days"] for p, *_ in T.STREAK_PARTS)
+        ok(tot == src[key]["n_days"], f"{key} {y}: 初日＋2〜10日目＋11日目以降 = 全体")
+    ok(sg[f"{key}_first"]["y35"]["n_days"] == sg[f"{key}_first"]["y35"]["episodes"], f"{key} 初日の数 = かたまりの数")
+ok(T.streak_days([True, True, False, True] + [True] * 11) == [1, 2, 0] + list(range(1, 13)), "続いた何日目か")
+ok("最大2℃変わりました" in T.DEFINITION, "定義文に期間を延ばした一文")
+
 print("NG" if NG else "OK", f"(不一致 {NG})")
 sys.exit(1 if NG else 0)
