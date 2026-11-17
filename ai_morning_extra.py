@@ -18,7 +18,7 @@
 
 ■ 出力の欄（どれも任意。材料が無い日は省く）
   scene {title, body} / changes [..3] / one_line / arthur_note / week_question {id, q} /
-  week_answer {q, hit, body} / reader_vote {body}
+  reader_vote {body}（week_answer は 11/17 の決定で朝刊では書かない＝書かれても外す）
   落ちた欄はその欄だけ外し、朝刊の本体は出す（deep と同じ）。
 """
 from __future__ import annotations
@@ -411,8 +411,8 @@ def week_lines(today=None, dst="docs/ai_analysis.json", series=None):
         if not cands:
             return []
         out = [H_WEEK,
-               f"今日は週の最初の号。今週の問いを1つ立てる（下の候補から id を1つ選ぶ）。判定日は週の最後の営業日（{_md(last.isoformat())}）の朝刊で、"
-               "その時点の最新の終値（ふつうは前日の終値）を使う。週の最後の終値での結果は夕方の答え合わせに出る"]
+               f"今日は週の最初の号。今週の問いを1つ立てる（下の候補から id を1つ選ぶ）。正式な答えは週の最後の営業日（{_md(last.isoformat())}）の終値で、"
+               "その日の夕方の答え合わせと土曜の週末版で出す（朝刊では答えを言い切らない）"]
         for x in cands:
             out.append(f"- [{x['id']}] {x['rule']}／{x['now']}")
         out.append(WEEKQ_TAG + " " + json.dumps(
@@ -431,15 +431,45 @@ def week_lines(today=None, dst="docs/ai_analysis.json", series=None):
     out = [H_WEEK, f"- 今週の問い（{_md(wq['set_on'])}に立てた）: {wq.get('q', '')}",
            f"- 決まり: {wq.get('rule', '')}"]
     if today == last:
-        out.append(f"- 判定（{_md(j['asof'])} の終値で）: 終値 {j['close']:,.2f}円・{lv} {j['level']:,.2f}円 → "
-                   f"{side} → {'達成' if j['hit'] else '未達'}。今日の号の week_answer で答え合わせする")
-        out.append(WEEKA_TAG + " " + json.dumps({"id": wq["id"], "q": wq.get("q", ""), "hit": j["hit"],
-                                                 "asof": j["asof"], "close": j["close"], "level": j["level"]},
-                                                ensure_ascii=False))
+        # 2026-11-17 統括の決定: 正式な答えは週の最後の営業日の終値。金曜の朝刊は途中経過として書き、判定は言い切らない
+        out.append(f"- 途中経過（{_md(j['asof'])} の終値まで）: 終値 {j['close']:,.2f}円・{lv} {j['level']:,.2f}円 → いまは{side}。"
+                   "正式な答えは今日の終値で決まり、夕方の答え合わせと土曜の週末版で出す。朝刊では達成・未達を言い切らない")
     else:
         out.append(f"- 途中経過（{_md(j['asof'])} の終値）: 終値 {j['close']:,.2f}円・{lv} {j['level']:,.2f}円 → いまは{side}。"
                    "触れるなら一言だけ（週の最後の営業日の号で答え合わせする）")
     return out
+
+
+def week_result_lines(mon: date, fri: date, ana=None, result=None, series=None):
+    """土曜の週末版（今週の振り返り）の材料: 今週の問いと、その正式な答え（週の最後の営業日の終値で機械の判定）。
+    元は金曜夕方の docs/ai_today_result.json の week_question → 無ければ ai_analysis.json の問いを終値で判定。
+    今週の問いが無い・終値が取れない週は []"""
+    ana = ana if ana is not None else _load_docs("ai_analysis.json")
+    result = result if result is not None else _load_docs("ai_today_result.json")
+    _, last = week_days(mon)
+    if last is None:
+        return []
+    wr = (result or {}).get("week_question") if isinstance(result, dict) else None
+    if not (isinstance(wr, dict) and str(wr.get("asof") or "") == last.isoformat() and wr.get("hit") is not None):
+        wr = None
+        wq = None
+        for e in [(ana or {}).get("latest") or {}] + list((ana or {}).get("history") or []):
+            q = e.get("week_question") if isinstance(e, dict) else None
+            if isinstance(q, dict) and q.get("id") and mon.isoformat() <= (e.get("date") or "") <= fri.isoformat():
+                wq = dict(q, set_on=e["date"])
+        if not wq:
+            return []
+        series = series if series is not None else n225_series(fri + timedelta(days=1))
+        series = [x for x in series if x[0] <= fri.isoformat()]
+        j = judge(wq, series)
+        if not j or j["asof"] != last.isoformat():     # 週の最後の終値がまだ取れていない
+            return []
+        wr = dict(wq, **j)
+    lv = "25日線" if wr.get("id") == "ma25" else ("200日線" if wr.get("id") == "ma200" else "水準")
+    return [f"- 今週の問い（{_md(wr.get('set_on') or mon.isoformat())}の朝刊で立てた）: {wr.get('q', '')}",
+            f"- 決まり: {wr.get('rule', '')}",
+            f"- 答え（{_md(wr['asof'])} の終値で機械が判定）: 終値 {float(wr['close']):,.2f}円・{lv} {float(wr['level']):,.2f}円 → "
+            f"{'達成' if wr['hit'] else '未達'}"]
 
 
 def material_lines(dst, prev=None, today=None):
@@ -595,9 +625,11 @@ def check_week_question(v, src, bp):
 
 
 def check_week_answer(v, src, bp):
+    """2026-11-17 統括の決定で、朝刊では今週の問いに答えない（正式な答えは週の最後の終値・夕方と土曜版）。
+    朝刊の材料に判定の行は出ないので、week_answer は書かれても外れる"""
     m = _tag_json(src, WEEKA_TAG)
     if not m:
-        return "今週の問いの答え合わせの日ではない（判定が入力に無い）"
+        return "朝刊では今週の問いに答えない（正式な答えは週の最後の終値で、夕方の答え合わせと土曜版）"
     if not isinstance(v, dict):
         return "week_answer が dict でない"
     if v.get("hit") is not m.get("hit"):
@@ -665,8 +697,7 @@ EXTRA_GUIDE = """# 新しい欄（材料がある日だけ書く・無い日は�
 - changes: 昨日から変わったことを最大3行（各40字まで）。温度計の ℃・構え・その日の主役のうち、実際に変わったものだけ。変わっていなければ「変わっていない」も1行でよい
 - scene: 入力に「いまの場面」の節がある日だけ。title（30字まで）と body（1〜2文・120字まで）。body に「1965年以降◯回、◯◯に上がっていたのは◯回中◯回」の形を入れる。注記（この先を示すものではない）は表示側が添えるので書かない
 - week_question: 入力に「今週の問い」の候補がある日（週の最初の号）だけ。候補の id を1つ選び、q に読み手向けの問いを1つ（40字まで・末尾は「？」か「か」）。例「今週、日経平均は25日線を回復できるか」。判定は機械がするので、候補の決まりと違う問いにしない
-- week_answer: 入力に「今週の問い」の判定がある日（週の最後の号）だけ。hit は判定（達成=true・未達=false）をそのまま写し、body（120字まで）で判定の数字を引いて答え合わせする
-- 週の途中の号で「今週の問い」の途中経過が入力にあれば、arthur_note か today_watch で一言だけ触れてよい（新しい欄は作らない）
+- 週の途中と週の最後の号で「今週の問い」の途中経過が入力にあれば、arthur_note か today_watch で一言だけ触れてよい（新しい欄は作らない）。正式な答えは週の最後の終値で決まるので、朝刊では達成・未達を言い切らない
 - reader_vote: 入力に「読者の1タップ」の節がある日だけ。読者の見立てと実際の結果（またはアーサーの構え）を並べて1〜2文（80字まで）"""
 
 SCHEMA_EXTRA = """,
@@ -675,5 +706,4 @@ SCHEMA_EXTRA = """,
   "changes": ["昨日から変わったこと（各40字まで・最大3行）"],
   "scene": {"title": "いまの場面の見出し（30字まで）", "body": "1965年以降◯回・◯回中◯回の形で1〜2文（120字まで）"},
   "week_question": {"id": "候補の id", "q": "今週の問い（40字まで）"},
-  "week_answer": {"hit": true, "body": "判定の数字を引いた答え合わせ（120字まで）"},
   "reader_vote": {"body": "読者の1タップと結果を並べて（80字まで）"}"""

@@ -143,11 +143,11 @@ ok("今週の問い（11/16に立てた）" in ww and "途中経過" in ww and X
 FRI = date(2026, 11, 20)
 s_fri = series_until(FRI)
 wf = "\n".join(X.week_lines(FRI, dst=str(dst), series=s_fri))
-ja = X._tag_json(wf, X.WEEKA_TAG)
-ok(ja and ja["id"] == "ma25" and ja["hit"] is False and ja["asof"] == "2026-11-19", f"金曜は機械の判定（下げ続き→未達） {ja}")
-ok("未達" in wf and "11/19 の終値で" in wf, "判定の材料")
+ok(X.WEEKA_TAG not in wf and "途中経過（11/19 の終値まで）" in wf and "言い切らない" in wf,
+   f"金曜の朝刊は途中経過（木曜の終値まで）で、判定は出さない {wf}")
+ok("→ 未達" not in wf and "→ 達成" not in wf, "金曜の朝刊の材料に達成・未達を書かない")
 up = [(d, 50000 + i * 30.0) for i, (d, _) in enumerate(s_fri)]
-ok(X._tag_json("\n".join(X.week_lines(FRI, dst=str(dst), series=up)), X.WEEKA_TAG)["hit"] is True, "上げ続き→達成")
+ok("いまは上回っている" in "\n".join(X.week_lines(FRI, dst=str(dst), series=up)), "上げ続き→途中経過は上回っている")
 ok(X.week_lines(FRI, dst=str(TMP / "none.json"), series=s_fri) == [], "月曜に問いが立っていない週の金曜は出さない")
 ok(X.judge({"kind": "level", "level": 100}, [("2026-11-19", 100.0)])["hit"] is False, "同じ値は上回っていない")
 
@@ -199,7 +199,7 @@ drop("scene", {"title": "下げ", "body": "1965年以降35回。35回中18回。
 drop("scene", "文字だけ", want="dict")
 drop("reader_vote", {"body": "読者は上が多い"}, want="材料が無い日")
 drop("week_question", {"id": "ma25", "q": "25日線を回復できるか"}, want="候補が入力に無い")
-drop("week_answer", {"hit": True, "body": "達成"}, want="判定が入力に無い")
+drop("week_answer", {"hit": True, "body": "達成"}, want="朝刊では今週の問いに答えない")
 # 同じ一言はくり返さない
 dst2 = TMP / "notes.json"
 dst2.write_text(json.dumps({"latest": {"date": "2026-11-16", "arthur_note": GOOD["arthur_note"]}, "history": []},
@@ -221,10 +221,25 @@ ok(X.check_extras(d, SRC_MON, str(dst), "2026-11-16") == {} and d["week_question
 drop("week_question", {"id": "nikkei_up", "q": "今週は上がるか"}, src=SRC_MON, want="候補に無い")
 drop("week_question", {"id": "ma25", "q": "25日線"}, src=SRC_MON, want="？")
 SRC_FRI = SRC + "\n" + wf
-d = {"week_answer": {"hit": False, "body": "11/19の終値は25日線の下で、今週の問いは未達でした。"}}
-ok(X.check_extras(d, SRC_FRI, str(dst), "2026-11-20") == {} and d["week_answer"]["q"] == wq["q"]
-   and d["week_answer"]["asof"] == "2026-11-19", f"答え合わせは機械の判定で上書き {d}")
-drop("week_answer", {"hit": True, "body": "達成でした。"}, src=SRC_FRI, want="機械の判定")
+drop("week_answer", {"hit": False, "body": "11/19の終値は25日線の下でした。"}, src=SRC_FRI, want="朝刊では今週の問いに答えない")
+
+# 土曜の週末版の材料: 今週の問いと、その正式な答え（週の最後の営業日の終値）
+MON_ = date(2026, 11, 16)
+res = {"date": "2026-11-20", "week_question": {"id": "ma25", "q": wq["q"], "set_on": "2026-11-16", "asof": "2026-11-20",
+                                              "close": 60100.0, "level": 59900.5, "hit": True, "rule": wq["rule"]}}
+anad = json.loads(dst.read_text(encoding="utf-8"))
+wrl = "\n".join(X.week_result_lines(MON_, FRI, anad, res, series=[]))
+ok("答え（11/20 の終値で機械が判定）" in wrl and "達成" in wrl and "60,100.00円" in wrl, f"土曜版は夕方の答え合わせの答え {wrl}")
+s_full = series_until(date(2026, 11, 21))
+wrl2 = "\n".join(X.week_result_lines(MON_, FRI, anad, {}, series=s_full))
+ok("答え（11/20 の終値で機械が判定）" in wrl2 and "未達" in wrl2, f"夕方の答え合わせが無ければ終値で判定 {wrl2}")
+ok(X.week_result_lines(MON_, FRI, anad, {}, series=s_fri) == [], "金曜の終値がまだ無ければ答えを出さない")
+ok(X.week_result_lines(MON_, FRI, {"latest": {}, "history": []}, {}, series=s_full) == [], "問いが無い週は出さない")
+old_res = dict(res, week_question=dict(res["week_question"], asof="2026-11-19"))
+ok("未達" in "\n".join(X.week_result_lines(MON_, FRI, anad, old_res, series=s_full)),
+   "金曜の終値でない答え合わせは使わず、終値で判定し直す")
+import weekly  # noqa: E402
+ok("{week_q}" in weekly.PROMPT_SAT and "{week_q}" not in weekly.PROMPT_SUN, "土曜版のプロンプトに今週の問いの節")
 # 読者の1タップがある日
 SRC_V = SRC + "\n" + vl
 d = {"reader_vote": {"body": "読者は下で終わるが70%、実際も下げでした。"}}

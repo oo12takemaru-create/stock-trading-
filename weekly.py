@@ -533,6 +533,9 @@ PROMPT_SAT = """あなたは日本株市場を専門とするマクロアナリ�
 # 週次の需給
 {flow}
 
+# 今週の問いと、その答え（月曜の朝刊で立てた問い・週の最後の営業日の終値で機械が判定済み・書き換えない）
+{week_q}
+
 {style}
 # 出力（JSONのみ。コードフェンスや前置きは書かない）
 {{
@@ -545,7 +548,8 @@ PROMPT_SAT = """あなたは日本株市場を専門とするマクロアナリ�
   "lesson": "来週に持ち越す教訓を1文"
 }}
 points は3つ。days は今週の営業日すべて（上の日ごとの値動きにある日）。world は2〜3個。
-sectors は strong 2つ・weak 2つ（上の週間の業種の数字から選ぶ）。JSONのみを出力すること。"""
+sectors は strong 2つ・weak 2つ（上の週間の業種の数字から選ぶ）。
+「今週の問いと、その答え」がある週は、points か lesson のどこかで答え（達成／未達）に一言触れてよい（判定は書き換えない・新しいキーは作らない）。JSONのみを出力すること。"""
 
 PROMPT_SUN = """あなたは日本株市場を専門とするマクロアナリストです。
 株レーダーの「週末版・日曜＝来週の地図」を日本語で書いてください。読者は個人投資家で、日曜にこれを読んで来週の準備をします。
@@ -710,6 +714,17 @@ def check_banned(data):
 NO_SAT = "（今週の土曜版はありません）"
 
 
+def week_q_lines(mon, fri):
+    """今週の問いと、その正式な答え（ai_morning_extra.week_result_lines・2026-11-17）。取れなければ []"""
+    try:
+        import ai_morning_extra
+        return ai_morning_extra.week_result_lines(mon, fri, site_json("ai_analysis.json"),
+                                                  site_json("ai_today_result.json"))
+    except Exception as e:
+        print(f"今週の問いの材料を作れず（入れない）: {e}", file=sys.stderr)
+        return []
+
+
 def build_prompt(today):
     """入力データを集めて完成プロンプトを作る。sat で採点対象が無ければ exit 1。
     返り値: (prompt, ctx)。ctx は書き出し（write_entry）でも使う機械の確定値"""
@@ -752,7 +767,8 @@ def build_prompt(today):
             market="\n".join(market_lines()) or "(取得できず)",
             table="\n".join(tbl),
             morning="\n".join(morning_lines(ana)) or "(取得できず)",
-            flow="\n".join(flow) or "(取得できず)")
+            flow="\n".join(flow) or "(取得できず)",
+            week_q="\n".join(week_q_lines(mon, fri)) or "(今週の問いは無し)")
     else:
         ev, nm, nf = next_week_events(today)
         days, closed = next_week_days(today)
