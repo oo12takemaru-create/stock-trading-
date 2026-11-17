@@ -62,6 +62,26 @@ BANDS = [
 ]
 BAND = {b["regime"]: b for b in BANDS}
 
+# ℃ 表示（2026-11-17 本人指示「−20℃〜60℃ で（0℃ が寒い）」）。
+# 0〜100 の値はそのまま残し、表示用に ℃ = round(値 × 0.8 − 20) を並べるだけ。
+C_MIN, C_MAX = -20, 60
+
+
+def celsius(v):
+    """0〜100 の温度 → ℃（−20〜60 の整数）。値×0.8 の端数は .0/.2/.4/.6/.8 だけなので四捨五入の向きで迷わない"""
+    if v is None:
+        return None
+    return int(round(float(v) * 0.8 - 20))
+
+
+def c_label(c: int) -> str:
+    """℃ の表記（負の数は全角のマイナス「−」）"""
+    return f"{'−' if c < 0 else ''}{abs(c)}℃"
+
+
+# 帯の ℃（総崩れ −20〜−9／弱気 −8〜11／中立 12〜27／強気 28〜60）
+BANDS_C = [{"regime": b["regime"], "jp": b["jp"], "lo": celsius(b["lo"]), "hi": celsius(b["hi"])} for b in BANDS]
+
 # 入力（key, 表示名, 単位, 向き）。向き +1 = 値が大きいほど温度が上がる
 INPUTS = [
     ("n225_ma200", "日経平均と200日線の差", "%", +1),
@@ -79,7 +99,10 @@ DEFINITION = (
     "S&P500と200日線の差、VIX）が過去10年の中でどのあたりにあるかを平均し、"
     "過去10年の同じ判定の日と比べて決めます。"
     "判定が変わった日は数字が大きく動きます。これは地合いの要約で、売買の合図ではありません。"
+    "表示では、0〜100 の位置を −20℃〜60℃ に読み替えて（℃ = 値 × 0.8 − 20）、0℃ を下回るほど冷え込んだ地合いとして示します。"
 )
+DEFINITION_C = ("0〜100 の位置を −20℃〜60℃ に読み替えたもの（℃ = 値 × 0.8 − 20 を四捨五入）。"
+                "帯は 総崩れ −20〜−9℃・弱気 −8〜11℃・中立 12〜27℃・強気 28〜60℃。")
 DEFINITION_SHORT = "日経平均・S&P500・VIX の位置を過去10年と比べて0〜100にまとめた地合いの要約（0が総悲観・100が過熱）。"
 
 # 定義文・表示文に使わない言葉（売買の合図に読める言葉）
@@ -312,7 +335,7 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
     for r in rows:
         d = r["d"]
         nx = nxt.get(d)
-        hist.append({"d": str(d.date()), "t": r["t"], "r": r["regime"],
+        hist.append({"d": str(d.date()), "t": r["t"], "tc": celsius(r["t"]), "r": r["regime"],
                      "c": round(float(n225[d]), 2),
                      "n1": None if nx is None or pd.isna(nx) else round(float(nx), 2)})
     all_days = [h["d"] for h in hist]
@@ -327,6 +350,10 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
           [h["d"] for h in hist if h["r"] == b["regime"]]) for b in BANDS] + [
         ("all", "全期間", all_days),
     ]
+    # 同じ区分の ℃ の表記（区分そのものは 0〜100 のまま）
+    label_c = {"le20": f"{c_label(celsius(20))}以下", "ge80": f"{c_label(celsius(80))}以上", "all": "全期間"}
+    for b in BANDS_C:
+        label_c[f"band_{b['regime']}"] = f"{b['jp']}の帯（{c_label(b['lo'])}〜{c_label(b['hi'])}）"
     stats = {
         "period": [all_days[0], all_days[-1]],
         "how": "温度が出た日の終値から、5営業日後・20営業日後の終値までの騰落（%）。"
@@ -339,7 +366,8 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
         "groups": [],
     }
     for key, label, ds in groups:
-        g_ = {"key": key, "label": label, "n225": summarize(ds, fwd_n, all_days, whole=key == "all")}
+        g_ = {"key": key, "label": label, "label_c": label_c[key],
+              "n225": summarize(ds, fwd_n, all_days, whole=key == "all")}
         if fwd_e is not None:
             g_["etf1306"] = summarize(ds, fwd_e, all_days, whole=key == "all")
         stats["groups"].append(g_)
@@ -396,6 +424,7 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
             "lookback": "昨日=1営業日前・1週間前=5営業日前・1か月前=20営業日前（履歴の並びで数える）",
             "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）",
         },
+        "celsius": celsius_block(cur, prev, lookback(hist, 5), lookback(hist, 20), hi, lo, yr_from),
         "history_file": "thermo100_hist.json",
         "history_days": len(hist),
         "stats": stats,
@@ -403,13 +432,43 @@ def build(g: dict, regime_fn, etf: pd.Series | None, now: datetime) -> tuple[dic
     hist_doc = {
         "name": NAME,
         "updated": data["updated"],
-        "fields": {"d": "日付", "t": "温度（0〜100）", "r": "温度計の判定",
+        "fields": {"d": "日付", "t": "温度（0〜100）", "tc": "温度（℃・−20〜60。t × 0.8 − 20 を四捨五入）",
+                   "r": "温度計の判定",
                    "c": "日経平均の終値", "n1": "翌営業日の日経平均の騰落（%）"},
         "bands": BANDS,
+        "bands_c": BANDS_C,
         "definition_short": DEFINITION_SHORT,
+        "definition_c": DEFINITION_C,
         "items": hist,
     }
     return data, hist_doc
+
+
+def celsius_block(cur: dict, prev, week, month, hi: dict, lo: dict, yr_from: str) -> dict:
+    """thermo100.json の celsius（今日・比較・1年の高安・帯の境目を ℃ で）。0〜100 の値は別のキーにそのまま残す"""
+    v = celsius(cur["t"])
+
+    def cmp(h):
+        if h is None:
+            return None
+        c = celsius(h["t"])
+        return {"d": h["d"], "value": c, "label": c_label(c), "regime_jp": BAND[h["r"]]["jp"], "diff": v - c}
+
+    b = next(x for x in BANDS_C if x["regime"] == cur["r"])
+    return {
+        "value": v,
+        "label": c_label(v),
+        "scale": {"min": C_MIN, "max": C_MAX},
+        "band": {"lo": b["lo"], "hi": b["hi"]},
+        "compare": {"yesterday": cmp(prev), "week": cmp(week), "month": cmp(month)},
+        "year": {"from": yr_from,
+                 "high": {"d": hi["d"], "value": celsius(hi["t"]), "label": c_label(celsius(hi["t"]))},
+                 "low": {"d": lo["d"], "value": celsius(lo["t"]), "label": c_label(celsius(lo["t"]))}},
+        "bands": BANDS_C,
+        "stats_thresholds": {"le20": celsius(20), "ge80": celsius(80)},
+        "formula": "℃ = round(値 × 0.8 − 20)",
+        "definition": DEFINITION_C,
+    }
 
 
 def radar_check(data: dict, docs: Path = DOCS) -> dict | None:
@@ -442,7 +501,7 @@ def main():
     data, hist = build(g, detect_market_regime, etf, datetime.now(JST))
     data["radar_check"] = radar_check(data, docs)
 
-    bad = text_ok(DEFINITION + DEFINITION_SHORT)
+    bad = text_ok(DEFINITION + DEFINITION_SHORT + DEFINITION_C)
     if bad:
         raise SystemExit(f"定義文に使わない言葉: {bad}")
 
