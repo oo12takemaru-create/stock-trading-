@@ -41,6 +41,11 @@ jobs:
       - name: Install dependencies
         run: pip install -q yfinance pandas
 
+      # 2026-11-17〜 最新日の終値の取りこぼしで前営業日の行を落とさない（fill_latest）・
+      #   前の版より採点が減る/最新の採点済みの日が古くなる版は書かない（前の版を残して警告だけ）
+      - name: Test (前営業日の行を落とさない)
+        run: python -X utf8 tests/test_ai_record_guard.py
+
       - name: Build ai_record.json
         run: python -X utf8 ai_record.py
 

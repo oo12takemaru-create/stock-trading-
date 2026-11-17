@@ -71,19 +71,28 @@ def collect_ai_stances():
 
 
 def n225_prices():
-    """日付 → (始値, 終値)。始値が要るのは資産曲線のため（下の build_curve のコメント参照）"""
+    """日付 → {Close, Open}。始値が要るのは資産曲線のため（下の build_curve のコメント参照）
+
+    ★2026-11-17★ 終値は yf_latest.fill_latest を通す。夜中〜早朝（GitHub の schedule が遅れて走る時刻）は
+    Yahoo の最新日の終値が空欄で返ることがあり、空欄の足を捨てていたので**前営業日の採点の行が落ちていた**
+    （11/16 19:01 の版にあった 11/16 の行が、11/17 03:57 の版で消え、11/17 の朝刊のスコアボードが
+    「前日=11/13・4連敗」になった）。始値が空欄の日は終値だけ持つ（資産曲線ではその日を飛ばす）"""
     import yfinance as yf
     import pandas as pd
+    from yf_latest import fill_latest
     df = yf.download("^N225", period="6mo", progress=False,
                      auto_adjust=False, threads=False)
     out = {}
-    for col in ("Open", "Close"):
-        d = df[col].dropna()
-        if isinstance(d, pd.DataFrame):
-            d = d.iloc[:, 0]
-        for i, v in d.items():
-            out.setdefault(i.strftime("%Y-%m-%d"), {})[col] = float(v)
-    return {k: v for k, v in out.items() if "Open" in v and "Close" in v}
+    for i, v in fill_latest("^N225", df["Close"]).items():
+        out[i.strftime("%Y-%m-%d")] = {"Close": float(v)}
+    d = df["Open"]
+    if isinstance(d, pd.DataFrame):
+        d = d.iloc[:, 0]
+    for i, v in d.dropna().items():
+        k = pd.Timestamp(i).strftime("%Y-%m-%d")
+        if k in out:
+            out[k]["Open"] = float(v)
+    return out
 
 
 def n225_closes_from(prices):
@@ -113,7 +122,7 @@ def build_curve(stances, prices):
     ai, base, rows = 100.0, 100.0, []
     for d in sorted(stances):
         px = prices.get(d)
-        if not px:
+        if not px or "Open" not in px:
             continue
         intraday = px["Close"] / px["Open"] - 1
         ex = EXPOSURE.get(stances[d]["stance"])
@@ -154,6 +163,25 @@ def aggregate(rows, up_keys, down_keys):
         g["win"] = round(g["hit"] / g["judged"] * 100, 1) if g["judged"] else None
         del g["sum"]
     return out
+
+
+def _last(part):
+    rows = (part or {}).get("rows") or []
+    return (rows[-1].get("d") or "") if rows else ""
+
+
+def shrink_reason(old, new):
+    """前の版より採点が減る・最新の採点済みの日が古くなるなら、その理由（書かない）。問題なければ None。
+    Yahoo の取りこぼしで正しい版を古い版で上書きしないための守り（採点のしかたは変えない）"""
+    if not isinstance(old, dict):
+        return None
+    for key, name in (("ai", "AI朝刊"), ("regime", "地合い判定")):
+        o, n = old.get(key) or {}, new.get(key) or {}
+        if int(n.get("n") or 0) < int(o.get("n") or 0):
+            return f"{name}の採点が {o.get('n')}日 → {n.get('n')}日 に減る"
+        if _last(n) < _last(o):
+            return f"{name}の最新の採点済みの日が {_last(o)} → {_last(n)} に古くなる"
+    return None
 
 
 def main():
@@ -226,6 +254,15 @@ def main():
             "rows": curve,
         },
     }
+    try:
+        old = json.loads(OUT.read_text(encoding="utf-8"))
+    except Exception:
+        old = None
+    why = shrink_reason(old, data)
+    if why and "--force" not in sys.argv:
+        print(f"::warning::ai_record.json を書かない（前の版を残す）: {why}。"
+              f"Yahoo の最新日の取りこぼしの可能性。正しいと分かっているなら --force で書く", file=sys.stderr)
+        return
     OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"OK ai_record.json: AI {len(ai_rows)}日 / 地合い {len(reg_rows)}日 / "
           f"二重採点 {dual['n']}日（うちAIが変更 {dual['changed']}日）/ 曲線 {len(curve)}点")
