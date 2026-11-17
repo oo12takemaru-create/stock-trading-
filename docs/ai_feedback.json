@@ -2,6 +2,26 @@
  "issues": [
   {
    "kind": "morning",
+   "date": "2026-11-18",
+   "issue": 29,
+   "title": "VIX26.2、寄りは小安く戻りも鈍くなりやすい",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "今日は守りの構えです。",
+   "watch": "9:00の寄りが前日終値の58,860円を保てれば下げは一服、CME先物の58,760円も割るなら下げが続いていると読みます。",
+   "chars": 1790,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
    "date": "2026-11-17",
    "issue": 28,
    "title": "VIXが23.7へ急騰、寄りは安く始まりやすい",
@@ -532,5 +552,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-17T06:18:58+09:00"
+ "updated": "2026-11-18T06:18:17+09:00"
 }
