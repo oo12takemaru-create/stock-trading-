@@ -5,9 +5,10 @@
   2. 欠損日: 入力の一部が欠けた日も温度が出る（帯は一致）。全部欠けた日は温度を出さない
   3. 休場日: 米国だけ休み・日本だけ休みの日の扱い。履歴は日本の営業日だけ。比較の「n営業日前」は履歴の並びで数える
   4. 先読みしない: 先の日のデータを足しても、過去の温度は変わらない
-  5. 公開してよい列だけ: 履歴の列は d/t/r/c/n1 だけ（JPX 由来の数字を入れない）
+  5. 公開してよい列だけ: 履歴の列は d/t/tc/r/c/n1 だけ（JPX 由来の数字を入れない）
   6. 定義文に使わない言葉が無い・「判定が変わった日は数字が大きく動きます」がある
   7. その後の集計: 先が足りない日は数えない・かたまりの数え方
+  8. ℃: ℃ = round(値×0.8−20)・帯の境目・比較・1年の高安・集計区分の ℃ の表記・既存のキーと値は変えない
 """
 import sys
 from datetime import datetime, timedelta, timezone
@@ -142,7 +143,7 @@ ok(np.allclose(p1, p2[:300], equal_nan=True), "rolling_pct が先の値を見て
 ok(np.isnan(T.rolling_pct(np.arange(10.0))).all(), "窓が足りない日は位置を出さない")
 
 # ── 5. 公開してよい列だけ ──
-ok(all(set(h) == {"d", "t", "r", "c", "n1"} for h in items), "履歴の列は d/t/r/c/n1 だけ")
+ok(all(set(h) == {"d", "t", "tc", "r", "c", "n1"} for h in items), "履歴の列は d/t/tc/r/c/n1 だけ")
 ok(all(0 <= h["t"] <= 100 and isinstance(h["t"], int) for h in items), "温度は0〜100の整数")
 for k in ("value", "compare", "year", "components", "definition", "updated", "stats", "regime_changed", "bands"):
     ok(k in data, f"thermo100.json に {k} が無い")
@@ -170,6 +171,39 @@ ok(s["sankou"] is True and s["r20"]["n"] == 0, "件数が少ないと参考値")
 gl = {x["key"]: x for x in data["stats"]["groups"]}
 ok(set(gl) >= {"le20", "ge80", "all"}, "極端な日の集計がある")
 ok(gl["all"]["n225"]["n_days"] == len(items), "全期間の件数 = 履歴の日数")
+
+# ── 8. ℃ ──
+ok(T.celsius(0) == -20 and T.celsius(100) == 60 and T.celsius(25) == 0 and T.celsius(50) == 20, "℃ の端と0℃")
+ok(T.celsius(None) is None, "値が無ければ ℃ も無い")
+ok([(b["lo"], b["hi"]) for b in T.BANDS_C] == [(-20, -9), (-8, 11), (12, 27), (28, 60)], f"帯の ℃ {T.BANDS_C}")
+ok(T.celsius(20) == -4 and T.celsius(80) == 44, "集計区分 20以下=−4℃以下・80以上=44℃以上")
+ok(all(T.celsius(v) == int(round(v * 0.8 - 20)) for v in range(101)), "全値で式どおり")
+# ℃ の帯と 0〜100 の帯が全値で同じ判定になる（境目が食い違わない）
+for v in range(101):
+    c = T.celsius(v)
+    rc = next(b["regime"] for b in T.BANDS_C if b["lo"] <= c <= b["hi"])
+    ok(rc == T.regime_of_value(v), f"温度{v}（{c}℃）の帯が一致しない")
+ok(all(h["tc"] == T.celsius(h["t"]) for h in items), "履歴の tc = celsius(t)")
+cz = data["celsius"]
+ok(cz["value"] == T.celsius(data["value"]) and cz["scale"] == {"min": -20, "max": 60}, "今日の ℃")
+ok(cz["label"] == T.c_label(cz["value"]) and T.c_label(-4) == "−4℃" and T.c_label(44) == "44℃", "℃ の表記")
+bc = next(b for b in T.BANDS_C if b["regime"] == data["regime"])
+ok(cz["band"] == {"lo": bc["lo"], "hi": bc["hi"]} and cz["band"]["lo"] <= cz["value"] <= cz["band"]["hi"], "今日の ℃ が帯の中")
+for k in ("yesterday", "week", "month"):
+    a, b = data["compare"][k], cz["compare"][k]
+    ok((a is None) == (b is None), f"比較 {k} の有無")
+    if a and b:
+        ok(b["d"] == a["d"] and b["value"] == T.celsius(a["value"]) and b["diff"] == cz["value"] - b["value"], f"比較 {k} の ℃")
+ok(cz["year"]["high"]["value"] == T.celsius(data["year"]["high"]["value"])
+   and cz["year"]["low"]["value"] == T.celsius(data["year"]["low"]["value"]), "1年の高安の ℃")
+gl2 = {x["key"]: x for x in data["stats"]["groups"]}
+ok(gl2["le20"]["label_c"] == "−4℃以下" and gl2["ge80"]["label_c"] == "44℃以上", "集計区分の ℃ の表記")
+ok(gl2["le20"]["label"] == "温度20以下" and gl2["ge80"]["label"] == "温度80以上", "既存の区分名は変えない")
+ok(all("label_c" in x for x in data["stats"]["groups"]), "全区分に ℃ の表記")
+ok(isinstance(data["value"], int) and 0 <= data["value"] <= 100 and data["bands"] == T.BANDS, "既存の value・bands はそのまま")
+ok("−20℃〜60℃" in T.DEFINITION and "−20℃〜60℃" in T.DEFINITION_C, "定義文に ℃ の読み替えの一文")
+ok(not T.text_ok(T.DEFINITION_C), "℃ の定義文に使わない言葉")
+ok(hist["bands_c"] == T.BANDS_C and "tc" in hist["fields"], "履歴の ℃ の列の説明")
 
 print("NG" if NG else "OK", f"(不一致 {NG})")
 sys.exit(1 if NG else 0)
