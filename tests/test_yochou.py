@@ -73,7 +73,7 @@ eq(Y.stat_record("high52_close", "all", 1, obs3, ordd)["live_ok"], False, "live 
 
 # ── 文面: 禁止語を含まない・件数・期間・窓が入る
 rec = {"n": 312, "days": 118, "median": -1.8, "pos_rate": 39.0, "neg_rate": 61.0, "window": 20,
-       "period": ["2021-11-19", "2026-11-17"]}
+       "period": ["2021-11-19", "2026-11-17"], "median_vs_all": -0.7}
 for t in list(Y.PHRASE) + ["thermo_stage_change"]:
     e = {"event_type": t, "code": "MKT" if t in ("thermo_stage_change", "gauge_stage_up") else "7203",
          "event_params": {"from": "NEUTRAL", "to": "BEARISH"}}
@@ -85,8 +85,20 @@ eq(Y.banned_in("空売り残高の報告"), [], "空売り残高（JPX の統計
 eq(Y.banned_in("空売りが増えた"), ["売り"], "空売り残高以外の「売り」は不可")
 eq(Y.banned_in("買いが増えた"), ["買い"], "買いは不可")
 eq(Y.make_text({"event_type": "volume_surge", "code": "7203"}, rec),
-   "【予兆】7203 出来高が20日平均の3倍以上に。過去5年で同じ条件は312回（118日）。20営業日後の対TOPIXは中央値-1.8%、マイナスだった割合61%。",
-   "設計書6章の型")
+   "【予兆】7203 出来高が20日平均の3倍以上に。過去5年で同じ条件は312回（118日）。20営業日後の対TOPIXは中央値-1.8%"
+   "（同じ日の全銘柄との差は中央値-0.7%）、マイナスだった割合61%。",
+   "設計書6章の型＋全銘柄との差（統括 2026-11-18）")
+eq("全銘柄との差" in Y.make_text({"event_type": "gauge_stage_up", "code": "MKT"}, rec), False, "市場全体には全銘柄との差を入れない")
+
+# ── 全銘柄との差（vs_all）: 起点の日の全銘柄の平均を引いて検定。予兆は両方 confirmed かつ同じ向きだけ
+base = {d: (-1.0, -1.5) for d in days}
+obs4 = [(d, -1.2 + 0.05 * (i % 3), "backfill", d) for i, d in enumerate(days)]   # 対TOPIX は −、全銘柄との差は ほぼ −0.15
+va = Y.vs_all(obs4, base, ordd, 1)
+eq(va["base_median"], -1.5, "全銘柄の中央値")
+eq(round(va["median_vs_all"], 2), -0.15, "全銘柄との差の中央値")
+eq(va["vs_all_status"], "confirmed", "差が小さくても向きがそろえば confirmed（足切りは入れない）")
+obs5 = [(d, -1.0 + (0.3 if i % 2 else -0.3), "backfill", d) for i, d in enumerate(days)]   # 全銘柄と同じ
+eq(Y.vs_all(obs5, base, ordd, 1)["vs_all_status"] != "confirmed", True, "全銘柄と同じなら confirmed にならない")
 
 # ── 仮説は検出関数の種類をすべて覆う（集計の前に書く約束）
 import ledger2_detect as L        # noqa: E402

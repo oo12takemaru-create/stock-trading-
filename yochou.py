@@ -273,12 +273,14 @@ def load_all(data_dir=DATA):
 
 
 def load_baseline(data_dir=DATA):
-    """{h: {起点の日: 全銘柄の対TOPIX超過の平均}}（ledger2_backfill.write_baseline）。無ければ {}"""
+    """{h: {起点の日: (全銘柄の対TOPIX超過の平均, 中央値)}}（ledger2_backfill.write_baseline）。無ければ {}
+    「同じ日の全銘柄との差」は 出来事の値 − その起点の日の全銘柄の平均（等ウエイト）"""
     p = Path(data_dir) / "backfill" / "baseline.json.gz"
     if not p.exists():
         return {}
     rows = read_any(p)
-    return {int(h): {d: v[0] for d, v in m.items()} for h, m in (rows[0].get("by_h") or {}).items()} if rows else {}
+    return {int(h): {d: (v[0], v[2] if len(v) > 2 else None) for d, v in m.items()}
+            for h, m in (rows[0].get("by_h") or {}).items()} if rows else {}
 
 
 def thermo_stage_by_date(docs):
@@ -407,21 +409,42 @@ def build_stats(events, scores, stage_by_date, baseline=None):
     recs = []
     for (t, b, h), obs in sorted(groups.items()):
         rec = stat_record(t, b, h, [o[:3] for o in obs], ordinal)
+        rec["status_topix"] = rec["status"]          # 対TOPIX の検定の結果（status と同じ。意味を明示する欄）
         if t not in MKT_TYPES and baseline.get(h):
             rec.update(vs_all(obs, baseline[h], ordinal, h))
+        # 予兆に出せるか（統括 2026-11-18）: 対TOPIX と 同じ日の全銘柄との差 の両方で confirmed かつ同じ向き。
+        # 市場全体（日経平均で測る種類）は全銘柄との差が無いので、日経平均の検定だけで決める
+        if t in MKT_TYPES:
+            rec["signal_ok"] = rec["status"] == "confirmed"
+        else:
+            rec["signal_ok"] = (rec["status"] == "confirmed" and rec.get("vs_all_status") == "confirmed"
+                                and rec.get("vs_all_direction") == rec["direction"] != 0)
         recs.append(rec)
     return recs
 
 
 def vs_all(obs, base, ordinal, h):
-    """参考: 同じ起点の日の「全銘柄の平均」を引いた値で、同じ日付単位の検定をする（小型株の地合いの分を除いた見方）"""
+    """同じ起点の日の「全銘柄の平均」を引いた値（同じ日の全銘柄との差）で、同じ日付単位の検定をする
+    （小型株の地合いなど、出来事に関係なく出る分を除いた見方。統括 2026-11-18: 予兆はこちらも confirmed のものだけ）"""
     by_day = defaultdict(list)
+    diffs, bmeds = [], []
     for d, v, _, b in obs:
         if b in base:
-            by_day[d].append(v - base[b])
+            dv = v - base[b][0]
+            by_day[d].append(dv)
+            diffs.append(dv)
+            if base[b][1] is not None:
+                bmeds.append(base[b][1])
     days = sorted(by_day)
+    extra = {"vs_all_n": len(diffs),
+             "median_vs_all": round(median(diffs), 3) if diffs else None,
+             "pos_rate_vs_all": round(sum(1 for x in diffs if x > 0) / len(diffs) * 100, 1) if diffs else None,
+             "neg_rate_vs_all": round(sum(1 for x in diffs if x < 0) / len(diffs) * 100, 1) if diffs else None,
+             # 同じ期間の全銘柄の対TOPIX 中央値（出来事ごとの起点の日の、全銘柄の中央値の中央値）
+             "base_median": round(median(bmeds), 3) if bmeds else None}
     if len(days) < 2:
-        return {"vs_all_days": len(days), "vs_all_day_mean": None, "vs_all_p": None, "vs_all_status": "insufficient"}
+        return {"vs_all_days": len(days), "vs_all_day_mean": None, "vs_all_p": None, "vs_all_status": "insufficient",
+                "vs_all_direction": 0, **extra}
     vals = [sum(by_day[d]) / len(by_day[d]) for d in days]
     m, t, p, _ = date_level_test(vals, [ordinal[d] for d in days], h)
     half = len(days) // 2
@@ -436,7 +459,7 @@ def vs_all(obs, base, ordinal, h):
     else:
         st = "rejected"
     return {"vs_all_days": len(days), "vs_all_day_mean": round(m, 3), "vs_all_p": round(p, 5) if p is not None else None,
-            "vs_all_status": st}
+            "vs_all_status": st, "vs_all_direction": dr, **extra}
 
 
 # ──────────────────────────────────────── 文面
@@ -468,8 +491,10 @@ def make_text(e, rec):
         share = f"マイナスだった割合{rec['neg_rate']:.0f}%"
     else:
         share = f"プラスだった割合{rec['pos_rate']:.0f}%"
+    va = (f"（同じ日の全銘柄との差は中央値{rec['median_vs_all']:+.1f}%）"
+          if e["code"] != "MKT" and rec.get("median_vs_all") is not None else "")
     txt = (f"【予兆】{who} {phrase_of(e)}。{period_label(rec['period'])}で同じ条件は{rec['n']:,}回（{rec['days']:,}日）。"
-           f"{rec['window']}営業日後の{bench}は中央値{med:+.1f}%、{share}。")
+           f"{rec['window']}営業日後の{bench}は中央値{med:+.1f}%{va}、{share}。")
     return txt
 
 
@@ -524,7 +549,8 @@ def main():
                    "test": "日付を1観測（同じ日の銘柄は平均）。分散は窓の重なりを Bartlett の重みで補正。t 分布の両側 p",
                    "status": {"confirmed": "p<0.05 かつ前半・後半とも同じ向き", "weak": "p<0.10", "rejected": "それ以外",
                               "insufficient": f"発生日数{MIN_DAYS}日未満"},
-                   "vs_all": "参考: 同じ起点の日の全銘柄（等ウエイト）の対TOPIX超過の平均を引いた値で同じ検定（vs_all_*）。ステータスの判定には使っていない",
+                   "vs_all": "同じ起点の日の全銘柄（等ウエイト）の対TOPIX超過の平均を引いた値（同じ日の全銘柄との差）で同じ検定（vs_all_*）。"
+                             "status / status_topix は対TOPIX の結果、vs_all_status は全銘柄との差の結果。予兆は両方 confirmed かつ同じ向き（signal_ok）",
                    "bands": "all ＝全期間 / regime:<段階> ＝温度計の段階別（thermo100_hist の℃・後から計算し直した値）/ to:<段階> ＝変わった先の段階"},
         "hypotheses": {k: {"dir": v[0], "text": v[1]} for k, v in HYPOTHESES.items()},
         "backfill": {k: bf_meta.get(k) for k in ("price_period", "adjusted_asof", "survivorship", "thermo", "note")},
@@ -533,13 +559,16 @@ def main():
     # ── 公開: 統計の要約
     keep = ("event_type", "label", "band", "window", "metric", "n", "days", "median", "mean", "pos_rate", "p_value",
             "status", "period", "live_n", "backfill_n", "live_ok", "hypothesis_dir", "hypothesis_match",
-            "day_mean", "vs_all_day_mean", "vs_all_p", "vs_all_status")
+            "day_mean", "status_topix", "vs_all_day_mean", "vs_all_p", "vs_all_status", "median_vs_all",
+            "pos_rate_vs_all", "base_median", "signal_ok")
     by_type = defaultdict(list)
     for r in recs:
         by_type[r["event_type"]].append({k: r.get(k) for k in keep if k not in ("event_type", "label", "metric")})
     note = (bf_meta.get("note") or "") + " 統計は日付を1観測として検定したもの。過去の統計であり、この先の値動きを示すものではない。"
     write_json(docs_out / "stats.json", {
         "v": 1, "updated": now, "windows": list(H),
+        "signal_rule": "予兆に出すのは、対TOPIX（status_topix）と 同じ日の全銘柄との差（vs_all_status）の両方で confirmed かつ同じ向き"
+                       "（signal_ok）・発生日数50日以上・20営業日の窓。市場全体は日経平均の検定だけ",
         "status_rule": {"confirmed": "日付単位の検定で p<0.05、かつ期間の前半・後半とも同じ向き", "weak": "p<0.10",
                         "rejected": "どちらにも当たらない", "insufficient": f"発生日数{MIN_DAYS}日未満"},
         "summary": dict(Counter(r["status"] for r in recs)),
@@ -560,7 +589,7 @@ def main():
         if t.startswith("signal_"):
             continue                              # サイト自身の判定は予兆に重ねない（統計は stats.json にある）
         rec = idx.get((t, "all", WINDOW))
-        if not rec or rec["status"] != "confirmed" or rec["days"] < SIGNAL_MIN_DAYS:
+        if not rec or not rec.get("signal_ok") or rec["days"] < SIGNAL_MIN_DAYS:
             continue
         reg = idx.get((t, f"regime:{stage_today}", WINDOW)) if stage_today else None
         text = make_text(e, rec)
@@ -575,6 +604,10 @@ def main():
                      "pos_rate": round(rec["pos_rate"]), "period": f"{rec['period'][0][:7]}〜{rec['period'][1][:7]}",
                      "status": rec["status"], "basis": basis, "live_n": rec["live_n"],
                      # 参考: 同じ起点の日の全銘柄の平均を引いた見方（小型株の地合いの分を除く）。サイトで出すかは未定
+                     "median_vs_all": round(rec["median_vs_all"], 1) if rec.get("median_vs_all") is not None else None,
+                     "pos_rate_vs_all": round(rec["pos_rate_vs_all"]) if rec.get("pos_rate_vs_all") is not None else None,
+                     "base_median": round(rec["base_median"], 1) if rec.get("base_median") is not None else None,
+                     "status_vs_all": rec.get("vs_all_status"),
                      "vs_all": ({"day_mean": round(rec["vs_all_day_mean"], 1), "status": rec["vs_all_status"]}
                                 if rec.get("vs_all_day_mean") is not None else None),
                      "regime": ({"label": STAGE_JA[stage_today], "days": reg["days"], "median": round(reg["median"], 1),
@@ -600,7 +633,8 @@ def main():
         "regime": STAGE_JA.get(stage_today) if stage_today else None,
         "counts": [{"type": t, "label": label_of(t), "n": n} for t, n in sorted(counts.items(), key=lambda x: (-x[1], x[0]))],
         "signals": sigs,
-        "rule": f"その日の出来事のうち、{WINDOW}営業日の統計が confirmed（日付単位の検定）かつ発生日数{SIGNAL_MIN_DAYS}日以上のもの。"
+        "rule": f"その日の出来事のうち、{WINDOW}営業日の統計が「対TOPIX」と「同じ日の全銘柄との差」の両方で confirmed（日付単位の検定）"
+                f"かつ同じ向きで、発生日数{SIGNAL_MIN_DAYS}日以上のもの。"
                 f"並びは、種類を発生日数の多い順に並べて各種類から1件ずつ順に（同じ種類の中はコード順）・上限{MAX_SIGNALS}件",
         "n_matched": n_all,
         "note": f"{note} 当日記録（2026-11-18〜）で{WINDOW}営業日の答えが出た出来事はまだ{live_scored}件。"})

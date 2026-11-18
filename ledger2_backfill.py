@@ -447,7 +447,7 @@ def score_old_mkt(e, px, nowiso):
 
 def write_baseline(pn, path):
     """参考の物差し: 出来事に関係なく「全銘柄」を同じ起点の日から測った対 TOPIX の超過の平均（等ウエイト）。
-    {h: {起点の日: [平均, 銘柄数]}}。小型株が TOPIX に負けた期間は、どの出来事も対 TOPIX でマイナスに出やすいので、
+    {h: {起点の日: [平均, 銘柄数, 中央値]}}。小型株が TOPIX に負けた期間は、どの出来事も対 TOPIX でマイナスに出やすいので、
     その分を見分けるために集計（yochou.py）で並べて出す。起点・終点・値の飛びの扱いは Scorer と同じ"""
     import numpy as np
     j = pn.cpos.get(TOPIX)
@@ -471,9 +471,10 @@ def write_baseline(pn, path):
             ok = np.isfinite(r) & ~(jump > np.log(JUMP_HI))
             if ok.sum() < 500:
                 continue
-            res[b] = [round(float((r[ok] - t).mean()), 3), int(ok.sum())]
+            x = r[ok] - t
+            res[b] = [round(float(x.mean()), 3), int(ok.sum()), round(float(np.median(x)), 3)]
         out[str(h)] = res
-    write_gz(path, [{"note": "全銘柄（等ウエイト）の対TOPIX超過の平均。キーは起点の日", "by_h": out}])
+    write_gz(path, [{"note": "全銘柄（等ウエイト）の対TOPIX超過 [平均, 銘柄数, 中央値]。キーは起点の日", "by_h": out}])
     log(f"参考の物差し（全銘柄の平均）: {path.name}")
 
 
