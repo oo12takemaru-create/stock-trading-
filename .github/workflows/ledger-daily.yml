@@ -105,3 +105,42 @@ jobs:
           done
           echo "::error::push に5回失敗しました"
           exit 1
+
+      # ── 予兆レーダー（検証台帳 設計書 v1 段階3・4。2026-11-18）──────────────────────
+      # 上の台帳（v1・v2）の公開が済んだ後に、別のコミットで足す。どれが失敗しても上は止まらない。
+      #   1) 遡及分（data/ledger2/backfill・imported）のまだ埋まっていない窓を足す（late-*.jsonl に追記のみ）
+      #   2) 集計 → data/ledger2/stats/stats.json（全量）と docs/yochou/{today,record,stats}.json（サイトのトップが読む）
+      #      出した予兆は data/ledger2/signals/YYYY-MM.jsonl に追記（event_id で重複しない＝2回走っても増えない）
+      - name: Backfill late (遡及分の窓を足す・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python -X utf8 ledger2_backfill.py --late
+
+      - name: Yochou (集計と公開用 JSON)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        run: python -X utf8 yochou.py
+
+      - name: Commit yochou
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for p in data/ledger2/backfill data/ledger2/imported data/ledger2/stats data/ledger2/signals docs/yochou; do
+            [ -e "$p" ] && git add -f "$p"
+          done
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🔭 予兆レーダーの集計を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1

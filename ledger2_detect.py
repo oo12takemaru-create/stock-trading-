@@ -286,6 +286,19 @@ class Sources:
             return out
         return self._memo(f"bars{d}", load)
 
+    def hist_stats(self, d):
+        """52週安値・年初来高値／安値の判定に使う値（ledger2_panel.Panel.hist_stats）。
+        当日記録では data/bars_backfill（過去1年）＋ data/bars（当日記録）から作る。その日の data/bars が無ければ None"""
+        if self.bars(d) is None:
+            return None
+
+        def load():
+            # 1回だけ作る。値はどれも「その日までの足」だけで計算する（後ろ向きの窓）ので、後の日の足があっても変わらない
+            import ledger2_panel as P
+            return P.build(self.root)
+        pn = self._memo("panel", load)
+        return pn.hist_stats(d) if pn else None
+
     def split_ex(self, code):
         """その銘柄の分割の権利落ち日 {ex: ratio}"""
         s = self.splits()
@@ -422,6 +435,35 @@ def detect_high52(d, data):
             continue
         out.append(ev("high52_close", c, {"hi52": it["hi52"]}, {"close": it.get("p"), "chg": it.get("c")},
                       known="after_close", src="prices.json"))
+    return out
+
+
+@detector({"low52_close": ("終値で52週安値", "終値が250営業日の安値以下（安値の最小に対する終値の位置・小数1桁で丸めて 0 以下）。履歴240本以上か、履歴が全部ある（途中で上場した）銘柄だけ",
+                           "after_close", "data/bars_backfill ＋ data/bars（ledger2_panel.hist_stats）"),
+           "ytd_high_close": ("終値で年初来高値", "終値がその年の高値以上（小数1桁で丸めて 0 以上）。その年の取引日が20日以上ある日だけ",
+                              "after_close", "同上"),
+           "ytd_low_close": ("終値で年初来安値", "終値がその年の安値以下（小数1桁で丸めて 0 以下）。その年の取引日が20日以上ある日だけ",
+                             "after_close", "同上")})
+def detect_hist_extremes(d, data):
+    """2026-11-18 追加（予兆レーダー 段階3）。52週高値（high52_close）と同じ丸め・同じ「当日を含む」窓で、安値側と年初来を見る"""
+    import ledger2_panel as P
+    hs = data.hist_stats(d)
+    if not hs:
+        return []
+    stocks = data.stock_codes(d)
+    out = []
+    for c, x in sorted(hs.items()):
+        if c in ("1306", "^N225") or c not in stocks:
+            continue
+        if x["full"] and x["lo52"] is not None and x["lo52"] <= 0:
+            out.append(ev("low52_close", c, {"lo52": x["lo52"], "rows": x["n"]}, {}, known="after_close", src=f"bars/{d}"))
+        if x["ytd_n"] >= P.MIN_YTD:
+            if x["ytd_hi"] is not None and x["ytd_hi"] >= 0:
+                out.append(ev("ytd_high_close", c, {"ytd_hi": x["ytd_hi"], "ytd_rows": x["ytd_n"]}, {},
+                              known="after_close", src=f"bars/{d}"))
+            if x["ytd_lo"] is not None and x["ytd_lo"] <= 0:
+                out.append(ev("ytd_low_close", c, {"ytd_lo": x["ytd_lo"], "ytd_rows": x["ytd_n"]}, {},
+                              known="after_close", src=f"bars/{d}"))
     return out
 
 
