@@ -381,6 +381,7 @@ def main():
     t_fetch = time.time() - t0
     log(f"取得: {len(data)}/{len(tickers)}銘柄  {t_fetch:.0f}秒")
     dump_ohlc(uni, data)
+    dump_close_1y(uni, data)
 
     # 取引日 = 最終行の日付の最頻値。そこに届いていない銘柄は当日の足が無い（停止・取得漏れ）
     last_dates = Counter(sub.index[-1].date() for sub in data.values())
@@ -514,6 +515,24 @@ def dump_ohlc(uni, data):
         tmp.replace(OHLC_CACHE)
     except Exception as e:
         log(f"日足のキャッシュを書けなかった（stophigh.py は自分で取る）: {e}")
+
+
+CLOSE_CACHE = ROOT / ".cache" / "close_1y.pkl"
+
+
+def dump_close_1y(uni, data):
+    """1年分の終値（分割調整済みの Close）だけを同じジョブの myboard_px.py に渡す（2026-11-18・マイボード）。
+    Yahoo にもう一度取りに行かないため。コミットしない（.cache/）。失敗しても prices / movers は止めない"""
+    try:
+        import pickle
+        CLOSE_CACHE.parent.mkdir(exist_ok=True)
+        keep = {t: sub["Close"].astype("float64").copy() for t, sub in data.items() if "Close" in sub}
+        tmp = CLOSE_CACHE.with_suffix(".tmp")
+        with open(tmp, "wb") as f:
+            pickle.dump({"saved": datetime.now(JST).isoformat(timespec="seconds"), "uni": uni, "close": keep}, f)
+        tmp.replace(CLOSE_CACHE)
+    except Exception as e:
+        log(f"1年分の終値のキャッシュを書けなかった（マイボードの日足は今日は更新しない）: {e}")
 
 
 def backfill_tdnet(td, trade_date):
