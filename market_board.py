@@ -14,14 +14,14 @@
 ■ 名前について
   docs/board.json はトップの要約（make_board.py）が使っているので、このファイルは market_board.json。
 
-■ 形（小さくするため、日付は base からの日数の配列 x と終値の配列 c の2本）
+■ 形（小さくするため、日付の配列 x（日数の差）と終値の配列 c の2本）
   {"v":1,"updated":"...+09:00","edition":"morning|asia|night","base":"YYYY-MM-DD",
    "groups":[{"k":"jp","n":"日本"},...],
    "items":[{"id":"n225","n":"日経平均","g":"jp","k":"idx","t":"^N225","src":"Yahoo!ファイナンス",
              "ok":1,"d":"2026-11-18","p":59024.28,"chg":-123.4,"pct":-0.21,
              "live":0,                       # 1 = 24時間動く為替・暗号資産。d の終値ではなく updated 時点の値
              "h3":..,"l3":..,"h1":..,"l1":..,  # 3か月・1年の終値の高値・安値
-             "x":[0,1,2,5,...],"c":[...],    # 直近約1年の日足終値（x は base からの日数）
+             "x":[3,1,1,3,...],"c":[...],   # 直近約1年の日足終値。x は日付: 先頭は base からの日数、以降は前の点からの日数
              "note":"..."}]}
   金利（k=rate）の chg は %pt、pct は null。
 
@@ -201,6 +201,32 @@ def _norm(s):
     return s if len(s) >= 2 else None
 
 
+def drop_spikes(s, k):
+    """桁が飛んだ点（配信の誤り）を捨てる。1306.T の 2026-03-30・31 が 1/10 の値（37円台）で入っていた。
+    前後の点がほぼ同じ（差10%以内）なのに、間の1〜3日だけ前後の両方から40%以上離れているものだけを捨てる。
+    VIX は本当に1日で大きく動き、金利は0%近くで比が意味を持たないので触らない。最新の点は前後がそろわないので触らない"""
+    if s is None or k in ("vix", "rate") or len(s) < 3:
+        return s
+    v = s.values
+
+    def far(x, y):
+        return x / y > 1.4 or x / y < 1 / 1.4
+    bad = set()
+    for n in range(1, len(v) - 1):
+        for run in (1, 2, 3):          # 2026-03-30・31 のように2日続けて飛んだものもある
+            if n + run >= len(v):
+                break
+            a, c = v[n - 1], v[n + run]
+            if abs(c / a - 1) <= 0.10 and all(far(v[m], a) and far(v[m], c) for m in range(n, n + run)):
+                bad.update(s.index[n:n + run])
+                break
+    bad = sorted(bad)
+    if bad:
+        print(f"  相場ボード: とび値を捨てた {[str(x.date()) for x in bad]}", file=sys.stderr)
+        s = s.drop(bad)
+    return s
+
+
 def drop_unfinished(s, close_key, now_utc):
     """当日の足が、その取引所の引けの時刻より前なら捨てる（途中の値を終値として出さない）"""
     if s is None or close_key not in CLOSE:
@@ -220,8 +246,21 @@ def rnd(v, k, ref=None):
     if k == "rate":
         return round(v, 3)
     a = abs(v if ref is None else ref)
-    d = 1 if a >= 1000 else 2 if a >= 100 else 3 if a >= 10 else 4 if a >= 1 else 5
+    d = 2 if a >= 100 else 3 if a >= 10 else 4 if a >= 1 else 5
     return round(v, d)
+
+
+def deltas(xs):
+    """[3,4,5,8] → [3,1,1,3]（先頭は base からの日数、2つ目からは前の点からの日数。ファイルを小さくする）"""
+    return [x - (xs[k - 1] if k else 0) for k, x in enumerate(xs)]
+
+
+def sig(v, n=5):
+    """チャートの線の点は有効数字5桁（描くには十分。ファイルを小さくする）"""
+    if v == 0:
+        return 0
+    r = round(v, n - 1 - int(math.floor(math.log10(abs(v)))))
+    return int(r) if r == int(r) else r
 
 
 def build_item(spec, s, now_utc, today, base):
@@ -247,8 +286,8 @@ def build_item(spec, s, now_utc, today, base):
         "pct": None if k == "rate" else round((p / p0 - 1) * 100, 2),
         "h3": rnd(float(q.max()), k), "l3": rnd(float(q.min()), k),
         "h1": rnd(float(y1.max()), k), "l1": rnd(float(y1.min()), k),
-        "x": [(ts.date() - base).days for ts in y1.index],
-        "c": [rnd(float(v), k) for v in y1.values],
+        "x": deltas([(ts.date() - base).days for ts in y1.index]),
+        "c": [sig(float(v)) for v in y1.values],
     })
     return row
 
@@ -271,7 +310,7 @@ def build(series_of, extra, jp10, now):
             s2 = _norm(extra.get(alt)) if alt in extra else _norm(series_of(alt))
             if s2 is not None:
                 s, spec = s2, (iid, alt_name, g, k, alt, None, None, ck)
-        items.append(build_item(spec, s, now_utc, today, base))
+        items.append(build_item(spec, drop_spikes(s, k), now_utc, today, base))
     for i in items:
         for b in BANNED:
             if b in i["n"] or b in i.get("note", ""):
