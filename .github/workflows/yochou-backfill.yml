@@ -1,0 +1,107 @@
+name: Yochou Backfill (5 years, manual)
+
+# 予兆レーダー（検証台帳 設計書 v1 段階3）: 過去5年の出来事を、当日記録と同じ検出関数で作り直す（2026-11-18）。
+#   1) yochou_px5y.py   … 全銘柄の日足5年を yfinance から100銘柄ずつ取る（.cache/px5y・リポジトリに入れない）。
+#                          途中で止まっても actions/cache に途中経過を残すので、もう一度 Run すれば続きから取る。
+#   2) ledger2_backfill.py --px5y … 出来事と答え（data/ledger2/backfill/ 月ごとの gzip）を作り直す
+#   3) ledger2_backfill.py --import-v1 … 既存のシグナル台帳（docs/ledger）を当時の記録として取り込む（まだ無ければ）
+#   4) yochou.py        … 集計と公開用 JSON
+# 手動実行のみ（定期実行なし）。所要は取得 約8分＋作成 約5分。movers-daily（18:07〜19:00 頃）と ledger-daily（19:30）は避ける。
+# 株価は「取った日の時点で Yahoo が見せている値（分割は遡って調整済み）」・上場廃止銘柄は入らない（meta.json に書く）。
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: '出来事を作り直す（既にある月ファイルも上書き）'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ledger-daily        # 毎日の台帳と同時に data/ledger2 を書かない
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas openpyxl
+
+      - name: Restore 5-year bars (途中経過)
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/px5y
+          key: px5y-${{ github.run_id }}
+          restore-keys: px5y-
+
+      - name: Fetch 5 years (続きから)
+        id: fetch
+        continue-on-error: true
+        run: python -X utf8 yochou_px5y.py --out .cache/px5y --max-minutes 60
+
+      - name: Save 5-year bars (途中で止まっても残す)
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/px5y
+          key: px5y-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Check fetched
+        run: |
+          left=$(python -c "import json;print(json.load(open('.cache/px5y/meta.json'))['left'])")
+          echo "残り ${left} 銘柄"
+          if [ "$left" != "0" ]; then
+            echo "::warning::まだ取り終えていない（${left}銘柄）。もう一度 Run workflow すると続きから取る"
+            exit 1
+          fi
+
+      - name: Backfill events and scores
+        run: |
+          if [ "${{ inputs.rebuild }}" = "true" ]; then
+            python -X utf8 ledger2_backfill.py --px5y .cache/px5y --force
+          else
+            python -X utf8 ledger2_backfill.py --px5y .cache/px5y
+          fi
+
+      - name: Import signal ledger v1 (まだ無ければ)
+        continue-on-error: true
+        run: python -X utf8 ledger2_backfill.py --import-v1
+
+      - name: Yochou (集計と公開用 JSON)
+        continue-on-error: true
+        run: python -X utf8 yochou.py
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for p in data/ledger2/backfill data/ledger2/imported data/ledger2/stats data/ledger2/signals docs/yochou; do
+            [ -e "$p" ] && git add -f "$p"
+          done
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🔭 予兆レーダー: 過去5年の遡及（backfill）"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1

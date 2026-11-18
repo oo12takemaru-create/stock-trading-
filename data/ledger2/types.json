@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-18T19:50:06+09:00",
+ "updated": "2026-11-18T20:58:20+09:00",
  "note": "出来事の台帳（v2）の種類の一覧。しきい値は設計書 v1 の仮の値。known は答え合わせの起点の決め方（pre_open=その日の始値・それ以外=翌営業日の始値・disclosure_time/row_time=公開時刻で決める）。",
  "types": {
   "margin_buy_surge": {
@@ -63,6 +63,27 @@
    "rule": "終値が250営業日の高値以上（prices.json の hi52 が 0 以上・小数1桁で丸めた値）",
    "known": "after_close",
    "source": "docs/prices.json",
+   "version": "1.0"
+  },
+  "low52_close": {
+   "label": "終値で52週安値",
+   "rule": "終値が250営業日の安値以下（安値の最小に対する終値の位置・小数1桁で丸めて 0 以下）。履歴240本以上か、履歴が全部ある（途中で上場した）銘柄だけ",
+   "known": "after_close",
+   "source": "data/bars_backfill ＋ data/bars（ledger2_panel.hist_stats）",
+   "version": "1.0"
+  },
+  "ytd_high_close": {
+   "label": "終値で年初来高値",
+   "rule": "終値がその年の高値以上（小数1桁で丸めて 0 以上）。その年の取引日が20日以上ある日だけ",
+   "known": "after_close",
+   "source": "同上",
+   "version": "1.0"
+  },
+  "ytd_low_close": {
+   "label": "終値で年初来安値",
+   "rule": "終値がその年の安値以下（小数1桁で丸めて 0 以下）。その年の取引日が20日以上ある日だけ",
+   "known": "after_close",
+   "source": "同上",
    "version": "1.0"
   },
   "gap_up": {

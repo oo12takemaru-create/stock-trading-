@@ -1,0 +1,148 @@
+{
+ "updated": "2026-11-18T20:53:03+09:00",
+ "origin": "backfill",
+ "detector_version": "1.0",
+ "price_source": "yfinance 5年（yochou_px5y.py）＋ data/bars_backfill ＋ data/bars（当日記録の日足）",
+ "price_period": [
+  "2021-11-18",
+  "2026-11-18"
+ ],
+ "until": "2026-11-17",
+ "adjusted_asof": "2026-11-18",
+ "survivorship": "上場廃止・統合で今いない銘柄は含まない",
+ "thermo": "温度計の段階は thermo100_hist（後から同じ式で計算し直した値・当時公開した値ではない）",
+ "not_backfilled": [
+  "margin_buy_surge",
+  "short_new_inst",
+  "short_surge",
+  "signal_*（既存のシグナル台帳）"
+ ],
+ "partial": {
+  "disclosure": "docs/tdnet_hist にある 2026-10-30〜 だけ",
+  "gauge_stage_up": "docs/gauge.json の 2026-10-03〜 だけ",
+  "thermo_stage_change": "thermo100_hist の 2016-11〜（株価の期間より長い）"
+ },
+ "dropped_spikes": [
+  [
+   "1306",
+   "2026-03-30"
+  ],
+  [
+   "1306",
+   "2026-03-31"
+  ]
+ ],
+ "note": "遡及分（origin=backfill）は、当日記録と同じ検出関数を過去の株価に当てて作ったもの。株価は取得日の時点で Yahoo が見せている値（分割は遡って調整済み・配当は未調整）で、上場廃止・統合で今いない銘柄は含まない（生き残りの偏り）。温度計の段階は thermo100_hist（後から同じ式で計算し直した値）。信用残・空売り残高は過去の公表時点の値が無いので遡及していない。制限値幅の拡大の日は過去分の情報が無く、ストップ高・安の判定から外れている。",
+ "counts": {
+  "buyback_decision": 233,
+  "dividend_down": 35,
+  "dividend_up": 312,
+  "earnings_revision_down": 207,
+  "earnings_revision_up": 520,
+  "gap_down": 28234,
+  "gap_up": 34889,
+  "gauge_stage_up": 1,
+  "high52_close": 19619,
+  "low52_close": 14703,
+  "stock_split": 12,
+  "stop_high": 7614,
+  "stop_high_touch": 3454,
+  "stop_low": 1997,
+  "stop_low_touch": 962,
+  "thermo_stage_change": 334,
+  "volume_surge": 165384,
+  "ytd_high_close": 32241,
+  "ytd_low_close": 28531,
+  "yutai_end": 5,
+  "yutai_new": 16
+ },
+ "periods": {
+  "buyback_decision": [
+   "2026-09-25",
+   "2026-11-17"
+  ],
+  "dividend_down": [
+   "2026-10-30",
+   "2026-11-16"
+  ],
+  "dividend_up": [
+   "2026-10-30",
+   "2026-11-16"
+  ],
+  "earnings_revision_down": [
+   "2026-10-30",
+   "2026-11-17"
+  ],
+  "earnings_revision_up": [
+   "2026-10-30",
+   "2026-11-17"
+  ],
+  "gap_down": [
+   "2021-11-19",
+   "2026-11-17"
+  ],
+  "gap_up": [
+   "2021-11-19",
+   "2026-11-17"
+  ],
+  "gauge_stage_up": [
+   "2026-10-06",
+   "2026-10-06"
+  ],
+  "high52_close": [
+   "2021-12-20",
+   "2026-11-17"
+  ],
+  "low52_close": [
+   "2021-12-20",
+   "2026-11-17"
+  ],
+  "stock_split": [
+   "2026-11-05",
+   "2026-11-13"
+  ],
+  "stop_high": [
+   "2021-11-19",
+   "2026-11-17"
+  ],
+  "stop_high_touch": [
+   "2021-11-19",
+   "2026-11-16"
+  ],
+  "stop_low": [
+   "2021-11-25",
+   "2026-11-17"
+  ],
+  "stop_low_touch": [
+   "2021-11-25",
+   "2026-11-16"
+  ],
+  "thermo_stage_change": [
+   "2017-01-16",
+   "2026-11-05"
+  ],
+  "volume_surge": [
+   "2021-11-26",
+   "2026-11-17"
+  ],
+  "ytd_high_close": [
+   "2022-02-01",
+   "2026-11-17"
+  ],
+  "ytd_low_close": [
+   "2022-02-01",
+   "2026-11-17"
+  ],
+  "yutai_end": [
+   "2026-10-30",
+   "2026-11-13"
+  ],
+  "yutai_new": [
+   "2026-10-30",
+   "2026-11-17"
+  ]
+ },
+ "n_events": 339303,
+ "n_scores": 1317859,
+ "bytes_gz": 38956818
+}
