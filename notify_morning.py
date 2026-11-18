@@ -29,7 +29,7 @@
   - 決算の予定（kessan.json）: 今日・明日（＝次の営業日）は毎日、今週のほかの日は週の最初の営業日だけ
   銘柄は出来事の重い順（決算の発表 → ストップ高/安・±5% → 空売り/大量保有/分割/配当 → 決算の予定）
   増収増益などの札は売上と営業利益の前年同期比（営業利益が無い会社は経常利益→純利益）。判定できなければ付けない
-  上に地合い（温度計・AI朝刊）、「あなたの銘柄」の節の頭に保有ボードへのボタン。末尾に保有ボード（AIに聞く・通知の銘柄を変える）・今日の発見のリンク、停止のリンク
+  上に地合い（温度計・AI朝刊）、「あなたの銘柄」の節の頭にマイボードへのボタン。末尾にマイボード（AIに聞く・通知の銘柄を変える）・今日の発見のリンク、停止のリンク
 
 ■ 守り
   - prices.json の trade_date が前営業日でなければ**誰にも送らない**（古いデータで届けない・exit 1 で気づく）
@@ -403,7 +403,7 @@ def compose_market(F, token):
     tail = []
     if F.hakken:
         tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
-    tail.append(("保有ボード", "銘柄を入れて「通知の銘柄を更新」を押すと、その銘柄の出来事もこの1通に入ります", HOLD_URL))
+    tail.append(("マイボード", "銘柄を入れて「通知の銘柄を更新」を押すと、その銘柄の出来事もこの1通に入ります", HOLD_URL))
     note = "事実と AI による一般的な市況の要約で、売買の推奨ではありません。"
     text = [head, ""] + rows_text(rows)
     text.append("―――")
@@ -469,7 +469,7 @@ def compose(F, codes, token, notice=None):
     sec = (f"あなたの銘柄（前営業日 {mdw(F.p1.isoformat())} までの出来事・{len(blocks)}銘柄）" if blocks
            else f"あなたの銘柄（登録 {len(codes)}銘柄）")
     tail = [] if F.ai else [("AI朝刊", "今朝の相場の読み", f"{SITE}/ai.html?{UTM}")]   # 今朝の号がまだ無い日も入口は置く
-    tail.append(("AIに聞く", "保有ボードから、数字つきで自分の AI に", HOLD_URL))
+    tail.append(("AIに聞く", "マイボードから、数字つきで自分の AI に", HOLD_URL))
     if F.hakken:
         tail.append(("今日の発見", f"アーサーが気になった3銘柄（{md(F.hakken)}）", f"{SITE}/hakken/{F.hakken}.html?{UTM}"))
     note = "事実の一覧と AI による一般的な市況の要約で、売買の推奨ではありません。株価は前営業日の終値です。大量保有の報告は1営業日遅れで載ります。"
@@ -491,7 +491,7 @@ def compose(F, codes, token, notice=None):
     if nt:
         text += [nt, f"{stop_label}：{stop}", ""]
     text += rows_text(rows)
-    text += [f"■■ {sec}", f"保有ボードで損益を見る → {HOLD_URL}", ""]
+    text += [f"■■ {sec}", f"マイボードで損益を見る → {HOLD_URL}", ""]
     if blocks:
         for c, n, ls in blocks:
             text.append(f"■ {n}（{c}）")
@@ -504,8 +504,8 @@ def compose(F, codes, token, notice=None):
         text += [f"・{NO_EVENT_LINE}", ""]
     text.append("―――")
     text += [f"{a}：{b}  {u}" for a, b, u in tail]
-    text += ["", note, "このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。",
-             f"通知の銘柄を変える（保有ボードで「通知の銘柄を更新」）：{HOLD_URL}",
+    text += ["", note, "このメールは株レーダーのマイボードで「朝の1通」を申し込んだ方に送っています。",
+             f"通知の銘柄を変える（マイボードで「通知の銘柄を更新」）：{HOLD_URL}",
              f"{stop_label}：{stop}"]
 
     # スマホの Gmail で読みやすく: 本文 15px・行間 1.7・最大 600px・左右の余白 16px・銘柄名 16px 太字
@@ -517,7 +517,7 @@ def compose(F, codes, token, notice=None):
     h += rows_html(rows)
     h.append(f'<div style="margin:22px 0 8px;font-size:17px;font-weight:bold">{escape(sec)}</div>')
     h.append(f'<p style="margin:0 0 12px"><a href="{HOLD_URL}" style="display:inline-block;padding:10px 18px;background:#0b6b3a;'
-             'color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">保有ボードで損益を見る →</a></p>')
+             'color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold">マイボードで損益を見る →</a></p>')
     if blocks:
         for c, n, ls in blocks:
             h.append(f'<div style="{BOX}">'
@@ -530,8 +530,8 @@ def compose(F, codes, token, notice=None):
         h.append(f'<div style="{BOX};color:#4a5560">{escape(NO_EVENT_LINE)}</div>')
     h.append('<hr style="border:none;border-top:1px solid #dde3ea;margin:16px 0">')
     h += [f'<div style="margin:4px 0">{escape(a)}：{escape(b)} <a href="{u}" {A}>開く →</a></div>' for a, b, u in tail]
-    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーの保有ボードで「朝の1通」を申し込んだ方に送っています。<br>'
-             f'<a href="{HOLD_URL}" style="color:#666">通知の銘柄を変える</a>（保有ボードで「通知の銘柄を更新」）<br>'
+    h.append(f'<p style="color:#666;font-size:13px;margin-top:16px">{escape(note)}<br>このメールは株レーダーのマイボードで「朝の1通」を申し込んだ方に送っています。<br>'
+             f'<a href="{HOLD_URL}" style="color:#666">通知の銘柄を変える</a>（マイボードで「通知の銘柄を更新」）<br>'
              f'<a href="{stop}" style="color:#666">配信を止める</a>（押すとすぐ止まり、メールアドレスと銘柄コードを消します）</p>'
              '<p style="color:#666;font-size:13px">株レーダー https://kaburadar.jp</p></div>')
     if blocks:

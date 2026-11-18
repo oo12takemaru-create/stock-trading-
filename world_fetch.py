@@ -407,6 +407,12 @@ def main():
         market_board.write(lambda t: series(df, t), now, ed)
     except BaseException as e:      # SystemExit（使わない語の検査）も含めて握る
         print(f"相場ボードの書き出しに失敗（world.json はそのまま）: {e!r}", file=sys.stderr)
+    # 相場ボードの「1日」の線（docs/market_board_1d.json・5分足を1回）。失敗しても上の2つはそのまま
+    try:
+        import market_board_1d
+        market_board_1d.write(now, ed)
+    except BaseException as e:
+        print(f"1日の線の書き出しに失敗（world.json・market_board.json はそのまま）: {e!r}", file=sys.stderr)
 
 
 if __name__ == "__main__":
