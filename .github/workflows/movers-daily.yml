@@ -83,6 +83,14 @@ jobs:
         if: steps.done.outputs.skip != '1'
         run: python -X utf8 kaiji_after.py || echo "::warning::kaiji_after.py が失敗（prices/movers は公開する）"
 
+      # 全銘柄の当日の日足を 1日1ファイルで残す（2026-11-18・検証台帳 v1 段階1の前準備）。
+      # 同じ .cache/ohlc_recent.pkl を読む（銘柄は Yahoo に取りに行かない。1306.T と ^N225 だけ1回取る）。
+      # data/bars/YYYY/YYYY-MM-DD.csv.gz。docs/ の外なので Pages には出ない。もうある日は書き換えない。
+      # 失敗しても prices / movers の公開は止めない
+      - name: Daily bars (all stocks)
+        if: steps.done.outputs.skip != '1'
+        run: python -X utf8 daily_bars.py || echo "::warning::daily_bars.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -95,6 +103,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_kakudai.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
           git add -f docs/kaiji_after 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
+          git add -f data/bars 2>/dev/null || true          # 全銘柄の当日の日足（2026-11-18・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
