@@ -1,16 +1,16 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-18T23:47:58+09:00",
+ "updated": "2026-11-19T02:04:22+09:00",
  "trade_date": "2026-11-18",
- "value": 17,
+ "value": 16,
  "regime": "BEARISH",
  "regime_jp": "弱気",
  "band": {
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 6.7,
- "overall_position": 9.0,
+ "position_in_band": 6.2,
+ "overall_position": 8.4,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -19,21 +19,21 @@
    "value": 16,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": 1
+   "diff": 0
   },
   "week": {
    "d": "2026-11-11",
    "value": 22,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -5
+   "diff": -6
   },
   "month": {
    "d": "2026-10-20",
    "value": 43,
    "regime": "NEUTRAL",
    "regime_jp": "中立",
-   "diff": -26
+   "diff": -27
   }
  },
  "year": {
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -0.43,
-   "pos": 16.1,
+   "raw": -0.37,
+   "pos": 16.3,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 24.1,
-   "pos": 16.6,
+   "raw": 25.33,
+   "pos": 13.8,
    "weight": 0.2
   }
  ],
@@ -130,8 +130,8 @@
   "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）"
  },
  "celsius": {
-  "value": -6,
-  "label": "−6℃",
+  "value": -7,
+  "label": "−7℃",
   "scale": {
    "min": -20,
    "max": 60
@@ -146,21 +146,21 @@
     "value": -7,
     "label": "−7℃",
     "regime_jp": "弱気",
-    "diff": 1
+    "diff": 0
    },
    "week": {
     "d": "2026-11-11",
     "value": -2,
     "label": "−2℃",
     "regime_jp": "弱気",
-    "diff": -4
+    "diff": -5
    },
    "month": {
     "d": "2026-10-20",
     "value": 14,
     "label": "14℃",
     "regime_jp": "中立",
-    "diff": -20
+    "diff": -21
    }
   },
   "year": {
@@ -362,10 +362,10 @@
      "n_days": 745,
      "episodes": 77,
      "r5": {
-      "n": 739,
-      "avg": 0.5,
+      "n": 738,
+      "avg": 0.51,
       "med": 0.6,
-      "up_pct": 61.8
+      "up_pct": 61.9
      },
      "r20": {
       "n": 734,
@@ -407,10 +407,10 @@
       "up_pct": 55.8
      },
      "r20": {
-      "n": 726,
+      "n": 725,
       "avg": 0.83,
       "med": 1.22,
-      "up_pct": 63.2
+      "up_pct": 63.3
      },
      "sankou": false
     }
@@ -479,14 +479,14 @@
      "n_days": 2441,
      "episodes": 1,
      "r5": {
-      "n": 2434,
+      "n": 2433,
       "avg": 0.27,
       "med": 0.37,
-      "up_pct": 57.1
+      "up_pct": 57.2
      },
      "r20": {
-      "n": 2419,
-      "avg": 1.09,
+      "n": 2418,
+      "avg": 1.1,
       "med": 1.34,
       "up_pct": 64.4
      },
