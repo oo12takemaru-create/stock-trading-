@@ -1,0 +1,216 @@
+{
+ "updated": "2026-11-18T19:50:06+09:00",
+ "note": "出来事の台帳（v2）の種類の一覧。しきい値は設計書 v1 の仮の値。known は答え合わせの起点の決め方（pre_open=その日の始値・それ以外=翌営業日の始値・disclosure_time/row_time=公開時刻で決める）。",
+ "types": {
+  "margin_buy_surge": {
+   "label": "信用買残の急増",
+   "rule": "日々公表の信用買残が前回（前の申込日）比 +30% 以上",
+   "known": "after_close",
+   "source": "JPX 銘柄別信用取引残高（日次）docs/shinyo_daily/",
+   "version": "1.0"
+  },
+  "short_new_inst": {
+   "label": "空売り残高の新しい機関",
+   "rule": "空売り残高の報告に、前回の報告が無い機関が 0.5% 以上で初めて載った",
+   "known": "after_close",
+   "source": "JPX 空売り残高 docs/karauri.json（公表は計算日の2営業日後の夕方）",
+   "version": "1.0"
+  },
+  "short_surge": {
+   "label": "空売り残高の急増",
+   "rule": "機関ごとの空売り残高割合が前回比 +30% 以上（前回も 0.5% 以上）",
+   "known": "after_close",
+   "source": "同上",
+   "version": "1.0"
+  },
+  "stop_high": {
+   "label": "ストップ高（終値）",
+   "rule": "終値が制限値幅の上限（stophigh.py の close_high）",
+   "known": "after_close",
+   "source": "docs/stophigh_hist/",
+   "version": "1.0"
+  },
+  "stop_low": {
+   "label": "ストップ安（終値）",
+   "rule": "終値が制限値幅の下限（close_low）",
+   "known": "after_close",
+   "source": "docs/stophigh_hist/",
+   "version": "1.0"
+  },
+  "stop_high_touch": {
+   "label": "一時ストップ高",
+   "rule": "高値だけが上限に届いた（touch_high）",
+   "known": "after_close",
+   "source": "docs/stophigh_hist/",
+   "version": "1.0"
+  },
+  "stop_low_touch": {
+   "label": "一時ストップ安",
+   "rule": "安値だけが下限に届いた（touch_low）",
+   "known": "after_close",
+   "source": "docs/stophigh_hist/",
+   "version": "1.0"
+  },
+  "volume_surge": {
+   "label": "出来高の急増",
+   "rule": "当日の出来高が前20日平均の 3 倍以上（prices.json の vr）",
+   "known": "after_close",
+   "source": "docs/prices.json（movers_daily.py）",
+   "version": "1.0"
+  },
+  "high52_close": {
+   "label": "終値で52週高値",
+   "rule": "終値が250営業日の高値以上（prices.json の hi52 が 0 以上・小数1桁で丸めた値）",
+   "known": "after_close",
+   "source": "docs/prices.json",
+   "version": "1.0"
+  },
+  "gap_up": {
+   "label": "窓を開けて高く寄り付き",
+   "rule": "始値が前日終値比 +5% 以上",
+   "known": "intraday",
+   "source": "data/bars/（daily_bars.py）",
+   "version": "1.0"
+  },
+  "gap_down": {
+   "label": "窓を開けて安く寄り付き",
+   "rule": "始値が前日終値比 −5% 以下",
+   "known": "intraday",
+   "source": "data/bars/",
+   "version": "1.0"
+  },
+  "earnings_revision_up": {
+   "label": "業績の上方修正",
+   "rule": "表題（gen_kaiji.classify の shusei）＋ 向きは表題か fc_revision の dir",
+   "known": "disclosure_time",
+   "source": "docs/tdnet_hist/ ＋ docs/fc_revision/",
+   "version": "1.0"
+  },
+  "earnings_revision_down": {
+   "label": "業績の下方修正",
+   "rule": "同上",
+   "known": "disclosure_time",
+   "source": "同上",
+   "version": "1.0"
+  },
+  "dividend_up": {
+   "label": "増配",
+   "rule": "表題（classify の haito）＋ 向きは表題か fc_revision の div.dir",
+   "known": "disclosure_time",
+   "source": "同上",
+   "version": "1.0"
+  },
+  "dividend_down": {
+   "label": "減配",
+   "rule": "同上",
+   "known": "disclosure_time",
+   "source": "同上",
+   "version": "1.0"
+  },
+  "buyback_decision": {
+   "label": "自己株式の取得の決議",
+   "rule": "buyback.json の type=decision ＋ 表題（classify の jisha）",
+   "known": "disclosure_time",
+   "source": "docs/buyback.json ＋ docs/tdnet_hist/",
+   "version": "1.0"
+  },
+  "stock_split": {
+   "label": "株式分割の発表",
+   "rule": "表題（classify の bunkatsu）＋ splits.json の比率",
+   "known": "disclosure_time",
+   "source": "docs/tdnet_hist/ ＋ docs/splits.json",
+   "version": "1.0"
+  },
+  "yutai_new": {
+   "label": "株主優待の新設",
+   "rule": "表題（classify の yutai・新設）",
+   "known": "disclosure_time",
+   "source": "docs/tdnet_hist/",
+   "version": "1.0"
+  },
+  "yutai_end": {
+   "label": "株主優待の廃止",
+   "rule": "表題（classify の yutai・廃止）",
+   "known": "disclosure_time",
+   "source": "docs/tdnet_hist/",
+   "version": "1.0"
+  },
+  "thermo_stage_change": {
+   "label": "温度計の段階が変わった",
+   "rule": "当時公開した温度計の判定（4段階）が前の公開日と違う（radar_published）",
+   "known": "after_close",
+   "source": "docs/radar_history*.json ＋ docs/thermo100*.json",
+   "version": "1.0"
+  },
+  "gauge_stage_up": {
+   "label": "暴落の傾斜計の段階が上がった",
+   "rule": "灯った数で決まる段階（3つ=watch・4つ以上=prepare）が前の日より上がった。5つすべて判定できた日だけ",
+   "known": "after_close",
+   "source": "docs/gauge.json の history",
+   "version": "1.0"
+  },
+  "signal_ai": {
+   "label": "シグナル台帳: ai",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_score3": {
+   "label": "シグナル台帳: score3",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_crash": {
+   "label": "シグナル台帳: crash",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_free_scanner": {
+   "label": "シグナル台帳: free_scanner",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_tenbagger": {
+   "label": "シグナル台帳: tenbagger",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_movers": {
+   "label": "シグナル台帳: movers",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_treasure_quiet": {
+   "label": "シグナル台帳: treasure_quiet",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_treasure_contra": {
+   "label": "シグナル台帳: treasure_contra",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  },
+  "signal_treasure_card": {
+   "label": "シグナル台帳: treasure_card",
+   "rule": "docs/ledger/*.jsonl に記録された判定（cause・fix_of の行は除く）",
+   "known": "row_time",
+   "source": "docs/ledger/",
+   "version": "1.0"
+  }
+ }
+}

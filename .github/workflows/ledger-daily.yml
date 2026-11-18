@@ -2,6 +2,7 @@ name: Ledger Daily (シグナル台帳)
 
 # 株レーダーの判定を docs/ledger/YYYY-MM.jsonl に記録し（ledger.py）、
 # 翌営業日始値からの r5/r20/r60 を埋める（ledger_score.py）。公開ページは作らない。
+# 2026-11-18〜 出来事の台帳 v2（ledger2.py → data/ledger2/events・ledger2_score.py → data/ledger2/scores）を後ろに足した。
 # 起動文: kaburadar\起動文_実務_積上①_台帳と運用土台_2026-10-07.md
 #
 # 平日 19:30 JST に cron-worker（Cloudflare）から dispatch する。
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   ledger:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,6 +61,43 @@ jobs:
             exit 0
           fi
           git commit -m "📒 シグナル台帳を更新"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
+            echo "push 失敗。${i}回目のリトライ待ち"
+            sleep $((i * 10))
+          done
+          echo "::error::push に5回失敗しました"
+          exit 1
+
+      # ── 出来事の台帳 v2（検証台帳 設計書 v1 段階1・2。2026-11-18）──────────────
+      # 既存の台帳（上の3ステップ）の後に、別のコミットで足す。どれが失敗しても上の公開は済んでいる。
+      # data/ledger2/events/（記録・追記のみ）と data/ledger2/scores/（答え合わせ・追記のみ）。docs/ の外＝Pages に出ない。
+      # 同じ日に2回走っても event_id と (event_id, 窓) で弾くので行は増えない。
+      - name: Record v2 (出来事の台帳・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python -X utf8 ledger2.py
+
+      - name: Score v2 (1・5・20・60営業日の答え合わせ・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 20
+        run: python -X utf8 ledger2_score.py
+
+      - name: Commit ledger v2
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          [ -d data/ledger2 ] || { echo "data/ledger2 が無い（記録が失敗）"; exit 0; }
+          git add -f data/ledger2
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "📒 出来事の台帳（v2）を更新"
           for i in 1 2 3 4 5; do
             git pull --rebase origin main && git push && { echo "✓ push 成功（試行${i}回目）"; exit 0; }
             echo "push 失敗。${i}回目のリトライ待ち"
