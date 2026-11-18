@@ -401,6 +401,12 @@ def main():
     print("まとめ:", summ["d1"])
     if ed == "morning":
         save_day(out)
+    # 相場ボード（docs/market_board.json・2026-11-18）。ここで何が起きても world.json の公開は止めない
+    try:
+        import market_board
+        market_board.write(lambda t: series(df, t), now, ed)
+    except BaseException as e:      # SystemExit（使わない語の検査）も含めて握る
+        print(f"相場ボードの書き出しに失敗（world.json はそのまま）: {e!r}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -73,6 +73,8 @@ jobs:
           git add -f docs/world.json
           [ -f docs/world_stats.json ] && git add -f docs/world_stats.json
           [ -d docs/world_days ] && git add -f docs/world_days
+          # 相場ボード（market_board.py が world_fetch.py の中で書く。失敗した回は前のファイルのまま）
+          [ -f docs/market_board.json ] && git add -f docs/market_board.json
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
