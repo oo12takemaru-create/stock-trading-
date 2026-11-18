@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計（1990年から）",
- "updated": "2026-11-18T20:20:26+09:00",
+ "updated": "2026-11-18T21:11:20+09:00",
  "trade_date": "2026-11-18",
  "today": {
   "value": 17,
@@ -1713,13 +1713,13 @@
   "n_days": 2441,
   "same_pct": 23.1,
   "within4_pct": 95.1,
-  "mean_abs_c": 1.65,
+  "mean_abs_c": 1.64,
   "mean_c": 1.04,
   "max_abs_c": 9,
   "today": {
    "d": "2026-11-18",
    "now_c": -6,
-   "expanding_c": -5
+   "expanding_c": -6
   },
   "by_year_mean_c": {
    "2016": 0.38,
