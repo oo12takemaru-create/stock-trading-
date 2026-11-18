@@ -98,6 +98,7 @@ SRC_MOF = "財務省「国債金利情報」（加工して作成）"
 YEAR_DAYS = 366      # チャートに入れる長さ（暦日）
 Q_DAYS = 92          # 3か月（暦日）
 STALE_DAYS = 10      # 最終の足がこれより古ければ欠け
+LAST_SERIES = {}     # build() が使った {id: (ティッカー, 日足の Series)}。market_board_1d.py が読む
 BANNED = ["買い", "売り", "推奨", "おすすめ", "必ず", "リアルタイム", "予想", "狙い目", "有望", "チャンス",
           "面白い", "過熱", "底", "天井", "警戒"]
 
@@ -310,7 +311,9 @@ def build(series_of, extra, jp10, now):
             s2 = _norm(extra.get(alt)) if alt in extra else _norm(series_of(alt))
             if s2 is not None:
                 s, spec = s2, (iid, alt_name, g, k, alt, None, None, ck)
-        items.append(build_item(spec, drop_spikes(s, k), now_utc, today, base))
+        s = drop_spikes(s, k)
+        LAST_SERIES[iid] = (spec[4], s)      # 1日の線（market_board_1d.py）の前日終値に使う
+        items.append(build_item(spec, s, now_utc, today, base))
     for i in items:
         for b in BANNED:
             if b in i["n"] or b in i.get("note", ""):

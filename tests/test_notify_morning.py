@@ -96,13 +96,13 @@ eq(order, sorted(order), "重い出来事の銘柄から並ぶ")
 eq(m2["subject"], "【株レーダー】11/11 の地合い｜登録銘柄に決算1件・大きな値動き2件ほか", "件名（出来事のある日は銘柄に触れる）")
 eq(m["subject"], "【株レーダー】11/11 の地合い｜登録銘柄に決算1件・大きな値動き1件", "件名（1銘柄）")
 
-# 「あなたの銘柄」の節の頭に保有ボードのボタン・地合いはその上・utm・文字の大きさ
+# 「あなたの銘柄」の節の頭にマイボードのボタン・地合いはその上・utm・文字の大きさ
 H = "https://kaburadar.jp/hold.html?utm_source=notify&utm_medium=email"
 tl = m["text"].splitlines()
 i = tl.index("■■ あなたの銘柄（前営業日 11/10（火） までの出来事・1銘柄）")
-eq(tl[i + 1], f"保有ボードで損益を見る → {H}", "節の頭に保有ボード")
+eq(tl[i + 1], f"マイボードで損益を見る → {H}", "節の頭にマイボード")
 ok("■ 今日の地合い（相場の温度計）" in tl[:i] and m["html"].index("今日の地合い") < m["html"].index("あなたの銘柄"), "地合いが上・銘柄が下")
-ok(m["html"].index("保有ボードで損益を見る →") < m["html"].index("（1111）"), "ボタンは銘柄より上")
+ok(m["html"].index("マイボードで損益を見る →") < m["html"].index("（1111）"), "ボタンは銘柄より上")
 ok(f'href="{H}"' in m["html"], "ボタンの URL")
 for u in ("radar.html", "ai.html", "hold.html", "stocks/1111.html"):
     ok(f"{u}?utm_source=notify&utm_medium=email" in m["html"], f"utm: {u}")
