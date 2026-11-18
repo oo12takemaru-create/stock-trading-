@@ -91,6 +91,14 @@ jobs:
         if: steps.done.outputs.skip != '1'
         run: python -X utf8 daily_bars.py || echo "::warning::daily_bars.py が失敗（prices/movers は公開する）"
 
+      # マイボード（kaburadar.jp/hold.html）用に、銘柄ごとの約1年の終値を docs/px1y/ へ（2026-11-18）。
+      # movers_daily.py が書いた .cache/close_1y.pkl を読む（Yahoo には取りに行かない）。
+      # 本体（1銘柄1ファイル）は週の最初の取引日だけ全部書き換え、平日の新しい足は docs/px1y/recent.json の1本に重ねる
+      # （git の履歴を膨らませないため）。失敗しても prices / movers の公開は止めない
+      - name: My board closes (1 year)
+        if: steps.done.outputs.skip != '1'
+        run: python -X utf8 myboard_px.py || echo "::warning::myboard_px.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -104,6 +112,7 @@ jobs:
           git add -f docs/prices.json docs/movers.json docs/movers_hist docs/stophigh.json docs/stophigh_kakudai.json docs/stophigh_hist docs/heatmap_days docs/heatmap_sector.json docs/x/heatmap_*.png
           git add -f docs/kaiji_after 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
           git add -f data/bars 2>/dev/null || true          # 全銘柄の当日の日足（2026-11-18・無い回は飛ばす）
+          git add -f -A docs/px1y 2>/dev/null || true       # マイボードの1年の終値（2026-11-18・消した本体も拾う・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
