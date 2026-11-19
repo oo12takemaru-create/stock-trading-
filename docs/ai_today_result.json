@@ -1,29 +1,29 @@
 {
- "date": "2026-11-18",
- "updated": "2026-11-18T16:02:33+09:00",
- "issue": 29,
- "headline": "VIX26.2、寄りは小安く戻りも鈍くなりやすい",
+ "date": "2026-11-19",
+ "updated": "2026-11-19T16:02:30+09:00",
+ "issue": 30,
+ "headline": "寄りは小安い想定、59,024円を保てるかが焦点",
  "stance": "defense",
  "stance_jp": "守り",
  "machine_stance": "defense",
- "n225_prev_close": 58860.43,
- "n225_close": 59024.28,
- "n225_ret": 0.28,
+ "n225_prev_close": 59024.28,
+ "n225_close": 59444.21,
+ "n225_ret": 0.71,
  "hit": false,
  "result_jp": "外れ",
  "machine_hit": false,
  "month": {
   "month": "2026-11",
   "win": 6,
-  "lose": 5,
+  "lose": 6,
   "neutral": 1
  },
  "total": {
   "win": 26,
-  "lose": 21
+  "lose": 22
  },
- "streak": -1,
- "streak_jp": "1連敗",
+ "streak": -2,
+ "streak_jp": "2連敗",
  "basis": "朝刊の構え（寄り付き前に公開）と、その日の日経平均の騰落（終値÷前営業日の終値）を機械で照合。強気寄りの日は上昇で当たり・守り寄りの日は下落で当たり・中立の日は数えない（ai_record.py と同じ）。",
  "note": "引け後の速報（Yahoo の日足）。正式の成績表は ai_record.json（19時台に更新）。"
 }
