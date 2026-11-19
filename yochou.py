@@ -103,6 +103,9 @@ HYPOTHESES = {
     "signal_treasure_quiet":  (+1, "宝探し（静かな銘柄）は上がる"),
     "signal_treasure_contra": (+1, "宝探し（逆張り）は上がる"),
     "signal_treasure_card":   (+1, "宝探し（カード）は上がる"),
+    # 2026-11-19 追加（手元の検証で先に書いた仮説 E1 と同じ）。窓が違う（発表の前日まで）ので load_all では読まず、pre_earnings.py が別に数える
+    "pre_earnings_up_10": (+1, "前回の決算のあとに営業利益の見通しを5%超上げた会社の、決算発表の前10営業日（発表の前日まで）の値動き（集計は別の欄）"),
+    "pre_earnings_up_5":  (+1, "前回の決算のあとに営業利益の見通しを5%超上げた会社の、決算発表の前5営業日（発表の前日まで）の値動き（集計は別の欄）"),
 }
 
 # 文面の言い回し（事実だけ）。{p} は event_params
@@ -255,6 +258,8 @@ def load_all(data_dir=DATA):
             for r in read_any(f):
                 if r["event_id"] in events:
                     continue
+                if (r.get("event_type") or "").startswith("pre_earnings_"):
+                    continue          # 決算の前は窓が違う（発表の前日まで）ので、ここ（1・5・20・60営業日）では数えない。pre_earnings.py が別に持つ
                 # 集計に要る欄だけ持つ（遡及は数十万件あるので）
                 keep = {k: r.get(k) for k in ("event_id", "date", "code", "event_type", "origin", "imported_from", "base_date")}
                 if r["event_type"] in ("thermo_stage_change", "gauge_stage_up"):

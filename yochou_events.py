@@ -45,10 +45,13 @@ LABEL = {
     "stock_split": "株式分割の発表", "yutai_new": "株主優待の新設", "yutai_end": "株主優待の廃止",
     "margin_buy_surge": "信用買残の急増", "short_surge": "空売り残高の急増", "short_new_inst": "空売り残高の新しい機関",
     "thermo_stage_change": "温度計の段階が変わった", "gauge_stage_up": "暴落の傾斜計の段階が上がった",
+    "pre_earnings_up_10": "見通しを上げていて、決算発表が近い", "pre_earnings_up_5": "見通しを上げていて、決算発表が近い",
 }
 
 
 def label_of(t):
+    if t.startswith("pre_earnings_"):
+        return LABEL.get(t, t)        # 台帳の種類名（「決算発表の10営業日前・…」）ではなく、理由として読める名前
     try:
         import yochou as Y            # 同じ名前を使う（無い・壊れていても止めない）
         return Y.label_of(t)
@@ -97,6 +100,13 @@ def note_of(e):
              "buyback_decision", "stock_split", "yutai_new", "yutai_end"):
         tm = e.get("time")
         return f"{tm} に開示" if tm else ""
+    if t.startswith("pre_earnings_up_"):
+        # 出来事の日の引け後の時点: 予定日まであと (N+1) 営業日。上げ幅は前回の決算のあとの修正のうち最大
+        left, y, pct = p.get("days_left"), p.get("yotei"), _num(p.get("rev_pct_max"))
+        if not left or not y:
+            return ""
+        s = f"見通しを上げていて、決算発表まであと{int(left)}営業日（予定日 {int(y[5:7])}/{int(y[8:10])}）"
+        return s + (f"・営業利益の見通しを {_pct(pct, 1)}" if pct is not None else "")
     if t == "thermo_stage_change":
         f, to = p.get("from"), p.get("to")
         if f and to:

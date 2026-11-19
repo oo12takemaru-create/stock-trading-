@@ -162,6 +162,147 @@ def jump_check(ser, days_upto):
     return None
 
 
+# ════════════════════════════════════════ 決算の前（pre_earnings_up_10 / _5）の答え合わせ（2026-11-19 追加）
+# 既存の窓（1・5・20・60）とは別の欄。data/ledger2/scores_pre/YYYY-MM.jsonl に1件1行（追記のみ・event_id で1回だけ）。
+# 既存の答え合わせ（main）は変えていない。`--pre-earnings` のときだけ、こちらを走らせる。
+#
+#   窓    = 基準価格（base_date の始値＝予定日の N 営業日前）→ 実際の決算発表の日の前営業日の終値
+#           （発表が場中・引け後・寄り前のどれでも、発表の日の前営業日まで。発表の日の値動きは入れない）
+#   答え  = raw_ret（生）・ret（対TOPIX＝raw − 1306 の raw）・vs_all（全銘柄との差＝raw − 同じ窓の全銘柄の raw の平均）
+#   全銘柄 = data/bars の起点の日と終点の日に値がある内国株（1306・指数を除く）の等ウエイト平均。
+#            期間中に分割の権利落ちがある銘柄・1本で 0.4倍未満/2.5倍超の銘柄は外す。data/bars が欠けていれば vs_all は null
+#   予定どおりか: 実際の発表の日 == 記録したときの予定日 → on_schedule=true。ずれたら false と、ずれ（営業日・符号つき）を残す
+#   実際の発表が基準価格の日より前（前倒し）→ 窓が無いので status=no_window（答えなし・ずれた事実だけ）
+#   予定日から 45暦日たっても発表が見つからない → status=invalid
+PRE_GIVE_UP_DAYS = 45
+
+
+def _all_mean(data, base_d, end_d, stocks):
+    b0, b1 = data.bars(base_d), data.bars(end_d)
+    if not b0 or not b1:
+        return None, 0
+    v = []
+    for c, x in b0.items():
+        if c in (TOPIX, N225) or c not in stocks or not x.get("open"):
+            continue
+        y = b1.get(c)
+        if not y or not y.get("close"):
+            continue
+        if any(base_d < e <= end_d for e in data.split_ex(c)):
+            continue
+        r = y["close"] / x["open"]
+        if r < JUMP_LO or r > JUMP_HI:
+            continue
+        v.append((r - 1) * 100)
+    return (sum(v) / len(v), len(v)) if v else (None, 0)
+
+
+def score_pre_earnings(out, data, today, now_hm, use_yf=True):
+    out = Path(out)
+    (out / "scores_pre").mkdir(parents=True, exist_ok=True)
+    events = [e for f in sorted((out / "events").glob("*.jsonl")) for e in L.jsonl(f)
+              if (e.get("event_type") or "").startswith("pre_earnings_up_")]
+    done = {r.get("event_id") for f in sorted((out / "scores_pre").glob("*.jsonl")) for r in L.jsonl(f)}
+    kd = data.kessan_dates()
+    nowiso = datetime.now(JST).isoformat(timespec="seconds")
+    todo = []
+    for e in events:
+        if e["event_id"] in done:
+            continue
+        p = e.get("event_params") or {}
+        yotei = p.get("yotei") or (e.get("snapshot") or {}).get("yotei")
+        # 実際の発表: 出来事の日より後の最初の決算短信
+        act = next(((d0, t0) for d0, t0 in kd.get(e["code"], []) if d0 > e["date"]), None)
+        if not act:
+            if yotei and (date.fromisoformat(today) - date.fromisoformat(yotei)).days > PRE_GIVE_UP_DAYS:
+                todo.append((e, yotei, None, None))
+            continue
+        end_d = L.prev_bizday(act[0])
+        if not ready(end_d, today, now_hm):
+            continue
+        todo.append((e, yotei, act, end_d))
+    print(f"決算の前の出来事 {len(events)}件 / 答え合わせの候補 {len(todo)}件")
+
+    yf = YF(enabled=use_yf)
+    need = set()
+    spans = {}
+    for e, yotei, act, end_d in todo:
+        if not act or end_d < e["base_date"]:
+            continue
+        span = [e["base_date"]]
+        while span[-1] < end_d:
+            span.append(next_bizday(span[-1]))
+        spans[e["event_id"]] = span
+        for c in (e["code"], TOPIX):
+            if series_from_bars(data, c, span) is None:
+                need.add(c)
+    if need:
+        start = (min(date.fromisoformat(spans[k][0]) for k in spans) - timedelta(days=10)).isoformat()
+        yf.fetch(need, start)
+
+    stocks = None
+    lines = []
+    for e, yotei, act, end_d in todo:
+        eid, b = e["event_id"], e["base_date"]
+        p = e.get("event_params") or {}
+        row = {"event_id": eid, "date": e["date"], "code": e["code"], "n": p.get("n"), "yotei": yotei,
+               "base_date": b, "scored_at": nowiso}
+        if not act:
+            row.update(status="invalid", reason=f"予定日から{PRE_GIVE_UP_DAYS}暦日たっても決算短信が見つからない")
+            lines.append(row)
+            continue
+        on = act[0] == yotei
+        shift = 0 if on else (L.bizdays_after(yotei, act[0]) if act[0] > yotei else -L.bizdays_after(act[0], yotei))
+        row.update(actual=act[0], actual_time=act[1] or None, on_schedule=on, shift_bizdays=shift, end_date=end_d)
+        if end_d < b:
+            row.update(status="no_window", reason="実際の発表が基準価格の日より前（前倒し）で、測る窓が無い")
+            lines.append(row)
+            continue
+        span = spans[eid]
+        ser = series_from_bars(data, e["code"], span)
+        src = "bars"
+        if ser is None:
+            ser, src = yf.series(e["code"]), "yfinance"
+        tser = series_from_bars(data, TOPIX, span) or yf.series(TOPIX)
+        adj = []
+        if src == "bars" and ser:
+            ser, adj = split_adjust(ser, data.split_ex(e["code"]), b)
+        if not ser or not tser or b not in ser or end_d not in ser or b not in tser or end_d not in tser:
+            if (date.fromisoformat(today) - date.fromisoformat(b)).days > GIVE_UP_DAYS:
+                row.update(status="invalid", reason="株価がそろわない")
+                lines.append(row)
+            continue                                   # まだ取れない → 次の回に
+        jd = jump_check(ser, span)
+        if jd:
+            row.update(status="invalid", reason=f"説明できない値の飛び（{jd}）", src=src)
+            lines.append(row)
+            continue
+        o, c = ser[b][0], ser[end_d][3]
+        raw = (c / o - 1) * 100
+        traw = (tser[end_d][3] / tser[b][0] - 1) * 100
+        if stocks is None:
+            stocks = data.stock_codes(today)
+        am, n_all = _all_mean(data, b, end_d, stocks)
+        row.update(status="scored", bars_n=len(span), base_open=round(o, 4), end_close=round(c, 4),
+                   raw_ret=round(raw, 3), topix_ret=round(traw, 3), ret=round(raw - traw, 3),
+                   all_ret=round(am, 3) if am is not None else None, n_all=n_all,
+                   vs_all=round(raw - am, 3) if am is not None else None, src=src)
+        if adj:
+            row["split_adj"] = adj
+        lines.append(row)
+
+    by_month = {}
+    for r in lines:
+        by_month.setdefault(r["date"][:7], []).append(r)
+    for ym, rows in sorted(by_month.items()):
+        with open(out / "scores_pre" / f"{ym}.jsonl", "a", encoding="utf-8", newline="\n") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n")
+    from collections import Counter
+    print(f"決算の前の答えを追記 {len(lines)}行 {dict(Counter(r['status'] for r in lines))}")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(OUT))
@@ -169,7 +310,14 @@ def main():
     ap.add_argument("--docs", help="docs/ を差し替える（試験用）")
     ap.add_argument("--bars", help="data/bars を差し替える（試験用）")
     ap.add_argument("--no-yf", action="store_true", help="yfinance を使わない（data/bars だけ）")
+    ap.add_argument("--pre-earnings", action="store_true",
+                    help="決算の前（pre_earnings_up_*）の答え合わせだけを走らせる（scores_pre/・既存の窓とは別）")
     a = ap.parse_args()
+    if a.pre_earnings:
+        now = datetime.now(JST)
+        today, now_hm = (a.today, "23:59") if a.today else (now.date().isoformat(), now.strftime("%H:%M"))
+        data = L.Sources(docs=a.docs, bars=a.bars) if (a.docs or a.bars) else L.Sources()
+        return score_pre_earnings(a.out, data, today, now_hm, use_yf=not a.no_yf)
 
     out = Path(a.out)
     (out / "scores").mkdir(parents=True, exist_ok=True)
