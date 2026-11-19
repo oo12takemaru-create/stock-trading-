@@ -131,13 +131,21 @@ jobs:
         timeout-minutes: 5
         run: python -X utf8 yochou_events.py
 
+      # 7章: 当日の出来事にチャートの文脈を付け（data/ledger2/context/live）、文脈つきの統計と急騰の欄を公開側に足す（2026-11-19）。
+      # 失敗しても上の公開は止めない
+      - name: Yochou context (チャートの文脈・急騰の割合)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python -X utf8 yochou_context.py
+
       - name: Commit yochou
         if: ${{ !cancelled() }}
         continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for p in data/ledger2/backfill data/ledger2/imported data/ledger2/stats data/ledger2/signals docs/yochou; do
+          for p in data/ledger2/backfill data/ledger2/imported data/ledger2/stats data/ledger2/signals data/ledger2/context data/ledger2/signals_context docs/yochou; do
             [ -e "$p" ] && git add -f "$p"
           done
           if git diff --staged --quiet; then
