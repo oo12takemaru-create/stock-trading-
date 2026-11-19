@@ -123,6 +123,14 @@ jobs:
         timeout-minutes: 15
         run: python -X utf8 yochou.py
 
+      # マイボードの「確認が必要な銘柄」用: その日と前の記録日の出来事を銘柄ごとに（docs/yochou/events_today.json）。
+      # 失敗しても上の公開は止めない（下の Commit yochou が docs/yochou ごと足す）
+      - name: Yochou events (銘柄ごとの今日の出来事)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -X utf8 yochou_events.py
+
       - name: Commit yochou
         if: ${{ !cancelled() }}
         continue-on-error: true
