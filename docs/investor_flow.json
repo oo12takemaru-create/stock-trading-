@@ -1,59 +1,59 @@
 {
- "updated": "2026-11-13T00:48:09+09:00",
- "week": "2026年11月第1週 2026/11 week1 ( 11/2 - 11/6 )",
+ "updated": "2026-11-19T16:31:15+09:00",
+ "week": "2026年11月第2週 2026/11 week2 ( 11/9 - 11/13 )",
  "market": "東証プライム(金額・委託と自己の合計)",
  "unit": "億円",
  "source": "JPX 投資部門別売買状況(週間)",
- "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002kp6f-att/stock_1_w_20261102_20261106.xlsx",
+ "source_file": "https://www.jpx.co.jp/markets/statistics-equities/investor-type/t13vrt000002pzsz-att/stock_1_w_20261109_20261113.xlsx",
  "sheet": "TSE Prime",
  "items": [
   {
    "key": "foreigners",
    "label": "海外投資家",
-   "sell_oku": 317415,
-   "buy_oku": 316598,
-   "net_oku": -818,
-   "prev_net_oku": 2063
+   "sell_oku": 323526,
+   "buy_oku": 320462,
+   "net_oku": -3064,
+   "prev_net_oku": -818
   },
   {
    "key": "individuals",
    "label": "個人投資家",
-   "sell_oku": 96035,
-   "buy_oku": 91599,
-   "net_oku": -4435,
-   "prev_net_oku": -79
+   "sell_oku": 108018,
+   "buy_oku": 104472,
+   "net_oku": -3546,
+   "prev_net_oku": -4435
   },
   {
    "key": "trust_banks",
    "label": "信託銀行（年金など）",
-   "sell_oku": 6697,
-   "buy_oku": 8953,
-   "net_oku": 2256,
-   "prev_net_oku": -2931
+   "sell_oku": 7277,
+   "buy_oku": 11170,
+   "net_oku": 3893,
+   "prev_net_oku": 2256
   },
   {
    "key": "inv_trusts",
    "label": "投資信託",
-   "sell_oku": 5344,
-   "buy_oku": 6369,
-   "net_oku": 1024,
-   "prev_net_oku": -2405
+   "sell_oku": 6999,
+   "buy_oku": 6863,
+   "net_oku": -136,
+   "prev_net_oku": 1024
   },
   {
    "key": "business",
    "label": "事業法人（自社株買いなど）",
-   "sell_oku": 3253,
-   "buy_oku": 6261,
-   "net_oku": 3008,
-   "prev_net_oku": -993
+   "sell_oku": 3517,
+   "buy_oku": 6344,
+   "net_oku": 2827,
+   "prev_net_oku": 3008
   },
   {
    "key": "proprietary",
    "label": "証券自己（プロップ）",
-   "sell_oku": 41533,
-   "buy_oku": 42302,
-   "net_oku": 769,
-   "prev_net_oku": 4716
+   "sell_oku": 40214,
+   "buy_oku": 41768,
+   "net_oku": 1554,
+   "prev_net_oku": 769
   }
  ]
 }
