@@ -73,6 +73,14 @@ jobs:
       # 既存の台帳（上の3ステップ）の後に、別のコミットで足す。どれが失敗しても上の公開は済んでいる。
       # data/ledger2/events/（記録・追記のみ）と data/ledger2/scores/（答え合わせ・追記のみ）。docs/ の外＝Pages に出ない。
       # 同じ日に2回走っても event_id と (event_id, 窓) で弾くので行は増えない。
+      # 決算の前（2026-11-19）: その日の時点で公表されていた決算発表予定日を data/ledger2/kessan_yotei_asof/ に1日1行。
+      # 下の Record v2（detect_pre_earnings）が「その日に分かっていた予定日」として読む。同じ日の行があれば書かない
+      - name: Pre-earnings snapshot (決算発表予定日のその日の記録・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -X utf8 pre_earnings.py snapshot
+
       - name: Record v2 (出来事の台帳・追記のみ)
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -84,6 +92,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 20
         run: python -X utf8 ledger2_score.py
+
+      # 決算の前の答え合わせ（基準価格→実際の発表の前営業日の終値・対TOPIX と全銘柄との差）。既存の窓とは別の data/ledger2/scores_pre/
+      - name: Score v2 pre-earnings (決算の前の答え合わせ・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python -X utf8 ledger2_score.py --pre-earnings
 
       - name: Commit ledger v2
         if: ${{ !cancelled() }}
@@ -130,6 +145,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 5
         run: python -X utf8 yochou_events.py
+
+      # 決算の前の一覧（docs/yochou/pre_earnings.json）。過去の統計の数字は入れない。失敗しても上の公開は止めない
+      - name: Pre-earnings publish (決算発表が近く見通しを上げていた会社)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -X utf8 pre_earnings.py publish
 
       # 7章: 当日の出来事にチャートの文脈を付け（data/ledger2/context/live）、文脈つきの統計と急騰の欄を公開側に足す（2026-11-19）。
       # 失敗しても上の公開は止めない

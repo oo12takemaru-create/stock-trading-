@@ -299,6 +299,71 @@ class Sources:
         pn = self._memo("panel", load)
         return pn.hist_stats(d) if pn else None
 
+    # ── 決算の前（pre_earnings・2026-11-19）
+    def kessan_now(self):
+        """docs/kessan.json（JPX の決算発表予定日・今の版だけ。中の today で日付を確かめて使う）"""
+        return self._memo("kessan_now", lambda: jload(self.docs / "kessan.json"))
+
+    def yotei_asof(self, d):
+        """d の時点で公表されていた決算発表予定日 {code: 予定日}（d より後の日だけ）。
+        data/ledger2/kessan_yotei_asof/ の d の行（pre_earnings.py snapshot が毎日残す）。
+        行が無ければ、docs/kessan.json がその日の版（today == d）のときだけそこから作る。どちらも無ければ None"""
+        def load(ym):
+            out = {}
+            for r in jsonl(self.yotei_dir / f"{ym}.jsonl"):
+                if r.get("d") and r["d"] not in out:      # 同じ日の行は最初の1行（後から書き換えない）
+                    out[r["d"]] = r
+            return out
+        rec = (self._memo(f"yotei_asof{d[:7]}", lambda: load(d[:7])) or {}).get(d)
+        if rec:
+            return rec
+        return yotei_from_kessan(self.kessan_now(), d)
+
+    @property
+    def yotei_dir(self):
+        return getattr(self, "_yotei_dir", None) or self.root / "data" / "ledger2" / "kessan_yotei_asof"
+
+    @yotei_dir.setter
+    def yotei_dir(self, p):
+        self._yotei_dir = Path(p)
+
+    def kessan_dates(self):
+        """{code: [(公開日, 時刻), ...]}（決算短信を出した日。新しい順ではなく古い順）。
+        docs/kessan_flash_hist/（2026-08-26〜）＋ docs/tdnet_hist/ の表題（kessan）"""
+        def load():
+            out = {}
+            for f in sorted((self.docs / "kessan_flash_hist").glob("????-??.json")):
+                for day in (jload(f, {}) or {}).get("days") or []:
+                    for x in day.get("items") or []:
+                        if x.get("c") and day.get("d"):
+                            out.setdefault(code4(x["c"]), set()).add((day["d"], x.get("t") or ""))
+            for f in sorted((self.docs / "tdnet_hist").glob("????-??-??.json")):
+                j = jload(f, {}) or {}
+                cols = j.get("cols") or []
+                for r in j.get("rows") or []:
+                    row = dict(zip(cols, r))
+                    if row.get("c") and any(k == "kessan" for k, _ in classify(row.get("ti") or "")):
+                        out.setdefault(code4(row["c"]), set()).add((f.stem, row.get("t") or ""))
+            # 同じ日に2つの時刻（flash と tdnet）が入ることがあるので、日ごとに早い時刻1つに
+            res = {}
+            for c, s in out.items():
+                by = {}
+                for d0, t0 in s:
+                    if d0 not in by or (t0 and (not by[d0] or t0 < by[d0])):
+                        by[d0] = t0
+                res[c] = sorted(by.items())
+            return res
+        return self._memo("kessan_dates", load) or {}
+
+    def fc_revision_all(self):
+        """docs/fc_revision/*.json の全 items（{id: item}）"""
+        def load():
+            out = {}
+            for f in sorted((self.docs / "fc_revision").glob("????-??.json")):
+                out.update((jload(f, {}) or {}).get("items") or {})
+            return out
+        return self._memo("fcrev_all", load) or {}
+
     def split_ex(self, code):
         """その銘柄の分割の権利落ち日 {ex: ratio}"""
         s = self.splits()
@@ -594,6 +659,169 @@ def detect_disclosure(d, data):
         snap = {"disclosure_ids": g["ids"], "titles": g["titles"], **(g.get("snap") or {})}
         out.append(ev(t, c, g["params"], snap, time=g["time"], known=time_known(d, g["time"]),
                       src=f"tdnet_hist/{d}.json"))
+    return out
+
+
+# ════════════════════════════════════════ 決算の前（2026-11-19 追加・detector_version 1.0）
+# 手元の検証（J-Quants 無料プラン・2024〜2026・私的な検証）で「強い側で確定」した仮説 E1 を、
+# 株レーダー自身の記録（JPX の決算発表予定日・TDnet の業績予想の修正）で、今日から当日記録する。
+# 過去の統計の数字はどこにも書かない（公開しない）。しきい値・窓は検証の仮説と同じで、後から動かさない。
+#
+#   窓（検証と同じ）: 発表日の N 営業日前の始値 → 発表日の前営業日の終値（N 本）。N = 10・5
+#   その窓の始値で持つには、前の営業日の引け後までに分かっている必要がある。
+#   → 出来事の日 d ＝ 予定日の (N+1) 営業日前（d の翌営業日〜予定日の前営業日がちょうど N 営業日）。
+#     known = after_close、基準価格 ＝ 翌営業日（＝予定日の N 営業日前）の始値。
+#   条件: 前回の決算発表の日 P 〜 d に、通期の営業利益の見通しを +5% 超 上げる修正を出している
+#         （修正前の営業利益 > 0 で、修正後 ÷ 修正前 − 1 > 0.05）。
+PRE_EARN_NS = (10, 5)
+PRE_EARN_UP = 0.05
+PRE_EARN_START = "2026-11-19"          # 予定日の「その日の記録」を始めた日。これより前の日は記録しない
+FC_REVISION_START = "2026-10-05"       # docs/fc_revision の記録の始まり（最初の修正の開示日）
+PRE_EARN_RECENT_DAYS = 35              # 前回の決算からこれより短い予定日は「すでに発表済みで届出が古いまま」とみなして外す
+YOTEI_KEEP_DAYS = 45                   # 予定日の記録に残す範囲（d から何暦日先まで）
+RE_NOT_OWN = re.compile(r"子会社|親会社")  # 例「連結子会社（株式会社近鉄百貨店）の業績予想の修正」は数えない
+
+
+def bizdays_after(d, D):
+    """d の翌日〜D（D を含む）の営業日の数（あと何営業日）。D <= d なら 0"""
+    if D <= d:
+        return 0
+    n, cur = 0, d
+    for _ in range(400):
+        cur = next_bizday(cur)
+        if cur > D:
+            break
+        n += 1
+    return n
+
+
+def prev_bizday(d):
+    """d より前の最後の営業日（文字列）"""
+    from datetime import timedelta
+    cur = _date.fromisoformat(d)
+    for _ in range(30):
+        cur -= timedelta(days=1)
+        if is_bizday(cur):
+            return cur.isoformat()
+    raise ValueError(d)
+
+
+def yotei_from_kessan(kj, d):
+    """docs/kessan.json（その日の版）→ その日の予定日の記録 {"d", "src", "items": {code: 予定日}}。版が違えば None"""
+    if not kj or kj.get("today") != d:
+        return None
+    from datetime import timedelta
+    lim = (_date.fromisoformat(d) + timedelta(days=YOTEI_KEEP_DAYS)).isoformat()
+    items = {}
+    for day in kj.get("days") or []:
+        D = day.get("d")
+        if not D or D <= d or D > lim:
+            continue
+        for x in day.get("items") or []:
+            c = code4(x.get("c"))
+            if c and (c not in items or D < items[c]):
+                items[c] = D
+    return {"d": d, "src_updated": kj.get("updated"), "jpx_asof": kj.get("asof"),
+            "items": dict(sorted(items.items()))}
+
+
+def kessan_meta(kj):
+    """kessan.json → {code: (名前, 四半期)}（表示用）"""
+    out = {}
+    for day in (kj or {}).get("days") or []:
+        for x in day.get("items") or []:
+            c = code4(x.get("c"))
+            if c:
+                out[c] = (unicodedata.normalize("NFKC", x.get("n") or "").strip(),
+                          unicodedata.normalize("NFKC", x.get("q") or "").strip())
+    return out
+
+
+def op_revisions(code, since, d, data):
+    """since〜d（両端を含む）に出た、通期の業績見通しの修正 → (上げた[+5%超], 向きが分からない, それ以外)"""
+    up, unknown, other = [], [], []
+    for it in data.fc_revision_all().values():
+        if code4(it.get("c")) != code or not it.get("d") or not (since <= it["d"] <= d):
+            continue
+        if it.get("k") not in (None, "rvfc"):            # 配当（rvdf）・訂正の類（rr*）は見ない
+            continue
+        if it.get("per") not in ("通期", None):
+            continue                                       # 中間期だけの修正は通期の見通しではない
+        if RE_NOT_OWN.search(nfkc_norm(it.get("ti"))):
+            continue                                       # 子会社・親会社の見通しの修正（その会社自身の見通しではない）
+        prev, cur = (it.get("prev") or {}).get("op"), (it.get("cur") or {}).get("op")
+        rec = {"d": it["d"], "t": it.get("t"), "id": it.get("id"), "op_prev": prev, "op_cur": cur}
+        if it.get("per") is None or prev is None or cur is None:
+            unknown.append(rec)                            # 期間・営業利益が読めない → 向きが分からない
+            continue
+        if prev > 0 and cur > prev * (1 + PRE_EARN_UP) + 1e-9:     # ちょうど +5% は「超」ではない（小数の誤差で入れない）
+            rec["pct"] = round((cur / prev - 1) * 100, 1)
+            up.append(rec)
+        else:
+            other.append(rec)
+    return sorted(up, key=lambda r: (r["d"], r.get("t") or "")), unknown, other
+
+
+def pre_earnings_state(d, data, max_left=None):
+    """d の引け後の時点で、予定日が d の後 max_left 営業日以内の会社ごとの判定。
+    → (rows, asof)。rows = [{code, yotei, left, status, prev_kessan, up, unknown}]
+    status: hit（+5%超 上げていた）/ no_raise / prev_before_records（前回の決算が修正の記録の始まりより前）/
+            prev_unknown（前回の決算の日が記録に無い）/ unknown_dir（向きが分からない修正だけ）/
+            recent_kessan（前回の決算が近すぎる＝すでに発表済みの可能性）"""
+    asof = data.yotei_asof(d)
+    if not asof:
+        return [], None
+    max_left = max_left or (max(PRE_EARN_NS) + 1)
+    kd = data.kessan_dates()
+    rows = []
+    for c, D in (asof.get("items") or {}).items():
+        left = bizdays_after(d, D)
+        if left < 1 or left > max_left:
+            continue
+        past = [x for x in kd.get(c, []) if x[0] <= d]
+        P = past[-1][0] if past else None
+        row = {"code": c, "yotei": D, "left": left, "prev_kessan": P, "up": [], "unknown": []}
+        if P is None:
+            row["status"] = "prev_unknown"
+        elif (_date.fromisoformat(D) - _date.fromisoformat(P)).days < PRE_EARN_RECENT_DAYS:
+            row["status"] = "recent_kessan"
+        elif P < FC_REVISION_START:
+            row["status"] = "prev_before_records"
+        else:
+            up, unk, _ = op_revisions(c, P, d, data)
+            row["up"], row["unknown"] = up, unk
+            row["status"] = "hit" if up else ("unknown_dir" if unk else "no_raise")
+        rows.append(row)
+    return sorted(rows, key=lambda r: (r["left"], r["code"])), asof
+
+
+@detector({f"pre_earnings_up_{n}": (f"決算発表の{n}営業日前・見通しを上げていた",
+                                    f"事前に公表された決算発表予定日の{n + 1}営業日前（翌営業日の始値から予定日の前営業日まで"
+                                    f"ちょうど{n}営業日）で、前回の決算発表の日〜その日に、通期の営業利益の見通しを"
+                                    f"+{int(PRE_EARN_UP * 100)}%超 上げる修正を出している（修正前 > 0）。"
+                                    f"前回の決算が {FC_REVISION_START} より前・日が分からない会社、営業利益の見通しが無い会社は対象外",
+                                    "after_close", "data/ledger2/kessan_yotei_asof（JPX の決算発表予定日のその日の記録）"
+                                    " ＋ docs/fc_revision ＋ docs/kessan_flash_hist・tdnet_hist")
+           for n in PRE_EARN_NS})
+def detect_pre_earnings(d, data):
+    if d < PRE_EARN_START:
+        return []
+    rows, asof = pre_earnings_state(d, data)
+    out = []
+    for r in rows:
+        if r["status"] != "hit":
+            continue
+        for n in PRE_EARN_NS:
+            if r["left"] != n + 1:
+                continue
+            best = max(r["up"], key=lambda x: x["pct"])
+            out.append(ev(f"pre_earnings_up_{n}", r["code"],
+                          {"n": n, "threshold": PRE_EARN_UP, "yotei": r["yotei"], "days_left": r["left"],
+                           "prev_kessan": r["prev_kessan"], "rev_pct_max": best["pct"],
+                           "rev_last": r["up"][-1]["d"], "n_rev": len(r["up"])},
+                          {"yotei": r["yotei"], "yotei_asof": d, "jpx_asof": asof.get("jpx_asof"),
+                           "yotei_src_updated": asof.get("src_updated"), "revisions": r["up"]},
+                          known="after_close", src=f"kessan_yotei_asof/{d[:7]}.jsonl#{d}"))
     return out
 
 
