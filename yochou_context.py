@@ -48,7 +48,7 @@ PRICE_TYPES = ("volume_surge", "gap_up", "gap_down", "high52_close", "low52_clos
                "stop_high", "stop_low", "stop_high_touch", "stop_low_touch")
 SIGNAL_MIN_DAYS = Y.SIGNAL_MIN_DAYS
 WINDOW = Y.WINDOW
-MAX_CTX_SIGNALS = 30
+MAX_CTX_SIGNALS = 0   # 2026-11-19 統括: 文脈つきは全部「弱かった」側で、既存の予兆に括弧が付くだけなので出さない（統計は残す）
 
 CTX_JA = {
     ("ma200", "above"): "200日線より上", ("ma200", "below"): "200日線より下",
