@@ -603,6 +603,7 @@ def main():
                      "n": rec["n"], "days": rec["days"], "window": WINDOW, "median": round(rec["median"], 1),
                      "pos_rate": round(rec["pos_rate"]), "period": f"{rec['period'][0][:7]}〜{rec['period'][1][:7]}",
                      "status": rec["status"], "basis": basis, "live_n": rec["live_n"],
+                     "side": "up" if rec["direction"] > 0 else "down",      # up=その後強かった側・down=弱かった側（2026-11-19）
                      # 参考: 同じ起点の日の全銘柄の平均を引いた見方（小型株の地合いの分を除く）。サイトで出すかは未定
                      "median_vs_all": round(rec["median_vs_all"], 1) if rec.get("median_vs_all") is not None else None,
                      "pos_rate_vs_all": round(rec["pos_rate_vs_all"]) if rec.get("pos_rate_vs_all") is not None else None,
