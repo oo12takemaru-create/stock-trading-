@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-19T20:28:44+09:00",
+ "updated": "2026-11-19T21:49:41+09:00",
  "note": "出来事の台帳（v2）の種類の一覧。しきい値は設計書 v1 の仮の値。known は答え合わせの起点の決め方（pre_open=その日の始値・それ以外=翌営業日の始値・disclosure_time/row_time=公開時刻で決める）。",
  "types": {
   "margin_buy_surge": {
@@ -154,6 +154,20 @@
    "rule": "表題（classify の yutai・廃止）",
    "known": "disclosure_time",
    "source": "docs/tdnet_hist/",
+   "version": "1.0"
+  },
+  "pre_earnings_up_10": {
+   "label": "決算発表の10営業日前・見通しを上げていた",
+   "rule": "事前に公表された決算発表予定日の11営業日前（翌営業日の始値から予定日の前営業日までちょうど10営業日）で、前回の決算発表の日〜その日に、通期の営業利益の見通しを+5%超 上げる修正を出している（修正前 > 0）。前回の決算が 2026-10-05 より前・日が分からない会社、営業利益の見通しが無い会社は対象外",
+   "known": "after_close",
+   "source": "data/ledger2/kessan_yotei_asof（JPX の決算発表予定日のその日の記録） ＋ docs/fc_revision ＋ docs/kessan_flash_hist・tdnet_hist",
+   "version": "1.0"
+  },
+  "pre_earnings_up_5": {
+   "label": "決算発表の5営業日前・見通しを上げていた",
+   "rule": "事前に公表された決算発表予定日の6営業日前（翌営業日の始値から予定日の前営業日までちょうど5営業日）で、前回の決算発表の日〜その日に、通期の営業利益の見通しを+5%超 上げる修正を出している（修正前 > 0）。前回の決算が 2026-10-05 より前・日が分からない会社、営業利益の見通しが無い会社は対象外",
+   "known": "after_close",
+   "source": "data/ledger2/kessan_yotei_asof（JPX の決算発表予定日のその日の記録） ＋ docs/fc_revision ＋ docs/kessan_flash_hist・tdnet_hist",
    "version": "1.0"
   },
   "thermo_stage_change": {
