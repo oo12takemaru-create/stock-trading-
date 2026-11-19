@@ -1,6 +1,6 @@
 {
  "target_date": "2026-11-18",
- "generated_at": "2026-11-19T18:03:01+09:00",
+ "generated_at": "2026-11-19T21:03:17+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -29,10 +29,10 @@
  "stale": false,
  "signals_today_date": "2026-11-19",
  "is_halt": false,
- "signals_today_count": 1,
+ "signals_today_count": 2,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 1,
+  "BNF-LITE": 2,
   "MINERVINI": 0
  },
  "signal_of_day": {
