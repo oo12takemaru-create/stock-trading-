@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-19T19:39:32+09:00",
+ "updated": "2026-11-19T20:28:44+09:00",
  "note": "出来事の台帳（v2）の種類の一覧。しきい値は設計書 v1 の仮の値。known は答え合わせの起点の決め方（pre_open=その日の始値・それ以外=翌営業日の始値・disclosure_time/row_time=公開時刻で決める）。",
  "types": {
   "margin_buy_surge": {
