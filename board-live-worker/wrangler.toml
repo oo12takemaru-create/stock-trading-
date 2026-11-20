@@ -1,0 +1,15 @@
+name = "kaburadar-board-live"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# 相場ボードの取引時間中の自動更新の中継ぎ（2026-11-20）。README.md を参照。
+# ★Cron Trigger は使わない★（無料はアカウントで5本まで。ruletrade-cron が3本・kaburadar-buyback も使っている）
+#   /board が呼ばれたときに、KV の値が間隔より古ければ取り直す形（src/index.js の先頭のコメント）。
+
+[[kv_namespaces]]
+binding = "LIVE"
+id = "9b121507cf7b47509d452205f02315dc"   # KV「BOARD_LIVE」（2026-11-20 作成）
+
+[observability]
+enabled = true
