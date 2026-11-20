@@ -1,0 +1,34 @@
+{
+ "asof": "2026-11-20",
+ "from": "2025-11-19",
+ "n_days": 244,
+ "n_codes": 2950,
+ "n_universe": 3686,
+ "excluded": {
+  "days_lt_min": 100,
+  "zero_volume": 0,
+  "low_value": 636
+ },
+ "bars_backfill_end": "2026-11-17",
+ "sec_load": 3.8,
+ "sec_corr": 0.7,
+ "updated": "2026-11-20T21:42:24+09:00",
+ "main": "ex",
+ "n_files": 2950,
+ "rule": {
+  "window": 250,
+  "min_days": 200,
+  "min_overlap": 200,
+  "zero_volume_max": 0.2,
+  "min_value_median_yen": 5000000.0,
+  "jump": [
+   0.4,
+   2.5
+  ],
+  "topn": 10,
+  "ex": "各銘柄の騰落率から、同じ日の対象全銘柄の平均（等金額）×β（銘柄ごとの回帰の傾き）を引いてから相関",
+  "raw": "騰落率そのものの相関",
+  "price": "日足の終値（株式分割は調整済み・配当は未調整）"
+ },
+ "source": "収集側の日足（data/bars_backfill・data/bars）から自前で計算"
+}
