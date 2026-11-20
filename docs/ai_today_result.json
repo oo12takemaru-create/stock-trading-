@@ -1,29 +1,29 @@
 {
- "date": "2026-11-19",
- "updated": "2026-11-19T16:02:30+09:00",
- "issue": 30,
- "headline": "寄りは小安い想定、59,024円を保てるかが焦点",
+ "date": "2026-11-20",
+ "updated": "2026-11-20T15:59:33+09:00",
+ "issue": 31,
+ "headline": "米株2%安を受け、寄りから下を試しそうな朝",
  "stance": "defense",
  "stance_jp": "守り",
  "machine_stance": "defense",
- "n225_prev_close": 59024.28,
- "n225_close": 59444.21,
- "n225_ret": 0.71,
- "hit": false,
- "result_jp": "外れ",
- "machine_hit": false,
+ "n225_prev_close": 59444.21,
+ "n225_close": 56436.65,
+ "n225_ret": -5.06,
+ "hit": true,
+ "result_jp": "当たり",
+ "machine_hit": true,
  "month": {
   "month": "2026-11",
-  "win": 6,
+  "win": 7,
   "lose": 6,
   "neutral": 1
  },
  "total": {
-  "win": 26,
+  "win": 27,
   "lose": 22
  },
- "streak": -2,
- "streak_jp": "2連敗",
+ "streak": 1,
+ "streak_jp": "1連勝",
  "basis": "朝刊の構え（寄り付き前に公開）と、その日の日経平均の騰落（終値÷前営業日の終値）を機械で照合。強気寄りの日は上昇で当たり・守り寄りの日は下落で当たり・中立の日は数えない（ai_record.py と同じ）。",
  "note": "引け後の速報（Yahoo の日足）。正式の成績表は ai_record.json（19時台に更新）。"
 }
