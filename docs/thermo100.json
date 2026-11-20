@@ -1,17 +1,17 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-20T23:36:52+09:00",
+ "updated": "2026-11-21T01:50:55+09:00",
  "trade_date": "2026-11-20",
- "value": 15,
- "regime": "BEARISH",
- "regime_jp": "弱気",
+ "value": 12,
+ "regime": "PANIC",
+ "regime_jp": "総崩れ",
  "band": {
-  "lo": 15,
-  "hi": 39
+  "lo": 0,
+  "hi": 14
  },
- "position_in_band": 1.3,
- "overall_position": 4.4,
- "regime_changed": false,
+ "position_in_band": 85.7,
+ "overall_position": 3.7,
+ "regime_changed": true,
  "prev_regime": "BEARISH",
  "compare": {
   "yesterday": {
@@ -19,21 +19,21 @@
    "value": 16,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -1
+   "diff": -4
   },
   "week": {
    "d": "2026-11-13",
    "value": 20,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -5
+   "diff": -8
   },
   "month": {
    "d": "2026-10-22",
    "value": 41,
    "regime": "NEUTRAL",
    "regime_jp": "中立",
-   "diff": -26
+   "diff": -29
   }
  },
  "year": {
@@ -43,8 +43,8 @@
    "value": 99
   },
   "low": {
-   "d": "2026-03-30",
-   "value": 14
+   "d": "2026-11-20",
+   "value": 12
   }
  },
  "components": [
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -2.71,
-   "pos": 10.8,
+   "raw": -4.17,
+   "pos": 9.1,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 29.59,
-   "pos": 6.5,
+   "raw": 30.88,
+   "pos": 4.9,
    "weight": 0.2
   }
  ],
@@ -130,15 +130,15 @@
   "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）"
  },
  "celsius": {
-  "value": -8,
-  "label": "−8℃",
+  "value": -10,
+  "label": "−10℃",
   "scale": {
    "min": -20,
    "max": 60
   },
   "band": {
-   "lo": -8,
-   "hi": 11
+   "lo": -20,
+   "hi": -9
   },
   "compare": {
    "yesterday": {
@@ -146,21 +146,21 @@
     "value": -7,
     "label": "−7℃",
     "regime_jp": "弱気",
-    "diff": -1
+    "diff": -3
    },
    "week": {
     "d": "2026-11-13",
     "value": -4,
     "label": "−4℃",
     "regime_jp": "弱気",
-    "diff": -4
+    "diff": -6
    },
    "month": {
     "d": "2026-10-22",
     "value": 13,
     "label": "13℃",
     "regime_jp": "中立",
-    "diff": -21
+    "diff": -23
    }
   },
   "year": {
@@ -171,9 +171,9 @@
     "label": "59℃"
    },
    "low": {
-    "d": "2026-03-30",
-    "value": -9,
-    "label": "−9℃"
+    "d": "2026-11-20",
+    "value": -10,
+    "label": "−10℃"
    }
   },
   "bands": [
@@ -245,10 +245,10 @@
      "n_days": 297,
      "episodes": 37,
      "r5": {
-      "n": 291,
-      "avg": 0.5,
-      "med": 0.71,
-      "up_pct": 62.2
+      "n": 290,
+      "avg": 0.53,
+      "med": 0.73,
+      "up_pct": 62.4
      },
      "r20": {
       "n": 286,
@@ -303,8 +303,8 @@
     "label": "総崩れの帯（0〜14）",
     "label_c": "総崩れの帯（−20℃〜−9℃）",
     "n225": {
-     "n_days": 28,
-     "episodes": 5,
+     "n_days": 29,
+     "episodes": 6,
      "r5": {
       "n": 28,
       "avg": 1.71,
@@ -320,8 +320,8 @@
      "sankou": true
     },
     "etf1306": {
-     "n_days": 28,
-     "episodes": 5,
+     "n_days": 29,
+     "episodes": 6,
      "r5": {
       "n": 27,
       "avg": 2.26,
@@ -342,7 +342,7 @@
     "label": "弱気の帯（15〜39）",
     "label_c": "弱気の帯（−8℃〜11℃）",
     "n225": {
-     "n_days": 747,
+     "n_days": 746,
      "episodes": 77,
      "r5": {
       "n": 742,
@@ -359,13 +359,13 @@
      "sankou": false
     },
     "etf1306": {
-     "n_days": 747,
+     "n_days": 746,
      "episodes": 77,
      "r5": {
-      "n": 741,
-      "avg": 0.49,
-      "med": 0.58,
-      "up_pct": 61.7
+      "n": 740,
+      "avg": 0.5,
+      "med": 0.59,
+      "up_pct": 61.8
      },
      "r20": {
       "n": 734,
@@ -407,10 +407,10 @@
       "up_pct": 55.8
      },
      "r20": {
-      "n": 728,
-      "avg": 0.8,
-      "med": 1.21,
-      "up_pct": 63.0
+      "n": 727,
+      "avg": 0.82,
+      "med": 1.22,
+      "up_pct": 63.1
      },
      "sankou": false
     }
@@ -479,13 +479,13 @@
      "n_days": 2442,
      "episodes": 1,
      "r5": {
-      "n": 2435,
+      "n": 2434,
       "avg": 0.27,
       "med": 0.36,
       "up_pct": 57.1
      },
      "r20": {
-      "n": 2420,
+      "n": 2419,
       "avg": 1.09,
       "med": 1.33,
       "up_pct": 64.3
@@ -565,8 +565,8 @@
     "label": "総崩れの帯（0〜14）",
     "label_c": "総崩れの帯（−20℃〜−9℃）",
     "n225": {
-     "n_days": 144,
-     "episodes": 40,
+     "n_days": 145,
+     "episodes": 41,
      "r5": {
       "n": 144,
       "avg": 0.43,
@@ -593,7 +593,7 @@
     "label": "弱気の帯（15〜39）",
     "label_c": "弱気の帯（−8℃〜11℃）",
     "n225": {
-     "n_days": 4309,
+     "n_days": 4308,
      "episodes": 226,
      "r5": {
       "n": 4304,
@@ -1016,6 +1016,6 @@
  "radar_check": {
   "radar_json_regime": "BEARISH",
   "radar_json_day": "2026-11-20",
-  "same": true
+  "same": false
  }
 }
