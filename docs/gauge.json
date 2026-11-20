@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-21T02:00:08+09:00",
+ "updated": "2026-11-21T05:34:02+09:00",
  "lit": 3,
  "total": 5,
  "judged": 5,
@@ -279,14 +279,14 @@
  "phase": {
   "ok": true,
   "active": true,
-  "vix": 31.4,
+  "vix": 35.35,
   "vix_band": "強い不安",
   "vix_band_desc": "市場に強い不安が広がっている状態",
-  "vix_peak": 31.4,
+  "vix_peak": 35.35,
   "vix_off_peak": 0.0,
   "vix_peak_days": 0,
   "vix_rising": true,
-  "adr": 100.0,
+  "adr": 99.9,
   "adr_oversold": false,
   "drawdown": -15.9,
   "peak_date": "2026-10-06",
@@ -307,7 +307,7 @@
   ],
   "stage_key": "mid",
   "stage": "中盤",
-  "message": "VIXは31.4（強い不安）で高止まりし、騰落レシオは100と売られすぎに近づいています。VIXはまだ明確なピークをつけていません。",
+  "message": "VIXは35.3（強い不安）で高止まりし、騰落レシオは100と売られすぎに近づいています。VIXはまだ明確なピークをつけていません。",
   "action": "事前に決めた備えを実行に移し始める段階。分割での買い向かいの準備を進めてよい局面です。"
  },
  "book": {
