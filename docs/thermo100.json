@@ -1,16 +1,16 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-21T03:43:55+09:00",
+ "updated": "2026-11-21T06:25:04+09:00",
  "trade_date": "2026-11-20",
- "value": 12,
+ "value": 11,
  "regime": "PANIC",
  "regime_jp": "総崩れ",
  "band": {
   "lo": 0,
   "hi": 14
  },
- "position_in_band": 85.7,
- "overall_position": 3.4,
+ "position_in_band": 78.6,
+ "overall_position": 2.7,
  "regime_changed": true,
  "prev_regime": "BEARISH",
  "compare": {
@@ -19,21 +19,21 @@
    "value": 16,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -4
+   "diff": -5
   },
   "week": {
    "d": "2026-11-13",
    "value": 20,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": -8
+   "diff": -9
   },
   "month": {
    "d": "2026-10-22",
    "value": 41,
    "regime": "NEUTRAL",
    "regime_jp": "中立",
-   "diff": -29
+   "diff": -30
   }
  },
  "year": {
@@ -44,7 +44,7 @@
   },
   "low": {
    "d": "2026-11-20",
-   "value": 12
+   "value": 11
   }
  },
  "components": [
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -4.5,
-   "pos": 8.3,
+   "raw": -5.96,
+   "pos": 6.8,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 32.12,
-   "pos": 3.9,
+   "raw": 37.26,
+   "pos": 2.0,
    "weight": 0.2
   }
  ],
@@ -130,8 +130,8 @@
   "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）"
  },
  "celsius": {
-  "value": -10,
-  "label": "−10℃",
+  "value": -11,
+  "label": "−11℃",
   "scale": {
    "min": -20,
    "max": 60
@@ -146,21 +146,21 @@
     "value": -7,
     "label": "−7℃",
     "regime_jp": "弱気",
-    "diff": -3
+    "diff": -4
    },
    "week": {
     "d": "2026-11-13",
     "value": -4,
     "label": "−4℃",
     "regime_jp": "弱気",
-    "diff": -6
+    "diff": -7
    },
    "month": {
     "d": "2026-10-22",
     "value": 13,
     "label": "13℃",
     "regime_jp": "中立",
-    "diff": -23
+    "diff": -24
    }
   },
   "year": {
@@ -172,8 +172,8 @@
    },
    "low": {
     "d": "2026-11-20",
-    "value": -10,
-    "label": "−10℃"
+    "value": -11,
+    "label": "−11℃"
    }
   },
   "bands": [
