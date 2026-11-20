@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-20T12:03:52+09:00",
+ "updated": "2026-11-20T12:56:58+09:00",
  "trade_date": "2026-11-20",
  "value": 15,
  "regime": "BEARISH",
@@ -9,7 +9,7 @@
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 1.9,
+ "position_in_band": 2.0,
  "overall_position": 5.0,
  "regime_changed": false,
  "prev_regime": "BEARISH",
@@ -53,8 +53,8 @@
    "label": "日経平均と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -8.82,
-   "pos": 2.9,
+   "raw": -8.53,
+   "pos": 3.0,
    "weight": 0.2
   },
   {
@@ -62,7 +62,7 @@
    "label": "日経平均と50日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -11.4,
+   "raw": -11.12,
    "pos": 1.0,
    "weight": 0.2
   },
@@ -71,7 +71,7 @@
    "label": "日経平均の22営業日前比",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -12.14,
+   "raw": -11.86,
    "pos": 1.3,
    "weight": 0.2
   },
