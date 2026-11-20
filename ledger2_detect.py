@@ -229,6 +229,17 @@ class Sources:
             return days, pub
         return self._memo("shinyo_days", load) or ({}, {})
 
+    def kisei_days(self):
+        """data/kisei/*.jsonl（kisei_fetch.py・1営業日1行）→ {日付: 行}。同じ日が2行あれば先の行"""
+        def load():
+            out = {}
+            for f in sorted((self.root / "data" / "kisei").glob("????-??.jsonl")):
+                for r in jsonl(f):
+                    if r.get("date") and r["date"] not in out:
+                        out[r["date"]] = r
+            return out
+        return self._memo("kisei_days", load) or {}
+
     def listed_shares(self):
         return self._memo("listed", lambda: (jload(self.docs / "shinyo_listed.json", {}) or {}).get("items") or {})
 
@@ -452,6 +463,106 @@ def detect_short(d, data):
                                          "max_chg": max(x["chg"] for x in lst)},
                       {"insts": lst}, known="after_close", src=f"{src}#{d}"))
     return out
+
+
+# ════════════════════════════════════════ 信用取引の規制（2026-11-20 追加）
+# data/kisei/YYYY-MM.jsonl（kisei_fetch.py）の「その日」と「直前の営業日」の一覧を比べる。
+# 直前の営業日の行が無い（初日・取れなかった日の次の日）は出来事を作らない（どの日に変わったか分からないため）。
+# 銘柄ごとの強さ: 日々公表=1、特別周知=+5、規制（増担保など）=+10＋委託保証金率(%)＋うち現金(%)/10、新規の停止=+1000
+KISEI_SRC = "JPX 日々公表銘柄・特別周知銘柄・信用取引に関する規制等（data/kisei/・kisei_fetch.py）"
+RE_KISEI_RATE = re.compile(r"委託保証金率を\s*(\d+)\s*[％%]以上(?:（うち現金\s*(\d+)\s*[％%]以上）)?")
+
+
+def kisei_state(rec):
+    """1日分の行 → {code: {nichinichi, tokubetsu, reg_rate, reg_cash, reg_stop, reg_text, strength}}"""
+    st = {}
+
+    def one(c):
+        return st.setdefault(code4(c), {"nichinichi": False, "tokubetsu": False, "reg_rate": None,
+                                        "reg_cash": None, "reg_stop": False, "reg_text": None})
+    for r in rec.get("nichinichi") or []:
+        one(r["コード"])["nichinichi"] = True
+    for r in rec.get("tokubetsu") or []:
+        one(r["コード"])["tokubetsu"] = True
+    for r in rec.get("kisei") or []:
+        s = one(r["コード"])
+        txt = r.get("規制の内容") or ""
+        s["reg_text"] = txt
+        m = RE_KISEI_RATE.search(txt)
+        s["reg_rate"] = int(m.group(1)) if m else 0
+        s["reg_cash"] = int(m.group(2)) if m and m.group(2) else 0
+        s["reg_stop"] = "停止" in txt
+    for s in st.values():
+        reg = s["reg_text"] is not None
+        s["strength"] = ((1 if s["nichinichi"] else 0) + (5 if s["tokubetsu"] else 0)
+                         + ((10 + s["reg_rate"] + s["reg_cash"] / 10) if reg else 0) + (1000 if s["reg_stop"] else 0))
+    return st
+
+
+def _prev_bizday(d):
+    cur = _date.fromisoformat(d)
+    for _ in range(30):
+        cur = _date.fromordinal(cur.toordinal() - 1)
+        if is_bizday(cur):
+            return cur.isoformat()
+    return None
+
+
+def kisei_changes(d, data):
+    """d とその直前の営業日の差 → [(kind, code, before, after)]。kind = new/tighten/ease/release"""
+    get = getattr(data, "kisei_days", None)
+    days = get() if get else {}
+    cur, prev = days.get(d), days.get(_prev_bizday(d))
+    if not cur or not prev:
+        return []
+    a, b = kisei_state(prev), kisei_state(cur)
+    out = []
+    for c in sorted(set(a) | set(b)):
+        s0 = (a.get(c) or {}).get("strength", 0)
+        s1 = (b.get(c) or {}).get("strength", 0)
+        if s0 == s1:
+            continue
+        kind = "new" if s0 == 0 else "release" if s1 == 0 else "tighten" if s1 > s0 else "ease"
+        out.append((kind, c, a.get(c), b.get(c)))
+    return out
+
+
+def _kisei_ev(kind, d, data):
+    out = []
+    for k, c, s0, s1 in kisei_changes(d, data):
+        if k != kind:
+            continue
+        brief = lambda s: None if not s else {x: s[x] for x in ("nichinichi", "tokubetsu", "reg_rate", "reg_cash", "reg_stop")}
+        out.append(ev(f"kisei_{kind}", c, {"from": brief(s0), "to": brief(s1),
+                                           "strength_from": (s0 or {}).get("strength", 0),
+                                           "strength_to": (s1 or {}).get("strength", 0)},
+                      {"reg_text": (s1 or s0 or {}).get("reg_text"), "prev_date": _prev_bizday(d)},
+                      known="after_close", src=f"kisei/{d[:7]}.jsonl#{d}"))
+    return out
+
+
+@detector({"kisei_new": ("信用取引の規制: 新規の指定", "前の営業日にどの一覧（日々公表・特別周知・規制）にも無かった銘柄が、その日の一覧に載った",
+                         "after_close", KISEI_SRC)})
+def detect_kisei_new(d, data):
+    return _kisei_ev("new", d, data)
+
+
+@detector({"kisei_tighten": ("信用取引の規制: 強化", "載っていた銘柄の強さが上がった（日々公表→規制、委託保証金率の引き上げ、特別周知の追加など）",
+                             "after_close", KISEI_SRC)})
+def detect_kisei_tighten(d, data):
+    return _kisei_ev("tighten", d, data)
+
+
+@detector({"kisei_ease": ("信用取引の規制: 緩和", "一覧には残ったまま、強さが下がった（規制の解除で日々公表だけになった、など）",
+                          "after_close", KISEI_SRC)})
+def detect_kisei_ease(d, data):
+    return _kisei_ev("ease", d, data)
+
+
+@detector({"kisei_release": ("信用取引の規制: 解除", "前の営業日に一覧にあった銘柄が、その日はどの一覧にも無い",
+                             "after_close", KISEI_SRC)})
+def detect_kisei_release(d, data):
+    return _kisei_ev("release", d, data)
 
 
 # ════════════════════════════════════════ 値動き

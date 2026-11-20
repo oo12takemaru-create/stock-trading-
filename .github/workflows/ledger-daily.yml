@@ -81,6 +81,15 @@ jobs:
         timeout-minutes: 5
         run: python -X utf8 pre_earnings.py snapshot
 
+      # 信用取引の規制（JPX の日々公表銘柄・特別周知銘柄・規制措置）の今日の一覧を data/kisei/ に1日1行（2026-11-20）。
+      # JPX のページは過去が残らないので毎営業日保存する。同じ日の行があれば何もしない。取れなければその日は書かない。
+      # 下の Record v2 が前の営業日との差分から kisei_* の出来事を作る。失敗しても台帳は止めない
+      - name: Kisei snapshot (信用取引の規制の一覧・追記のみ)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -X utf8 kisei_fetch.py
+
       - name: Record v2 (出来事の台帳・追記のみ)
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -108,6 +117,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           [ -d data/ledger2 ] || { echo "data/ledger2 が無い（記録が失敗）"; exit 0; }
           git add -f data/ledger2
+          if [ -d data/kisei ]; then git add -f data/kisei; fi
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
