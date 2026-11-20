@@ -34,6 +34,7 @@
      "r": {コード: [銘柄名, 業種, 相関ex, 相関raw, 重なった日数]},   ← 4つの並びに出てくる銘柄だけ（重複しない）
      "s": [そっくり10のコード], "o": [真逆10], "sx": [業種が違うそっくり10], "ox": [業種が違う真逆10]}
   docs/similar/meta.json  計算した日・期間・決まり・件数
+  docs/similar/index.json 銘柄ごとの「そっくり1位・真逆1位」だけ（銘柄ページの生成が冒頭の1行を焼く・約230KB）
   除いた銘柄のファイルは作らない（前の週にあれば消す）。画面は「ファイルが無い＝節を出さない」。
 
 ■ git の履歴
@@ -272,12 +273,21 @@ def write_all(res, out):
     lists = rank_lists(res)
     ci = {c: i for i, c in enumerate(res["codes"])}
     wrote = same = 0
-    keep = set()
+    keep = {"meta.json", "index.json"}
+    m0 = res["meta"]
+    index = {"asof": m0["asof"], "from": m0["from"], "n_days": m0["n_days"], "main": MAIN,
+             "cols": ["そっくり1位のコード", "銘柄名", "相関", "真逆1位のコード", "銘柄名", "相関"], "items": {}}
+    files = {}
     for c, ls in lists.items():
         obj = file_obj(res, ci[c], ls)
-        txt = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
-        p = out / f"{c}.json"
-        keep.add(p.name)
+        s0, o0 = obj["s"][0], obj["o"][0]
+        index["items"][c] = [s0, obj["r"][s0][0], obj["r"][s0][2], o0, obj["r"][o0][0], obj["r"][o0][2]]
+        files[f"{c}.json"] = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+    # 銘柄ページの生成（gen_stocks.py）が冒頭の1行を焼くための索引（1ファイル・約3,000銘柄×1行・約230KB）
+    files["index.json"] = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
+    for name, txt in files.items():
+        p = out / name
+        keep.add(name)
         if p.exists() and p.read_text(encoding="utf-8") == txt:
             same += 1
             continue
@@ -285,7 +295,7 @@ def write_all(res, out):
         wrote += 1
     removed = 0
     for p in out.glob("*.json"):
-        if p.name != "meta.json" and p.name not in keep:
+        if p.name not in keep:
             p.unlink()
             removed += 1
     if wrote == 0 and removed == 0 and (out / "meta.json").exists():
