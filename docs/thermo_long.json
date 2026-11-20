@@ -1,30 +1,30 @@
 {
  "name": "相場の温度計（1990年から）",
- "updated": "2026-11-21T06:26:09+09:00",
+ "updated": "2026-11-21T06:47:24+09:00",
  "trade_date": "2026-11-20",
  "today": {
-  "value": 11,
-  "tc": -11,
-  "label_c": "−11℃",
+  "value": 12,
+  "tc": -10,
+  "label_c": "−10℃",
   "regime": "PANIC",
   "regime_jp": "総崩れ"
  },
  "records": [
   {
    "type": "year_cold",
-   "value": -11,
+   "value": -10,
    "n": 1,
    "ties": 0,
    "days": 215,
    "prev": null,
-   "text": "今年いちばんの寒さ（−11℃）"
+   "text": "今年いちばんの寒さ（−10℃）"
   },
   {
    "type": "low_since",
-   "value": -11,
-   "n": 395,
-   "prev": "2025-04-08",
-   "text": "2025年4月以来の低さ（−11℃）"
+   "value": -10,
+   "n": 394,
+   "prev": "2025-04-09",
+   "text": "2025年4月以来の低さ（−10℃）"
   },
   {
    "type": "regime_change",
@@ -90,23 +90,23 @@
   },
   {
    "d": "2026-11-20",
-   "tc": -11,
+   "tc": -10,
    "records": [
     {
      "type": "year_cold",
-     "value": -11,
+     "value": -10,
      "n": 1,
      "ties": 0,
      "days": 215,
      "prev": null,
-     "text": "今年いちばんの寒さ（−11℃）"
+     "text": "今年いちばんの寒さ（−10℃）"
     },
     {
      "type": "low_since",
-     "value": -11,
-     "n": 395,
-     "prev": "2025-04-08",
-     "text": "2025年4月以来の低さ（−11℃）"
+     "value": -10,
+     "n": 394,
+     "prev": "2025-04-09",
+     "text": "2025年4月以来の低さ（−10℃）"
     },
     {
      "type": "regime_change",
@@ -861,9 +861,9 @@
    },
    {
     "d": "2026-11-20",
-    "t": 11,
-    "tc": -11,
-    "label_c": "−11℃",
+    "t": 12,
+    "tc": -10,
+    "label_c": "−10℃",
     "r": "PANIC",
     "regime_jp": "総崩れ",
     "c": 56436.65,
@@ -1745,12 +1745,12 @@
   "n_days": 2442,
   "same_pct": 23.1,
   "within4_pct": 95.1,
-  "mean_abs_c": 1.64,
+  "mean_abs_c": 1.65,
   "mean_c": 1.04,
   "max_abs_c": 9,
   "today": {
    "d": "2026-11-20",
-   "now_c": -11,
+   "now_c": -10,
    "expanding_c": -12
   },
   "by_year_mean_c": {
@@ -1769,9 +1769,15 @@
  },
  "vs_thermo100": {
   "n_days": 2442,
-  "n_diff": 0,
-  "max_abs": 0,
-  "examples": []
+  "n_diff": 1,
+  "max_abs": 1,
+  "examples": [
+   {
+    "d": "2026-11-20",
+    "thermo100": 11,
+    "long": 12
+   }
+  ]
  },
  "bands": [
   {
