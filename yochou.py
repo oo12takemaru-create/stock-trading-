@@ -92,6 +92,11 @@ HYPOTHESES = {
     "margin_buy_surge":    (-1, "信用買残が急に増えた銘柄は、将来の返済の売りが重く下がる"),
     "short_new_inst":      (-1, "空売り残高の報告に新しい機関が載った銘柄は、下がる"),
     "short_surge":         (-1, "機関の空売り残高が急に増えた銘柄は、下がる"),
+    # 2026-11-20 追加（data/kisei の保存を始めた日・集計より先に書いた）
+    "kisei_new":           (-1, "信用取引の日々公表・規制に新しく指定された銘柄は、そのあと対TOPIXで下がる"),
+    "kisei_tighten":       (-1, "信用取引の規制が強まった銘柄は、そのあと対TOPIXで下がる"),
+    "kisei_ease":          (+1, "信用取引の規制が緩んだ銘柄は、そのあと対TOPIXで上がる"),
+    "kisei_release":       (+1, "信用取引の日々公表・規制から外れた銘柄は、そのあと対TOPIXで上がる"),
     "thermo_stage_change": (0, "温度計の段階が変わったあとの日経平均。向きは段階の変わり方しだいなので、変わった先の段階ごとに見る"),
     "gauge_stage_up":      (-1, "暴落の傾斜計の段階が上がったあとは、日経平均が下がる"),
     "signal_ai":           (0, "AI朝刊の判定（サイトの判定。向きは決めない）"),
@@ -133,6 +138,10 @@ PHRASE = {
     "short_new_inst": "空売り残高の報告に新しい機関（0.5%以上）",
     "short_surge": "機関の空売り残高割合が前回比30%以上増加",
     "gauge_stage_up": "暴落の傾斜計の段階が上がった",
+    "kisei_new": "信用取引の日々公表・規制に新しく指定",
+    "kisei_tighten": "信用取引の規制が強まった",
+    "kisei_ease": "信用取引の規制が緩んだ",
+    "kisei_release": "信用取引の日々公表・規制から外れた",
 }
 LABEL_FIX = {"earnings_revision_up": "業績見通しの上方修正", "earnings_revision_down": "業績見通しの下方修正",
              "signal_ai": "AI朝刊の判定", "signal_score3": "3点スコアの判定", "signal_crash": "暴落の判定",
