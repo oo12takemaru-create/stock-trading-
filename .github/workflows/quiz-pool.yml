@@ -1,0 +1,92 @@
+name: Chart Quiz Pool (manual)
+
+# 今日のチャート当て: 出題の在庫（data/quiz/pool.jsonl.gz）を5年の日足から作り直す（2026-11-20）。
+#   1) yochou_px5y.py … 全銘柄の日足5年（.cache/px5y・リポジトリに入れない）。予兆レーダーの手動 workflow が
+#                        actions/cache に残した分があれば、それを使う（fresh=true なら取り直す）。
+#   2) quiz_pool.py   … 窓を切り出し、条件に合うものを上と下が半々になるよう選んで保存（約1分）
+# 手動実行のみ。毎日の出題（quiz-daily.yml）はこの在庫から選ぶだけ。
+# 在庫は id（銘柄コード＋1本目の日付）で出した問題の記録とつながるので、作り直しても同じ問題は2度出ない。
+on:
+  workflow_dispatch:
+    inputs:
+      fresh:
+        description: '5年の日足を取り直す（残っている cache を使わない）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quiz-pool
+  cancel-in-progress: false
+
+jobs:
+  pool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas openpyxl
+
+      - name: Restore 5-year bars
+        if: ${{ !inputs.fresh }}
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/px5y
+          key: px5y-${{ github.run_id }}
+          restore-keys: px5y-
+
+      - name: Fetch 5 years (無い分だけ)
+        continue-on-error: true
+        run: python -X utf8 yochou_px5y.py --out .cache/px5y --max-minutes 60
+
+      - name: Save 5-year bars
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/px5y
+          key: px5y-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Check fetched
+        run: |
+          left=$(python -c "import json;print(json.load(open('.cache/px5y/meta.json'))['left'])")
+          echo "残り ${left} 銘柄"
+          if [ "$left" != "0" ]; then
+            echo "::warning::まだ取り終えていない（${left}銘柄）。もう一度 Run workflow すると続きから取る"
+            exit 1
+          fi
+
+      - name: Test quiz
+        run: python -X utf8 -m unittest tests/test_quiz.py
+
+      - name: Build pool
+        run: python -X utf8 quiz_pool.py --px5y .cache/px5y
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/quiz/pool.jsonl.gz
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🎯 今日のチャート当て: 出題の在庫を作り直し"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 10))
+          done
+          exit 1

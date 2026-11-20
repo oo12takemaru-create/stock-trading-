@@ -1,0 +1,67 @@
+name: Chart Quiz Daily (今日のチャート当て)
+
+# 今日のチャート当て（2026-11-20・サイトの quiz.html が docs/quiz/ を直接読む）
+#   quiz_daily.py : 在庫（data/quiz/pool.jsonl.gz）から、その日の日付を種にした乱数で5問を選び
+#                   docs/quiz/YYYY-MM-DD.json と docs/quiz/latest.json を書く。株価は取りに行かない（数秒）。
+#   在庫を作り直すときは手動の「Chart Quiz Pool (manual)」（quiz-pool.yml）。
+#
+# 毎日 6:00 JST（= 21:00 UTC・平日も土日も）。ほかのジョブとは別の workflow なので、失敗しても他の公開は止まらない。
+# その日のファイルがもうあれば書き換えない（2回走っても同じ）。
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '作る日（YYYY-MM-DD・空なら今日の日本時間）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quiz-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ★main のルールセットを通すため deploy key で checkout する（buyback-daily.yml の注記参照）★
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Test quiz
+        run: python -X utf8 -m unittest tests/test_quiz.py
+
+      - name: Build today's quiz
+        env:
+          QDATE: ${{ github.event.inputs.date }}
+        run: |
+          if [ -n "$QDATE" ]; then python -X utf8 quiz_daily.py --date "$QDATE"; else python -X utf8 quiz_daily.py; fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/quiz/
+          if git diff --staged --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git commit -m "🎯 今日のチャート当てを更新 ($(TZ='Asia/Tokyo' date +%Y-%m-%d))"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push 再試行 $i"
+            sleep $((i * 5))
+          done
+          exit 1
