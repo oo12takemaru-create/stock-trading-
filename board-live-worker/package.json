@@ -1,0 +1,13 @@
+{
+  "name": "kaburadar-board-live",
+  "private": true,
+  "description": "相場ボードの取引時間中の自動更新（Yahoo!ファイナンスの spark → KV → GET /board）",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
