@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-20T19:38:00+09:00",
+ "updated": "2026-11-21T03:09:06+09:00",
  "note": "出来事の台帳（v2）の種類の一覧。しきい値は設計書 v1 の仮の値。known は答え合わせの起点の決め方（pre_open=その日の始値・それ以外=翌営業日の始値・disclosure_time/row_time=公開時刻で決める）。",
  "types": {
   "margin_buy_surge": {
@@ -21,6 +21,34 @@
    "rule": "機関ごとの空売り残高割合が前回比 +30% 以上（前回も 0.5% 以上）",
    "known": "after_close",
    "source": "同上",
+   "version": "1.0"
+  },
+  "kisei_new": {
+   "label": "信用取引の規制: 新規の指定",
+   "rule": "前の営業日にどの一覧（日々公表・特別周知・規制）にも無かった銘柄が、その日の一覧に載った",
+   "known": "after_close",
+   "source": "JPX 日々公表銘柄・特別周知銘柄・信用取引に関する規制等（data/kisei/・kisei_fetch.py）",
+   "version": "1.0"
+  },
+  "kisei_tighten": {
+   "label": "信用取引の規制: 強化",
+   "rule": "載っていた銘柄の強さが上がった（日々公表→規制、委託保証金率の引き上げ、特別周知の追加など）",
+   "known": "after_close",
+   "source": "JPX 日々公表銘柄・特別周知銘柄・信用取引に関する規制等（data/kisei/・kisei_fetch.py）",
+   "version": "1.0"
+  },
+  "kisei_ease": {
+   "label": "信用取引の規制: 緩和",
+   "rule": "一覧には残ったまま、強さが下がった（規制の解除で日々公表だけになった、など）",
+   "known": "after_close",
+   "source": "JPX 日々公表銘柄・特別周知銘柄・信用取引に関する規制等（data/kisei/・kisei_fetch.py）",
+   "version": "1.0"
+  },
+  "kisei_release": {
+   "label": "信用取引の規制: 解除",
+   "rule": "前の営業日に一覧にあった銘柄が、その日はどの一覧にも無い",
+   "known": "after_close",
+   "source": "JPX 日々公表銘柄・特別周知銘柄・信用取引に関する規制等（data/kisei/・kisei_fetch.py）",
    "version": "1.0"
   },
   "stop_high": {
