@@ -20,11 +20,12 @@
        - 期間の中で騰落率がある日が MIN_DAYS(=200) 日未満（上場から日が浅い・売買が少ない。上場60営業日未満もここで落ちる）
        - 期間の中で出来高0の日が ZERO_VOL_MAX(=20%) を超える
        - 期間の売買代金（終値×出来高）の中央値が MIN_VALUE_MED(=500万円) 未満
-     内国株（tenbagger_universe.csv＝東証3市場の普通株）だけ。ETF・REIT は入れない
+     内国株（tenbagger_universe.csv＝東証3市場）の4桁コードだけ。ETF・REIT・5桁（社債型の種類株式など）は入れない
   4. 2つの相関
        - raw: 騰落率そのものの相関
-       - ex（市場全体の動きを引いた相関）: 各銘柄の騰落率から、同じ日の「対象の全銘柄の騰落率の平均（等金額）」を
-         引いてから相関。素の相関だと大型株どうしが「みんなトヨタに似ている」になるため
+       - ex（市場全体の動きを引いた相関）: 各銘柄の騰落率から、同じ日の「対象の全銘柄の騰落率の平均（等金額）」×β を
+         引いてから相関（β は銘柄ごとの回帰の傾き）。素の相関だと大型株どうしが「みんなトヨタに似ている」になるため。
+         β を掛けずにそのまま引くと、値動きの小さい銘柄どうしが見かけ上 0.9 以上で似てしまうので β で引く
      どちらも、2つの銘柄の騰落率が両方そろった日だけで計算（ペアごと）。重なりが MIN_OVERLAP(=200) 日未満の組は出さない
   5. 銘柄ごとに、主役（MAIN = ex）の上位10（そっくり）・下位10（真逆）。同じ業種（33業種）を除いた上位10・下位10も別に持つ
 
@@ -89,7 +90,7 @@ def load_universe(root):
     with open(root / "tenbagger_universe.csv", encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             c = (r.get("code") or "").strip()
-            if c:
+            if len(c) == 4:              # 5桁（社債型の種類株式など）は普通株ではないので入れない
                 out[c] = {"name": unicodedata.normalize("NFKC", r.get("name") or "").strip(),
                           "sector": (r.get("sector33") or "").strip() or None}
     return out
@@ -200,8 +201,21 @@ def pair_corr(R):
 
 
 def market_removed(R):
-    m = np.nanmean(R, axis=1, keepdims=True)
-    return R - m
+    """市場全体の動きを引いた騰落率: r_i − β_i × m（m＝同じ日の対象全銘柄の平均・β_i は期間の回帰の傾き）。
+    ただ m を引く（β=1）と、値動きの小さい銘柄（優待株・社債型の種類株など）はどれも「−m」になって
+    互いに 0.9 以上で似てしまう（2026-11-20 に手元で確認）。銘柄ごとの β で引けばそうならない"""
+    m = np.nanmean(R, axis=1)
+    out = np.full_like(R, np.nan)
+    for j in range(R.shape[1]):
+        r = R[:, j]
+        k = np.isfinite(r) & np.isfinite(m)
+        if k.sum() < 3:
+            continue
+        mk = m[k] - m[k].mean()
+        vm = (mk * mk).sum()
+        beta = ((r[k] - r[k].mean()) * mk).sum() / vm if vm > 0 else 0.0
+        out[k, j] = r[k] - beta * m[k]
+    return out
 
 
 def compute(root=ROOT, window=WINDOW):
@@ -306,7 +320,7 @@ def write_all(res, out):
               "rule": {"window": WINDOW, "min_days": MIN_DAYS, "min_overlap": MIN_OVERLAP,
                        "zero_volume_max": ZERO_VOL_MAX, "min_value_median_yen": MIN_VALUE_MED,
                        "jump": [JUMP_LO, JUMP_HI], "topn": TOPN,
-                       "ex": "各銘柄の騰落率から同じ日の対象全銘柄の平均（等金額）を引いてから相関",
+                       "ex": "各銘柄の騰落率から、同じ日の対象全銘柄の平均（等金額）×β（銘柄ごとの回帰の傾き）を引いてから相関",
                        "raw": "騰落率そのものの相関", "price": "日足の終値（株式分割は調整済み・配当は未調整）"},
               "source": "収集側の日足（data/bars_backfill・data/bars）から自前で計算"})
     (out / "meta.json").write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
