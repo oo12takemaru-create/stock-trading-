@@ -1,6 +1,6 @@
 {
- "target_date": "2026-11-18",
- "generated_at": "2026-11-19T21:03:17+09:00",
+ "target_date": "2026-11-19",
+ "generated_at": "2026-11-20T18:03:05+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
   {
@@ -8,26 +8,26 @@
    "code": "7735",
    "name": "SCREEN HD",
    "sector": "半導体製造装置",
-   "kairi": -25.77
+   "kairi": -23.37
+  },
+  {
+   "judge": "signal",
+   "code": "5713",
+   "name": "住友金属鉱山",
+   "sector": "非鉄",
+   "kairi": -22.58
   },
   {
    "judge": "signal",
    "code": "4478",
    "name": "フリー",
    "sector": "SaaS",
-   "kairi": -20.91
-  },
-  {
-   "judge": "signal",
-   "code": "5802",
-   "name": "住友電工",
-   "sector": "電線",
-   "kairi": -20.77
+   "kairi": -21.51
   }
  ],
- "asof": "2026-11-19",
+ "asof": "2026-11-20",
  "stale": false,
- "signals_today_date": "2026-11-19",
+ "signals_today_date": "2026-11-20",
  "is_halt": false,
  "signals_today_count": 2,
  "signals_today_by_strategy": {
@@ -36,13 +36,13 @@
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-11-19",
+  "scan_date": "2026-11-20",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
   "code": "4480",
   "name": "メドレー",
   "sector": "医療IT",
-  "reason": "乖離率-21.9%",
+  "reason": "乖離率-23.1%",
   "carried_over": true
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
