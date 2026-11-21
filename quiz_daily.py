@@ -13,6 +13,12 @@
   - その日より前に出した問題（docs/quiz/ の過去の日の分）は出さない。在庫が足りなくなったら古い順に再び使う
   - 5問はすべて別の銘柄。前の日に出た銘柄も出さない
   - その日のファイルがもうあれば書き換えない（2回走っても同じ。--force で作り直しても前の日が同じなら同じ中身）
+  - 在庫で "drop":1 の印の問題（75日線を1本目から引けない）は選ばずに飛ばす（並びは変えないので、ほかの日の5問は変わらない）
+
+■ 移動平均線（2026-11-21 追加）
+  questions[] に ma25・ma75（各120点）、answers[] にその後20本ぶんの ma25・ma75 を入れる（在庫の140点を分けるだけ）。
+  もうある日付のファイルに線が無ければ、在庫の同じ id の問題から線だけ足す（四本値・答えが在庫と一致するときだけ。
+  ほかの値は1つも変えない）。マージ前に出た日・在庫を作り直す前の日のファイルも、次に走ったときに線が付く。
 
 使い方:
   python -X utf8 quiz_daily.py [--date YYYY-MM-DD] [--pool data/quiz/pool.jsonl.gz] [--out docs/quiz] [--force]
@@ -114,6 +120,8 @@ def pick(items, day, past):
             x = cand[i]
             if n >= want[side]:
                 break
+            if x.get("drop"):          # 在庫から外した問題の印（並びを保つために残してある）
+                continue
             if x["code"] in codes:
                 continue
             chosen.append(x)
@@ -123,13 +131,69 @@ def pick(items, day, past):
     return chosen
 
 
+MA_KEYS = ("ma25", "ma75")
+
+
+def put_ma(q, a, x):
+    """在庫の140点の線を、問題の側（120点）と答えの側（その後20点）に分けて足す（どちらも末尾に）"""
+    bars = len(x["c"])
+    for k in MA_KEYS:
+        if isinstance(x.get(k), list) and len(x[k]) == bars + len(x["after"]):
+            q[k] = x[k][:bars]
+            a[k] = x[k][bars:]
+
+
+def add_ma_to_day(data, by_id):
+    """もうある日付のファイルに線だけ足す。足した問題の数を返す（ほかの値は変えない）"""
+    n = 0
+    qs = {q.get("no"): q for q in data.get("questions", [])}
+    for a in data.get("answers", []):
+        q = qs.get(a.get("no"))
+        x = by_id.get(a.get("id"))
+        if q is None or x is None or x.get("drop"):
+            continue
+        if all(k in q and k in a for k in MA_KEYS):
+            continue
+        # 同じ問題か（四本値・出来高・答え）を確かめてから足す。在庫を新しい値で作り直して食い違うときは足さない
+        if any(q.get(k) != x.get(k) for k in ("o", "h", "l", "c", "v")) or a.get("after") != x.get("after"):
+            log(f"  {data.get('date')} 問{a.get('no')}: 在庫と値が違うので線を足さない（{a.get('id')}）")
+            continue
+        qq, aa = {}, {}
+        put_ma(qq, aa, x)
+        if set(qq) != set(MA_KEYS):
+            continue
+        for k in MA_KEYS:
+            q[k] = qq[k]
+            a[k] = aa[k]
+        n += 1
+    return n
+
+
+def backfill_ma(out_dir, items):
+    """docs/quiz/ の日付ファイルのうち線の無いものに線を足す（書いたファイルの日付を返す）"""
+    by_id = {x["id"]: x for x in items}
+    done = []
+    for p in sorted(Path(out_dir).glob("????-??-??.json")):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if add_ma_to_day(data, by_id):
+            if write_if_changed(p, dump(data)):
+                done.append(p.stem)
+    return done
+
+
 def make_day(day, chosen, meta):
     qs, ans = [], []
     for i, x in enumerate(chosen, 1):
-        qs.append({"no": i, "o": x["o"], "h": x["h"], "l": x["l"], "c": x["c"], "v": x["v"]})
-        ans.append({"no": i, "id": x["id"], "code": x["code"], "name": x["name"], "sector": x["sector"],
-                    "period": period_ja(x["d0"], x["d1"]), "from": x["d0"], "q_end": x["dq"], "to": x["d1"],
-                    "after": x["after"], "ret": x["ret"], "dir": x["dir"]})
+        q = {"no": i, "o": x["o"], "h": x["h"], "l": x["l"], "c": x["c"], "v": x["v"]}
+        a = {"no": i, "id": x["id"], "code": x["code"], "name": x["name"], "sector": x["sector"],
+             "period": period_ja(x["d0"], x["d1"]), "from": x["d0"], "q_end": x["dq"], "to": x["d1"],
+             "after": x["after"], "ret": x["ret"], "dir": x["dir"]}
+        put_ma(q, a, x)
+        qs.append(q)
+        ans.append(a)
     return {
         "schema": "kaburadar_quiz_day/1",
         "date": day,
@@ -171,10 +235,13 @@ def run(day, pool=POOL, out=OUT, force=False):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     p = out / f"{day}.json"
+    meta, items = load_pool(pool)
+    filled = backfill_ma(out, items)
+    if filled:
+        log(f"線を足した日: {'・'.join(filled)}")
     if p.exists() and not force:
         log(f"{day} はもうある（書き換えない）")
     else:
-        meta, items = load_pool(pool)
         chosen = pick(items, day, past_files(out, day))
         if len(chosen) < N:
             raise SystemExit(f"5問そろわない（{len(chosen)}問）。在庫を作り直すこと")

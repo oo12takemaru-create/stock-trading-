@@ -26,12 +26,20 @@
   固定の種で上と下を同じ数だけ選ぶ（同じ銘柄は最大 PER_CODE 個・重ならない窓だけ）。
   id は「銘柄コードと1本目の日付」から作るので、作り直しても同じ窓は同じ id（使った問題の記録がずれない）。
 
+■ 移動平均線（2026-11-21 追加）
+  25日線と75日線 = 銘柄の日足の並びで、その日を含む直前25本・75本の終値（分割調整済み）の単純平均。
+  チャートの前の日足も使うので、120本の1本目から線が引ける。値は四本値と同じ指数（1本目の終値=100・小数1桁）。
+  1行に ma25・ma75 を140点（1〜120本目＝問題の側、121〜140本目＝答えの側で続きを描く）で持つ。
+  75日線を1本目から引くには、チャートの前に74本（1本目を含めて75本）の日足が要る。足りない問題は在庫から外す。
+  ただし選び方（毎日の5問の並び）を変えないため、外した問題は id・code・dir・d1 と "drop":1 だけの印として残し、
+  毎日のジョブはこれを選ばずに飛ばす。もう出題した問題（--keep の日付ファイルにある id）は外さず、足りない所を null にする。
+
 ■ 値の意味（メタ情報にも書く）
   取得日の時点で Yahoo が見せている値（分割は遡って調整済み・配当は未調整）。
   上場廃止・統合で今いない銘柄は入らない（生き残りの偏り）。
 
 使い方:
-  python -X utf8 quiz_pool.py --px5y .cache/px5y [--out data/quiz/pool.jsonl.gz] [--per-side 1800]
+  python -X utf8 quiz_pool.py --px5y .cache/px5y [--out data/quiz/pool.jsonl.gz] [--per-side 1800] [--keep docs/quiz]
 """
 import argparse
 import csv
@@ -64,6 +72,9 @@ PER_CODE = 3
 PER_SIDE = 1800
 SEED = "kaburadar-quiz-pool-v1"
 CAL_CODE = "1306"   # 営業日の並びは TOPIX 連動ETF の日付で作る
+MA_SHORT = 25       # 25日線
+MA_LONG = 75        # 75日線（1本目から引くにはチャートの前に MA_LONG-1 本が要る）
+KEEP = ROOT / "docs" / "quiz"
 
 
 def log(*a):
@@ -168,12 +179,34 @@ def check_window(rows, s, cal_ix):
     return ret
 
 
+def has_prior(rows, s, n=MA_LONG):
+    """窓の1本目から n日線を引けるだけの日足（チャートの前に n-1 本・終値が正）があるか"""
+    if s < n - 1:
+        return False
+    return all(x[4] > 0 for x in rows[s - (n - 1):s])
+
+
+def moving_avg(rows, s, n):
+    """rows[s:s+WIN] の各日の n日線（その日を含む直前 n 本の終値の単純平均）。足りない日は None"""
+    out = []
+    for i in range(s, s + WIN):
+        if i - n + 1 < 0:
+            out.append(None)
+            continue
+        out.append(sum(x[4] for x in rows[i - n + 1:i + 1]) / n)
+    return out
+
+
 def make_item(code, rows, s, ret, meta):
     """問題の側（指数化・日付なし）と答えの側（銘柄・期間・騰落率）を1行にまとめる"""
     w = rows[s:s + WIN]
     base = w[0][4]
     q = w[:BARS]
     vmax = max(x[5] for x in q) or 1
+
+    def idx(vals):
+        return [None if v is None else r1(v / base * 100) for v in vals]
+
     return {
         "id": qid(code, w[0][0]),
         "code": code,
@@ -188,12 +221,37 @@ def make_item(code, rows, s, ret, meta):
         "c": [r1(x[4] / base * 100) for x in q],
         "v": [int(round(x[5] / vmax * 100)) for x in q],
         "after": [r1(x[4] / base * 100) for x in w[BARS:]],
+        "ma25": idx(moving_avg(rows, s, MA_SHORT)),   # 140点（1〜120本目＝問題・121〜140本目＝答え）
+        "ma75": idx(moving_avg(rows, s, MA_LONG)),
         "ret": round(ret, 2),
         "dir": "up" if ret > 0 else "down",
     }
 
 
-def build(data, uni, per_side=PER_SIDE, per_code=PER_CODE, seed=SEED):
+def drop_stub(code, rows, s, ret):
+    """75日線を1本目から引けない問題の印（選び方を変えないため、毎日のジョブが飛ばす目印だけ残す）"""
+    w = rows[s:s + WIN]
+    return {"id": qid(code, w[0][0]), "code": code, "d1": w[-1][0],
+            "dir": "up" if ret > 0 else "down", "drop": 1}
+
+
+def used_ids(keep_dir):
+    """もう出題した問題の id（docs/quiz/YYYY-MM-DD.json の answers）"""
+    ids = set()
+    if not keep_dir:
+        return ids
+    for p in Path(keep_dir).glob("????-??-??.json"):
+        try:
+            for a in json.loads(p.read_text(encoding="utf-8")).get("answers", []):
+                if a.get("id"):
+                    ids.add(a["id"])
+        except Exception:
+            continue
+    return ids
+
+
+def build(data, uni, per_side=PER_SIDE, per_code=PER_CODE, seed=SEED, keep_ids=None):
+    keep_ids = keep_ids or set()
     cal = calendar_of(data)
     cal_ix = {d: i for i, d in enumerate(cal)}
     cutoff = cal[-RECENT] if len(cal) > RECENT else cal[0]   # これ以降に答えの日が来る窓は出さない
@@ -230,15 +288,29 @@ def build(data, uni, per_side=PER_SIDE, per_code=PER_CODE, seed=SEED):
                 continue
             if any(abs(s - t) < WIN for t in taken.get(code, [])):
                 continue
-            picked.append(make_item(code, data[code], s, r, uni[code]))
+            # 選び方は移動平均線を足す前と同じ（在庫の id と毎日の5問を変えない）。
+            # 75日線を1本目から引けないものは、選んだ後で印だけにする（もう出題したものは残す）
+            rows = data[code]
+            if has_prior(rows, s):
+                picked.append(make_item(code, rows, s, r, uni[code]))
+            elif qid(code, rows[s][0]) in keep_ids:
+                picked.append(make_item(code, rows, s, r, uni[code]))
+                stats["noprior_kept"] = stats.get("noprior_kept", 0) + 1
+            else:
+                picked.append(drop_stub(code, rows, s, r))
+                stats["noprior_dropped_" + side] = stats.get("noprior_dropped_" + side, 0) + 1
             per[code] = per.get(code, 0) + 1
             taken.setdefault(code, []).append(s)
             n += 1
     picked.sort(key=lambda x: x["id"])
+    live = [x for x in picked if not x.get("drop")]
     info = {"cutoff": cutoff, "data_end": cal[-1], "data_start": cal[0], "stats": stats,
-            "n": len(picked), "n_up": sum(1 for x in picked if x["dir"] == "up"),
-            "n_down": sum(1 for x in picked if x["dir"] == "down"),
-            "codes": len(per)}
+            "n": len(live), "n_up": sum(1 for x in live if x["dir"] == "up"),
+            "n_down": sum(1 for x in live if x["dir"] == "down"),
+            "n_dropped": len(picked) - len(live),
+            "codes": len({x["code"] for x in live}),
+            "ma": {"short": MA_SHORT, "long": MA_LONG,
+                   "rule": "その日を含む直前の終値（分割調整済み）の単純平均。チャートの前の日足も使う。指数は1本目の終値=100"}}
     return picked, info
 
 
@@ -247,7 +319,7 @@ def write_pool(items, info, out=OUT, adjusted_asof=None):
     out.parent.mkdir(parents=True, exist_ok=True)
     buf = io.StringIO()
     head = {"_meta": {
-        "schema": "kaburadar_quiz_pool/1",
+        "schema": "kaburadar_quiz_pool/2",   # /2 = ma25・ma75（140点）と、外した問題の印（"drop":1）
         "built": datetime.now(JST).date().isoformat(),
         "adjusted_asof": adjusted_asof,
         "bars": BARS, "ahead": AHEAD, "recent_excluded": RECENT, "min_move": MIN_MOVE,
@@ -268,7 +340,10 @@ def main():
     ap.add_argument("--px5y", default=str(ROOT / ".cache" / "px5y"))
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--per-side", type=int, default=PER_SIDE)
+    ap.add_argument("--keep", default=str(KEEP), help="もう出題した日付ファイルの場所（その問題は在庫から外さない）")
     a = ap.parse_args()
+    keep_ids = used_ids(a.keep)
+    log(f"出題済みの問題 {len(keep_ids)}")
     uni = load_universe()
     log(f"業種のある銘柄 {len(uni)}")
     data = load_px5y(a.px5y)
@@ -280,9 +355,9 @@ def main():
             asof = json.loads(mp.read_text(encoding="utf-8")).get("adjusted_asof")
         except Exception:
             pass
-    items, info = build(data, uni, per_side=a.per_side)
+    items, info = build(data, uni, per_side=a.per_side, keep_ids=keep_ids)
     p = write_pool(items, info, a.out, adjusted_asof=asof)
-    log(f"在庫 {info['n']}問（上 {info['n_up']}・下 {info['n_down']}・{info['codes']}銘柄）"
+    log(f"在庫 {info['n']}問（上 {info['n_up']}・下 {info['n_down']}・{info['codes']}銘柄・75日線が引けず外した {info['n_dropped']}）"
         f" 期間 {info['data_start']}〜{info['data_end']}・答えの日は {info['cutoff']} より前")
     log(f"除いた窓: {info['stats']}")
     log(f"→ {p}（{p.stat().st_size / 1e6:.2f}MB）")
