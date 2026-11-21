@@ -30,6 +30,10 @@
   - 大引け前（15:45 JST より前）に走ったら書かない（途中の足を終値として出さない）。
   - 当日の足がある銘柄が半分未満なら障害とみなして書かない。
   - 失敗しても prices / movers の公開は止めない（ワークフローで || echo）。
+  - 桁がおかしい並び（株式併合を分割として取り込んだ・再上場前の値が残った等）は px_sanity.py で検査し、
+    作り直せるものは作り直し、無理なものは書かない（前に書いた本体も消す）。画面は「チャートなし」に落ちる。
+    作り直しに要る分割の記録は docs/splits.json（TDnet・JPX）と、検査で引っかかった銘柄だけ yfinance から取る
+    （ふつうは0〜数銘柄）。
 
 使い方:
   python -X utf8 myboard_px.py                                   # ジョブの中（movers_daily.py の後）
@@ -45,10 +49,15 @@ from collections import Counter
 from datetime import date, datetime, time as dtime, timedelta, timezone
 from pathlib import Path
 
+import px_sanity
+
 JST = timezone(timedelta(hours=9))
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "docs" / "px1y"
 CACHE = ROOT / ".cache" / "close_1y.pkl"
+PRICES = ROOT / "docs" / "prices.json"
+SPLITS = ROOT / "docs" / "splits.json"
+MAX_SPLIT_FETCH = 30     # 分割の記録を取りに行く銘柄の上限（それより多いのは障害とみなし取らない）
 CLOSE_JST = dtime(15, 45)
 KEEP_DAYS = 366          # 本体に入れる期間（暦日）
 H3_DAYS = 92             # 3か月（chartcard.js の slice と同じ）
@@ -146,6 +155,70 @@ def body_changed(old, pts):
     return hit == 0
 
 
+def fetch_splits(ticker):
+    """yfinance の分割の記録 {date: 比率}。取れなければ None"""
+    try:
+        import yfinance as yf
+        s = yf.Ticker(ticker).splits
+        return {(ix.date() if hasattr(ix, "date") else ix): float(v) for ix, v in s.items() if float(v) > 0}
+    except Exception as e:
+        log(f"  {ticker} の分割の記録が取れない: {e}")
+        return None
+
+
+def local_splits(path):
+    """docs/splits.json の by_code → {コード: {権利落ち日: 比率}}（実施済みのものだけ）"""
+    o = load_json(path) or {}
+    out = {}
+    for code, lst in (o.get("by_code") or {}).items():
+        for x in lst or []:
+            if x.get("ex") and x.get("ratio") and x.get("status") != "予定":
+                out.setdefault(str(code).upper(), {})[x["ex"]] = x["ratio"]
+    return out
+
+
+def ref_prices(path, trade_date):
+    """prices.json の同じ取引日の終値（古い値＝stale は使わない）"""
+    o = load_json(path) or {}
+    if o.get("trade_date") != trade_date.isoformat():
+        return {}
+    return {c: v.get("p") for c, v in (o.get("items") or {}).items()
+            if isinstance(v, dict) and v.get("p") and not v.get("stale")}
+
+
+def sanitize(rows, refs, get_splits, known=None):
+    """rows [(code, name, ticker, pts)] → (使う rows [(code, name, pts)], 使わないコードの一覧, 報告)
+    get_splits(ticker) → {date: 比率} or None、known: {コード: {日付: 比率}}（splits.json）"""
+    flagged = []
+    for i, (code, name, t, pts) in enumerate(rows):
+        ref = refs.get(code)
+        ref = ref if (ref and pts[-1][0] == refs.get("_td")) else None
+        if px_sanity.problems(pts, ref):
+            flagged.append(i)
+    fetch = len(flagged) <= MAX_SPLIT_FETCH
+    if not fetch:
+        log(f"::warning::検査で引っかかった銘柄が {len(flagged)} と多い。分割の記録は取りに行かない")
+    out, bad, notes = [], [], []
+    fl = set(flagged)
+    for i, (code, name, t, pts) in enumerate(rows):
+        if i not in fl:
+            out.append((code, name, pts))
+            continue
+        ref = refs.get(code) if pts[-1][0] == refs.get("_td") else None
+        sp = dict((known or {}).get(code) or {})
+        got = get_splits(t) if fetch else None
+        for d, r in (got or {}).items():
+            sp[d.isoformat() if hasattr(d, "isoformat") else str(d)] = r
+        st, new, pr = px_sanity.check(pts, sp, ref)
+        notes.append(f"{code} {st}: {pr[0][0]} {pr[0][1]} {pr[0][2]}（ほか {len(pr) - 1}）")
+        if st == "bad":
+            bad.append(code)
+            continue
+        new = [(d, rnd(c)) for d, c in new]
+        out.append((code, name, new))
+    return out, bad, notes
+
+
 def week_key(d):
     y, w, _ = d.isocalendar()
     return (y, w)
@@ -156,6 +229,9 @@ def main():
     ap.add_argument("--cache", default=str(CACHE))
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--full", action="store_true", help="本体を全部書き直す（試験・手動）")
+    ap.add_argument("--prices", default=str(PRICES), help="参考の終値（prices.json）")
+    ap.add_argument("--splits", default=str(SPLITS), help="分割の記録（splits.json）")
+    ap.add_argument("--no-fetch", action="store_true", help="分割の記録を取りに行かない（試験用）")
     a = ap.parse_args()
     out = Path(a.out)
 
@@ -211,13 +287,25 @@ def main():
         if pts[-1][0] == trade_date:
             fresh += 1
         name = unicodedata.normalize("NFKC", str(u.get("n") or "")).strip()
-        rows.append((code, name, pts))
+        rows.append((code, name, t, pts))
     if fresh < len(seen) * 0.5:
         log(f"::warning::当日の足がある銘柄が半分に届かない（{fresh}/{len(seen)}）。取得の障害とみなし書かない")
         return 0
 
-    # 本体を書く（全部 or 必要な銘柄だけ）／recent を作る
+    # 桁の検査（作り直す・書かない）
+    refs = ref_prices(a.prices, trade_date)
+    refs["_td"] = trade_date
+    rows, bad, notes = sanitize(rows, refs, (lambda t: None) if a.no_fetch else fetch_splits,
+                                local_splits(a.splits))
+    for x in notes:
+        log("  検査: " + x)
     out.mkdir(parents=True, exist_ok=True)
+    for code in bad:
+        bp = out / f"{code}.json"
+        if bp.exists():
+            bp.unlink()
+
+    # 本体を書く（全部 or 必要な銘柄だけ）／recent を作る
     n_new = n_split = n_full = 0
     base_end = {}                     # コード → 本体の最後の日付
     for code, name, pts in rows:
@@ -279,7 +367,8 @@ def main():
     sz = rp.stat().st_size
     log(f"マイボードの終値: 銘柄 {len(rows)}（当日の足 {fresh}）"
         f"  本体の書き換え 全部 {n_full}・新規 {n_new}・分割など {n_split}・削除 {gone}"
-        f"  recent {len(dates)}日分・{len(items)}銘柄・{sz / 1024:.0f}KB")
+        f"  recent {len(dates)}日分・{len(items)}銘柄・{sz / 1024:.0f}KB"
+        f"  桁の検査 引っかかり {len(notes)}・書かない {len(bad)}")
     return 0
 
 
