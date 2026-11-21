@@ -35,6 +35,8 @@ import { isTradingDay, isKnownYear, ymd } from "./holidays.js";
 import { usTargetsFor, US_PLAN, US_KNOWN_YEARS } from "./us_market.js";
 // 世界の値動きの地図（2026-10-30）。JST の曜日だけで判定し、東証の休場日とは無関係に動かす（PLAN には書かない）
 import { worldTargetsFor, WORLD_PLAN } from "./world.js";
+// サイト（kaburadar.jp）の作り直し（2026-11-21）。相手のリポジトリが違うので別の表（PLAN には書かない）
+import { siteTargetsFor, SITE_PLAN, SITE_REPO, SITE_REF, SITE_WORKFLOW } from "./site.js";
 
 const REPO = "oo12takemaru-create/stock-trading-";
 const REF = "main"; // workflow_dispatch は既定ブランチのものしか動かない
@@ -130,6 +132,11 @@ const WEEKEND_PLAN = {
   },
   // 日: 週末版AI（来週の想定）の前段 07:40＋予備 08:00
   0: {
+    // 日曜版（来週の地図）の公開（2026-11-21）。日曜版は土曜に書かれ、ai-weekly-ingest が日曜 7:00 JST まで保留する。
+    //   保留を解くのは GitHub の schedule（7:00/8:00/9:00/12:00）だけで、数時間遅れるので、ここから起こす。
+    //   入力なしの起動＝「待っている今日の日曜版」を取り込む。無ければ何もしない（取り込み済み・未着）。
+    //   07:15 のサイトの作り直し（site.js）がこれを焼く
+    "07:00": ["ai-weekly-ingest.yml"],
     "07:40": ["ai-weekly-prep.yml"],
     "08:00": ["ai-weekly-prep.yml"],
     // カルテの読み上げ（層2）の週1回＝売買代金の上位150を3バッチ（2026-11-04）。週末版の 8:10 と離す
@@ -158,6 +165,8 @@ const RUN_ON_HOLIDAYS = new Set([
   // カルテの読み上げの前段（2026-11-04）。日曜の上位150の回を動かすため。平日の休場日は
   // 「その日の出来事」が0件になり、ブランチを作らずに終わる（karte_ai_prep.py が exit 3）
   "karte-ai-prep.yml",
+  // 日曜版の公開（2026-11-21）。日曜は休場日なので、ここに入れないと起こされない
+  "ai-weekly-ingest.yml",
 ]);
 
 /** 特定の曜日だけ動かすもの（平日）。JST の曜日で判定 */
@@ -219,6 +228,10 @@ export const NO_DEDUP = new Set([
   // 手で先に回した日でも 19:30 の回は「その日の出来事」を取り直したいので、重複確認をしない
   // （prep は push -f で上書き、routine は取り込み済みのバッチを飛ばす）
   "karte-ai-prep.yml",
+  // 日曜版の公開（2026-11-21）。1日1回だが、土曜の routine の push で起きた run（保留して success で終わる）が
+  // 「今日もう成功した」に数えられると、日曜 7:00 の本命を起こさなくなる（保留が解けない）。重複確認をしない。
+  // 入力なしで起こすので、取り込み済み（ブランチが消えている）なら何もしない＝二重に走っても害はない
+  "ai-weekly-ingest.yml",
 ]);
 
 /**
@@ -439,6 +452,69 @@ async function dispatch(workflow, env, inputs) {
 }
 
 /**
+ * サイト（kaburadar.jp）の作り直しを起こす（2026-11-21・site.js）。
+ *
+ * ★既存の起動とは切り離してある★
+ *   scheduled() の先頭で ctx.waitUntil に渡し、例外はここで受け止める。
+ *   ここが落ちても、遅くても、収集側の起動・会員の朝の通知は今までどおり動く。
+ *   重複確認はしない（作り直しは何度走っても同じ中身。重なれば site-rebuild.yml の concurrency で順番待ち）。
+ */
+export async function runSiteRebuild(nowUtc, env) {
+  const site = siteTargetsFor(nowUtc, isTradingDay);
+  if (!site.run) {
+    if (site.why) console.log(`JST ${site.jst}: ${site.why}`);
+    return { ran: false, why: site.why };
+  }
+  // kaburadar を起動できるトークン。GH_PAT_SITE を優先し、無ければ GH_PAT（Repository access に kaburadar を足した場合）
+  const token = env.GH_PAT_SITE || env.GH_PAT;
+  const which = env.GH_PAT_SITE ? "GH_PAT_SITE" : "GH_PAT";
+  if (!token) {
+    console.error("サイトの作り直し: GH_PAT_SITE も GH_PAT も設定されていません。起動できません");
+    await notify(
+      "[株レーダー] サイトの作り直しを起動できません（トークンなし）",
+      `JST ${site.jst} に ${SITE_REPO} の ${SITE_WORKFLOW} を起動しようとしましたが、\n` +
+        "GH_PAT_SITE も GH_PAT も未設定でした。",
+      env,
+    );
+    return { ran: false, why: "no-token" };
+  }
+  const url = `https://api.github.com/repos/${SITE_REPO}/actions/workflows/${SITE_WORKFLOW}/dispatches`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { ...ghHeaders(env), Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ref: SITE_REF }),
+    });
+    if (res.status === 204) {
+      console.log(`OK   ${SITE_REPO} ${SITE_WORKFLOW}（JST ${site.jst}・${which}）`);
+      return { ran: true, ok: true };
+    }
+    const detail = `${res.status} ${(await res.text()).slice(0, 200)}`;
+    console.error(`NG   ${SITE_REPO} ${SITE_WORKFLOW}（${which}）: ${detail}`);
+    // 404 = トークンが kaburadar を見られない（Repository access に入っていない）
+    // 403 = 見えるが Actions の書き込み権限が無い／期限切れ直前の制限 / 401 = トークンが無効・期限切れ
+    const hint =
+      res.status === 404 ? `${which} の Repository access に kaburadar が入っていません（GitHub は権限が無いと 404 を返します）。` :
+      res.status === 403 ? `${which} に kaburadar の Actions: Read and write がありません。` :
+      res.status === 401 ? `${which} が無効か期限切れです。` :
+      res.status === 422 ? `ブランチ ${SITE_REF} か workflow_dispatch の設定が合っていません。` : "";
+    await notify(
+      `[株レーダー] サイトの作り直しを起動できませんでした（JST ${site.jst}）`,
+      `${SITE_REPO} の ${SITE_WORKFLOW}\n${detail}\n\n${hint}\n` +
+        `手で流すとき: gh workflow run ${SITE_WORKFLOW} -R ${SITE_REPO}\n` +
+        `GitHub Actions: https://github.com/${SITE_REPO}/actions`,
+      env,
+    );
+    return { ran: true, ok: false, status: res.status };
+  } catch (e) {
+    const msg = String(e).slice(0, 200);
+    console.error("サイトの作り直しで例外:", msg);
+    await notify("[株レーダー] サイトの作り直しで例外", `${SITE_REPO} ${SITE_WORKFLOW}\n${msg}`, env);
+    return { ran: true, ok: false, reason: "exception" };
+  }
+}
+
+/**
  * 失敗をメールで知らせる（Resend）。
  * ここが落ちても本処理は止めない（通知は補助）。
  */
@@ -509,6 +585,14 @@ export function targetsFor(jst) {
 
 export default {
   async scheduled(event, env, ctx) {
+    // サイト（kaburadar.jp）の作り直し（2026-11-21）。下の早い return（予定なし・休場日）に巻き込まれないよう
+    // 先頭で切り離して走らせる。失敗しても下の既存の処理は止めない（中で受け止める＋念のため catch）
+    ctx.waitUntil(
+      runSiteRebuild(new Date(event.scheduledTime), env).catch((e) =>
+        console.error("サイトの作り直しで想定外の例外:", String(e).slice(0, 200)),
+      ),
+    );
+
     const jst = toJst(new Date(event.scheduledTime));
     const key = hhmm(jst);
     const today = ymd(jst);
@@ -621,6 +705,8 @@ export default {
         RESEND_API_KEY: Boolean(env.RESEND_API_KEY),
         NOTIFY_TO: Boolean(env.NOTIFY_TO),
         CRON_SECRET: Boolean(env.CRON_SECRET),
+        // サイトの作り直し用（2026-11-21）。false でも GH_PAT の Repository access に kaburadar があれば動く
+        GH_PAT_SITE: Boolean(env.GH_PAT_SITE),
       },
       repo: REPO,
       this_minute: { why, targets },
@@ -636,6 +722,10 @@ export default {
       run_on_holidays: [...RUN_ON_HOLIDAYS],
       us: { this_minute: usTargetsFor(new Date()), plan_et: US_PLAN, known_years: US_KNOWN_YEARS },
       world: { this_minute: worldTargetsFor(new Date()), plan_jst: WORLD_PLAN },
+      site: {
+        repo: SITE_REPO, ref: SITE_REF, workflow: SITE_WORKFLOW,
+        this_minute: siteTargetsFor(new Date(), isTradingDay), plan_jst: SITE_PLAN,
+      },
     };
     return new Response(JSON.stringify(body, null, 2), {
       headers: { "Content-Type": "application/json; charset=utf-8" },

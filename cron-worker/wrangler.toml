@@ -40,3 +40,6 @@ crons = [
 #   npx wrangler secret put RESEND_API_KEY
 #   npx wrangler secret put NOTIFY_TO
 #   npx wrangler secret put CRON_SECRET
+#   npx wrangler secret put GH_PAT_SITE   # 任意（2026-11-21）。kaburadar のサイト作り直し用。無ければ GH_PAT を使う（src/site.js）
+#
+# サイト（kaburadar.jp）の作り直し（src/site.js）も cron は増やしていない（06:45 16:15 20:00 21:30 08:30 07:15 は既存の3本で発火する）

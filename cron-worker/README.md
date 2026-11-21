@@ -207,8 +207,34 @@ npx wrangler dev --test-scheduled
 
 | 時刻 | 起動するもの |
 |---|---|
+| 07:00 | **ai-weekly-ingest**（入力なし）日曜版の公開＝土曜に書いて保留してある日曜版を取り込む（2026-11-21〜） |
 | 07:40 | **ai-weekly-prep**（`mode=sun`）週末版AIの前段（2026-10-07〜） |
 | 08:00 | **ai-weekly-prep**（`mode=sun`・予備。成功していても叩く） |
+
+### サイト（kaburadar.jp）の作り直し（2026-11-21〜・別のリポジトリ）
+
+サイト側 `oo12takemaru-create/kaburadar` の `site-rebuild.yml` を**ブランチ master** で起こす。
+時刻表は `src/site.js` の `SITE_PLAN`（PLAN には書かない。相手のリポジトリが違うので、重複確認も `alreadyRanToday()` も使わない）。
+`scheduled()` の先頭で `ctx.waitUntil` に切り離して走らせ、例外は中で受け止める＝**ここが落ちても既存の起動は止まらない**。
+
+| JST | 曜日 | 休場日（平日） | その前に新しくなるもの |
+|---|---|---|---|
+| 06:45 | 月〜金 | 動かす | AI朝刊（ai-morning-ingest 6:17〜6:20）・米国株の確定値（6:15） |
+| 16:15 | 月〜金 | 動かさない | 引け後のヒートマップ・世界の地図（16:00） |
+| 20:00 | 月〜金 | 動かさない | 今日の発見（19:48〜19:50）・台帳と予兆（19:30〜19:40） |
+| 21:30 | 月〜金 | 動かさない | 今日の発見の「その後」（20:47）・pipeline-daily の予備（21:00〜21:18） |
+| 08:30 | 土 | — | 週末版（土曜・8:11〜8:13） |
+| 07:15 | 日 | — | 週末版（日曜）。**07:00 にこの Worker が `ai-weekly-ingest` を入力なしで起こして公開させる**（WEEKEND_PLAN） |
+
+トークンは `GH_PAT_SITE` があればそれ、無ければ `GH_PAT`。
+`GH_PAT` は「stock-trading- だけ」で発行してあるので、**そのままだと GitHub は 404 を返す**。
+次のどちらかをする（値は画面に出さない・チャットに貼らない）:
+
+1. `GH_PAT`（`ruletrade-cron-worker`）を GitHub の画面で Edit し、Repository access に `kaburadar` を足す（値は変わらないので Worker 側は何もしなくてよい）
+2. `kaburadar` だけ・Actions: Read and write の PAT を新しく作り、`npx wrangler secret put GH_PAT_SITE` で入れる
+
+失敗するとメール（件名「[株レーダー] サイトの作り直しを起動できませんでした」）と Worker のログ `NG   oo12takemaru-create/kaburadar site-rebuild.yml（GH_PAT）: 404 …` が出る。
+404=Repository access に kaburadar が無い／403=Actions の書き込み権限が無い／401=無効・期限切れ。
 
 ### 米国株ヒートマップ（2026-10-24〜・米国東部時間で持つ）
 

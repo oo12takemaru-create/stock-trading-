@@ -51,7 +51,9 @@ globalThis.fetch = async (url, opt = {}) => {
   }
   if (m) {
     const body = JSON.parse(opt.body || "{}");
-    calls.push({ at: NOW, what: m[1], inputs: body.inputs || null });
+    // サイト側のリポジトリ（kaburadar）の起動は見分けがつくように名前を付ける（2026-11-21）
+    const what = u.includes("/repos/oo12takemaru-create/kaburadar/") ? `[kaburadar] ${m[1]}` : m[1];
+    calls.push({ at: NOW, what, inputs: body.inputs || null });
     dispatched.add(m[1]);
     return { status: 204, text: async () => "" };
   }
@@ -71,7 +73,9 @@ const env = {
   GH_PAT: "dummy", RESEND_API_KEY: "dummy",
   NOTIFY_TO: "x@example.com", CRON_SECRET: "dummy",
 };
-const ctx = { waitUntil: (p) => p };
+// waitUntil に渡したもの（サイトの作り直し・メール）も、次の時刻へ進む前に待つ（記録の時刻がずれないように）
+let pending = [];
+const ctx = { waitUntil: (p) => { pending.push(p); } };
 const quiet = console.log;
 
 // cron は「毎時 :00 :30」「:15 :45」「:05 :35 :40」（AI prep 用・2026-10-07〜）の3本。全部を再現する
@@ -83,6 +87,8 @@ for (let h = 0; h < 24; h++) {
     console.warn = () => {};
     console.error = () => {};
     await worker.scheduled({ scheduledTime: utc }, env, ctx);
+    await Promise.all(pending);
+    pending = [];
     console.log = quiet;
   }
 }
