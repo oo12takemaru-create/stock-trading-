@@ -153,6 +153,36 @@ def build_matrix(rows, splits):
     return dates, codes, C, V
 
 
+def sanitize(dates, codes, C, V, root=ROOT):
+    """終値の並びの検査（px_sanity.clean・2026-11-21）。上場前の仮の値・再上場前の値・分割の調整のずれ・
+    極端な分割の記録・単発の桁とびの日は、その日の終値と出来高を「無い」にし（騰落率に入らない）、直せる値は直す。
+    異常の無い銘柄は1つも値が変わらない。C・V をその場で書き換え、{状態: 銘柄数} を返す"""
+    import px_sanity as S
+    try:
+        sj = json.loads((Path(root) / "docs" / "splits.json").read_text(encoding="utf-8"))
+    except Exception:
+        sj = {}
+    sp = {}
+    for c, lst in (sj.get("by_code") or {}).items():
+        for x in lst or []:
+            if x.get("ex") and x.get("ratio"):
+                sp.setdefault(c, {})[x["ex"]] = float(x["ratio"])
+    res = S.clean_columns(dates, C, codes, sp)
+    cnt = {}
+    for j, (st, fac, _) in res.items():
+        cnt[st] = cnt.get(st, 0) + 1
+        drop = ~np.isfinite(fac)
+        C[drop, j] = np.nan
+        V[drop, j] = np.nan
+        ok = np.isfinite(fac) & (fac != 1.0)
+        C[ok, j] = C[ok, j] * fac[ok]
+        V[ok, j] = V[ok, j] / fac[ok]
+    if res:
+        log(f"  株価の検査（px_sanity）: {len(res)}銘柄 {cnt} "
+            f"{[(codes[j], st) for j, (st, _, _) in sorted(res.items())][:12]}")
+    return cnt
+
+
 # ──────────────────────────────────────── 計算
 def returns(C, V):
     """日次騰落率（行は C の2行目から）。出来高0の日・前日が0の日・飛びは NaN"""
@@ -223,6 +253,7 @@ def compute(root=ROOT, window=WINDOW):
     uni = load_universe(root)
     rows, bf_end = load_bars(root, set(uni))
     dates, codes, C, V = build_matrix(rows, split_events(root, bf_end))
+    san = sanitize(dates, codes, C, V, root)
     # 日付: 対象の銘柄の半分以上に足がある日だけ（祝日のずれ・取りこぼしの日を入れない）
     full = np.isfinite(C).sum(axis=1) >= 0.5 * len(codes)
     dates = [d for d, k in zip(dates, full) if k]
@@ -238,7 +269,7 @@ def compute(root=ROOT, window=WINDOW):
     ex, _ = pair_corr(market_removed(Rk))
     t2 = time.time()
     meta = {"asof": dates[-1], "from": dates[1], "n_days": len(dates) - 1, "n_codes": len(codes_ok),
-            "n_universe": len(codes), "excluded": why, "bars_backfill_end": bf_end,
+            "n_universe": len(codes), "excluded": why, "bars_backfill_end": bf_end, "px_sanity": san,
             "sec_load": round(t1 - t0, 1), "sec_corr": round(t2 - t1, 1)}
     return {"codes": codes_ok, "raw": raw, "ex": ex, "N": N, "uni": uni, "meta": meta, "R": Rk}
 

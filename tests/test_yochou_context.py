@@ -73,7 +73,8 @@ def test_ctx_values_and_no_lookahead(tmp_path):
     # 寄り付き前に知り得た出来事（base_date = その日）は、前の営業日の終値まで
     assert YC.ctx_row_index(pn, days[k], days[k]) == k - 1
     # 先の値を変えても文脈は変わらない（その日の終値までしか使っていない）
-    cs2 = cs[: k + 1] + [x * 3 for x in cs[k + 1:]]
+    # （2倍にする。2.5倍以上の1日の飛びは株価の検査 px_sanity が「異常」として銘柄ごと捨てるので、先読みの確かめにならない）
+    cs2 = cs[: k + 1] + [x * 2 for x in cs[k + 1:]]
     pn2, _ = _panel(tmp_path, {"1111": cs2})
     v2 = YC.ctx_values(YC.ctx_matrices(pn2), YC.ctx_row_index(pn2, days[k + 1], days[k]), 0)
     assert v == v2
