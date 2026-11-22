@@ -131,6 +131,71 @@ def write_gz(path, rows):
     return len(raw), path.stat().st_size
 
 
+def prev_closes(out, trade_date):
+    """trade_date より前の、いちばん新しい data/bars の終値 {code: close}（無ければ {}）"""
+    import csv
+    files = sorted(p for p in Path(out).glob("*/*.csv.gz") if p.name[:10] < trade_date.isoformat())
+    if not files:
+        return {}, None
+    p = files[-1]
+    out_ = {}
+    with gzip.open(p, "rt", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            try:
+                out_[r["code"]] = float(r["close"])
+            except (TypeError, ValueError):
+                pass
+    return out_, p.name[:10]
+
+
+def guard_rows(rows, out, trade_date, splits=None):
+    """株価の汚れの守り（2026-11-21・px_sanity）。当日記録は「その日に見えた値」をそのまま残すので、
+    書かないのは壊れているとはっきり言える行だけ: 終値が 0以下・1億円超、または前の記録の日の終値から
+    10倍・1/10（px_sanity.BIG_JUMP。高い方が50円以上）に飛び、その前後3日に分割・併合の記録（docs/splits.json）が無いもの。
+    2.5倍の線（px_sanity の規則2）は使わない（値幅制限の拡大が続くと、200円前後の株は本当に2.5倍を超えることがある。
+    その並びの直しは、読む側の ledger2_panel・similar_weekly が px_sanity で行う）。戻り値 (書く行, 書かない [(code, 理由)])"""
+    import px_sanity as S
+    from datetime import date as _d
+    prev, prev_d = prev_closes(out, trade_date)
+    if splits is None:
+        try:
+            import json
+            sj = json.loads((ROOT / "docs" / "splits.json").read_text(encoding="utf-8"))
+        except Exception:
+            sj = {}
+        splits = {}
+        for c, lst in (sj.get("by_code") or {}).items():
+            for x in lst or []:
+                if x.get("ex") and x.get("ratio"):
+                    splits.setdefault(c, []).append((x["ex"], float(x["ratio"])))
+        for key in ("upcoming", "recent"):
+            for x in sj.get(key) or []:
+                if x.get("code") and x.get("ex") and x.get("ratio"):
+                    splits.setdefault(str(x["code"]), []).append((x["ex"], float(x["ratio"])))
+    keep, skipped = [], []
+    for r in rows:
+        code = r[1]
+        try:
+            c = float(r[5])
+        except (TypeError, ValueError):
+            keep.append(r)                          # 終値が欠けた行は今までどおり（読む側が捨てる）
+            continue
+        if not (0 < c <= S.MAX_PRICE):
+            skipped.append((code, f"終値 {c:,.1f}"))
+            continue
+        p = prev.get(code)
+        if p and p > 0:
+            ratio = c / p
+            if max(p, c) >= S.JUMP_MIN_PRICE and (ratio >= S.BIG_JUMP or ratio <= 1 / S.BIG_JUMP):
+                near = [rr for ex, rr in splits.get(code, [])
+                        if abs((_d.fromisoformat(ex) - trade_date).days) <= S.SPLIT_NEAR and abs(ratio * rr - 1) <= S.SPLIT_TOL]
+                if not near:
+                    skipped.append((code, f"{prev_d} {p:,.1f}→{c:,.1f}（{ratio:.3g}倍）"))
+                    continue
+        keep.append(r)
+    return keep, skipped
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default=str(CACHE))
@@ -185,10 +250,13 @@ def main():
             miss += 1
             continue
         rows.append(row_of(code, trade_date.isoformat(), r))
-    n_stock = len(rows)
     mk = [] if a.no_market else fetch_market(trade_date)
-    rows += mk
+    rows, skipped = guard_rows(rows + mk, out, trade_date)
+    n_stock = sum(1 for r in rows if r[1] not in MARKET.values())
+    mk = [r for r in rows if r[1] in MARKET.values()]
     rows.sort(key=lambda r: r[1])
+    if skipped:
+        log(f"  株価の検査で書かなかった行 {len(skipped)}: {skipped[:10]}")
 
     if n_stock < len(seen) * 0.5:
         log(f"::warning::当日の足がある銘柄が半分に届かない（{n_stock}/{len(seen)}）。取得の障害とみなし書かない")

@@ -260,7 +260,7 @@ def read_any(p):
 
 def load_all(data_dir=DATA):
     data_dir = Path(data_dir)
-    events, scores = {}, {}
+    events, scores, anomaly = {}, {}, set()
     for sub in ("backfill", "imported", ""):
         base = data_dir / sub if sub else data_dir
         for f in sorted((base / "events").glob("*.jsonl*")):
@@ -277,12 +277,16 @@ def load_all(data_dir=DATA):
         files = sorted((base / "scores").glob("*.jsonl*"))
         for f in files:
             for r in read_any(f):
+                if r.get("anomaly"):
+                    anomaly.add(r["event_id"])          # データの異常（px_sanity）で invalid にした出来事は数えない
                 if r.get("h") is None:
                     continue
                 k = (r["event_id"], r["h"])
                 if k not in scores:
                     scores[k] = {"ret": r.get("ret"), "raw_ret": r.get("raw_ret"), "status": r.get("status"),
                                  "end_date": r.get("end_date")}
+    if anomaly:
+        scores = {k: v for k, v in scores.items() if k[0] not in anomaly}
     return events, scores
 
 

@@ -1,14 +1,14 @@
 {
- "updated": "2026-11-18T20:53:03+09:00",
+ "updated": "2026-11-22T16:44:32+09:00",
  "origin": "backfill",
  "detector_version": "1.0",
  "price_source": "yfinance 5年（yochou_px5y.py）＋ data/bars_backfill ＋ data/bars（当日記録の日足）",
  "price_period": [
-  "2021-11-18",
-  "2026-11-18"
+  "2021-11-22",
+  "2026-11-20"
  ],
  "until": "2026-11-17",
- "adjusted_asof": "2026-11-18",
+ "adjusted_asof": "2026-11-21",
  "survivorship": "上場廃止・統合で今いない銘柄は含まない",
  "thermo": "温度計の段階は thermo100_hist（後から同じ式で計算し直した値・当時公開した値ではない）",
  "not_backfilled": [
@@ -32,27 +32,161 @@
    "2026-03-31"
   ]
  ],
- "note": "遡及分（origin=backfill）は、当日記録と同じ検出関数を過去の株価に当てて作ったもの。株価は取得日の時点で Yahoo が見せている値（分割は遡って調整済み・配当は未調整）で、上場廃止・統合で今いない銘柄は含まない（生き残りの偏り）。温度計の段階は thermo100_hist（後から同じ式で計算し直した値）。信用残・空売り残高は過去の公表時点の値が無いので遡及していない。制限値幅の拡大の日は過去分の情報が無く、ストップ高・安の判定から外れている。",
+ "px_sanity": {
+  "4197": {
+   "status": "flat",
+   "n_problems": 1,
+   "dropped_days": 452,
+   "dirty_from": "2022-01-31",
+   "dirty_to": "2023-12-01",
+   "first_problem": [
+    "flat",
+    "2022-01-31",
+    "2022-01-31〜2023-12-01 の 452日 1,100.0 のまま"
+   ]
+  },
+  "4365": {
+   "status": "flat",
+   "n_problems": 1,
+   "dropped_days": 224,
+   "dirty_from": "2025-06-30",
+   "dirty_to": "2026-06-02",
+   "first_problem": [
+    "flat",
+    "2025-06-30",
+    "2025-06-30〜2026-06-02 の 224日 19,700.0 のまま"
+   ]
+  },
+  "5537": {
+   "status": "flat+trimmed",
+   "n_problems": 3,
+   "dropped_days": 499,
+   "dirty_from": "2023-11-29",
+   "dirty_to": "2025-12-15",
+   "first_problem": [
+    "flat",
+    "2023-11-29",
+    "2023-11-29〜2025-09-29 の 448日 1,059.0 のまま"
+   ]
+  },
+  "5858": {
+   "status": "flat",
+   "n_problems": 1,
+   "dropped_days": 569,
+   "dirty_from": "2021-11-22",
+   "dirty_to": "2024-03-19",
+   "first_problem": [
+    "flat",
+    "2021-11-22",
+    "2021-11-22〜2024-03-19 の 569日 1,625.0 のまま"
+   ]
+  },
+  "6228": {
+   "status": "flat",
+   "n_problems": 1,
+   "dropped_days": 451,
+   "dirty_from": "2021-11-22",
+   "dirty_to": "2023-09-22",
+   "first_problem": [
+    "flat",
+    "2021-11-22",
+    "2021-11-22〜2023-09-22 の 451日 950.0 のまま"
+   ]
+  },
+  "7075": {
+   "status": "flat",
+   "n_problems": 1,
+   "dropped_days": 397,
+   "dirty_from": "2021-11-22",
+   "dirty_to": "2024-12-10",
+   "first_problem": [
+    "flat",
+    "2021-11-22",
+    "2021-11-22〜2024-12-10 の 397日 1,400.0 のまま"
+   ]
+  },
+  "7523": {
+   "status": "fixed",
+   "n_problems": 1215,
+   "dropped_days": 2,
+   "dirty_from": "2026-11-11",
+   "dirty_to": "2026-11-12",
+   "first_problem": [
+    "huge",
+    "2021-11-22",
+    "433,842,176"
+   ]
+  },
+  "8227": {
+   "status": "adjusted",
+   "n_problems": 1,
+   "dropped_days": 0,
+   "dirty_from": "2026-02-18",
+   "dirty_to": "2026-02-18",
+   "first_problem": [
+    "jump",
+    "2026-02-18",
+    "11,040.0→3,713.3（0.336倍）"
+   ]
+  },
+  "8303": {
+   "status": "blocks",
+   "n_problems": 14,
+   "dropped_days": 12,
+   "dirty_from": "2023-09-27",
+   "dirty_to": "2025-12-18",
+   "first_problem": [
+    "huge",
+    "2023-09-27",
+    "55,319,998,464"
+   ]
+  },
+  "9204": {
+   "status": "flat",
+   "n_problems": 2,
+   "dropped_days": 259,
+   "dirty_from": "2021-11-22",
+   "dirty_to": "2022-12-14",
+   "first_problem": [
+    "flat",
+    "2021-11-22",
+    "2021-11-22〜2022-12-13 の 259日 26.0 のまま"
+   ]
+  },
+  "9225": {
+   "status": "flat",
+   "n_problems": 2,
+   "dropped_days": 266,
+   "dirty_from": "2022-05-30",
+   "dirty_to": "2023-06-27",
+   "first_problem": [
+    "flat",
+    "2022-05-30",
+    "2022-05-30〜2023-06-26 の 266日 1,750.0 のまま"
+   ]
+  }
+ },
+ "note": "遡及分（origin=backfill）は、当日記録と同じ検出関数を過去の株価に当てて作ったもの。株価は取得日の時点で Yahoo が見せている値（分割は遡って調整済み・配当は未調整）で、上場廃止・統合で今いない銘柄は含まない（生き残りの偏り）。温度計の段階は thermo100_hist（後から同じ式で計算し直した値）。信用残・空売り残高は過去の公表時点の値が無いので遡及していない。制限値幅の拡大の日は過去分の情報が無く、ストップ高・安の判定から外れている。株価の並びは px_sanity で検査し、上場前・再上場前の仮の値、1年近く売買の無い区間、単発の桁とびは足ごと捨て、分割の調整のずれ・極端な分割の記録は直した（meta の px_sanity）。",
  "counts": {
   "buyback_decision": 233,
   "dividend_down": 35,
   "dividend_up": 312,
   "earnings_revision_down": 207,
   "earnings_revision_up": 520,
-  "gap_down": 28234,
-  "gap_up": 34889,
+  "gap_down": 28213,
+  "gap_up": 34843,
   "gauge_stage_up": 1,
-  "high52_close": 19619,
-  "low52_close": 14703,
+  "high52_close": 17692,
+  "low52_close": 12715,
   "stock_split": 12,
-  "stop_high": 7614,
-  "stop_high_touch": 3454,
+  "stop_high": 7591,
+  "stop_high_touch": 3447,
   "stop_low": 1997,
   "stop_low_touch": 962,
   "thermo_stage_change": 334,
-  "volume_surge": 165384,
-  "ytd_high_close": 32241,
-  "ytd_low_close": 28531,
+  "volume_surge": 164936,
+  "ytd_high_close": 29717,
+  "ytd_low_close": 25962,
   "yutai_end": 5,
   "yutai_new": 16
  },
@@ -78,11 +212,11 @@
    "2026-11-17"
   ],
   "gap_down": [
-   "2021-11-19",
+   "2021-11-24",
    "2026-11-17"
   ],
   "gap_up": [
-   "2021-11-19",
+   "2021-11-24",
    "2026-11-17"
   ],
   "gauge_stage_up": [
@@ -90,11 +224,11 @@
    "2026-10-06"
   ],
   "high52_close": [
-   "2021-12-20",
+   "2021-12-22",
    "2026-11-17"
   ],
   "low52_close": [
-   "2021-12-20",
+   "2021-12-21",
    "2026-11-17"
   ],
   "stock_split": [
@@ -102,11 +236,11 @@
    "2026-11-13"
   ],
   "stop_high": [
-   "2021-11-19",
+   "2021-11-24",
    "2026-11-17"
   ],
   "stop_high_touch": [
-   "2021-11-19",
+   "2021-11-25",
    "2026-11-16"
   ],
   "stop_low": [
@@ -122,7 +256,7 @@
    "2026-11-05"
   ],
   "volume_surge": [
-   "2021-11-26",
+   "2021-11-30",
    "2026-11-17"
   ],
   "ytd_high_close": [
@@ -142,7 +276,7 @@
    "2026-11-17"
   ]
  },
- "n_events": 339303,
- "n_scores": 1317859,
- "bytes_gz": 38956818
+ "n_events": 329750,
+ "n_scores": 1285999,
+ "bytes_gz": 38329243
 }

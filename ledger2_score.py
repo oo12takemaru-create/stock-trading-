@@ -303,6 +303,37 @@ def score_pre_earnings(out, data, today, now_hm, use_yf=True):
     return 0
 
 
+def anomaly_lookback(event_type):
+    """「データの異常」で invalid にするかを見る期間（暦日）。値動きの種類は検出の守りと同じ、取り込み（signal_*）は入力しだい"""
+    if event_type in L.DIRTY_LOOKBACK:
+        return L.DIRTY_LOOKBACK[event_type]
+    if (event_type or "").startswith("signal_"):
+        return L.DIRTY_LOOKBACK_SIGNAL.get(event_type, L.DIRTY_LOOKBACK_SIGNAL_DEFAULT)
+    return None
+
+
+def mark_anomalies(events, closed, data, nowiso):
+    """当日記録（origin=live）の出来事のうち、判定に使った期間にその銘柄の日足が汚れている（px_sanity の検査で
+    異常か捨てた日がある）ものに「データの異常」の invalid の行を作る（出来事の行は消さない・書き換えない）。
+    もう invalid の行がある出来事は見ない。返り値は足す行の一覧（closed にも足す）"""
+    rows = []
+    for e in events:
+        eid = e.get("event_id")
+        if not eid or eid in closed or e.get("origin") != "live" or e.get("code") in (None, "MKT"):
+            continue
+        lb = anomaly_lookback(e.get("event_type"))
+        if lb is None:
+            continue
+        st = data.px_dirty(e["date"], lb).get(e["code"])
+        if st is None:
+            continue
+        rows.append({"event_id": eid, "date": e["date"], "status": "invalid", "anomaly": "px_sanity",
+                     "reason": f"データの異常（株価の検査で {e['code']} の日足に {st}。判定に使った{lb}暦日の中）",
+                     "scored_at": nowiso})
+        closed.add(eid)
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(OUT))
@@ -341,6 +372,10 @@ def main():
 
     delisted = {k: v for k, v in ((L.jload(data.docs / "delisted.json", {}) or {}).get("items") or {}).items()
                 if v.get("status") == "delisted"}
+    nowiso0 = now.isoformat(timespec="seconds")
+    anomalies = mark_anomalies(events, closed, data, nowiso0)     # 株価の汚れ（2026-11-21）
+    if anomalies:
+        print(f"データの異常で invalid: {len(anomalies)}件 {[r['event_id'] for r in anomalies][:10]}")
 
     # 答えを出す候補（終点の終値が出ている窓があるもの）
     todo = []
@@ -382,7 +417,7 @@ def main():
         ys = yf.series(c)
         return (ys, "yfinance") if ys is not None else (s, "bars")
 
-    lines, nowiso = [], now.isoformat(timespec="seconds")
+    lines, nowiso = list(anomalies), nowiso0
     for e, days, hs, gave_up in todo:
         eid, b = e["event_id"], e["base_date"]
         code = N225 if e["code"] == "MKT" else e["code"]

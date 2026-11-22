@@ -23,7 +23,7 @@
 import csv
 import gzip
 import json
-from datetime import date as _date
+from datetime import date as _date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -88,10 +88,18 @@ def load_splits(docs, extra_dirs=()):
     return out
 
 
+def _longest_same(c):
+    """同じ値が続いた最長の本数"""
+    if len(c) == 0:
+        return 0
+    br = np.flatnonzero(np.r_[True, c[1:] != c[:-1], True])
+    return int(np.diff(br).max())
+
+
 class Panel:
     """sources: [(ファイルの並び, asof)]。asof="row" はその日の値（data/bars）。後ろのものほど優先"""
 
-    def __init__(self, sources, splits, t500=(), until=None, since=None):
+    def __init__(self, sources, splits, t500=(), until=None, since=None, sanitize=True):
         frames = []
         for files, asof in sources:
             for p in files:
@@ -154,11 +162,79 @@ class Panel:
         self.AR = wide((df["adj_close"] / df["close"]).values)      # 配当の調整係数（変われば配当落ちの日）
         self.dropped = self._drop_spikes(("1306", "^N225"))
         self.splits = splits
+        self.sanity = self._sanitize(splits) if sanitize else {}
         self.split_set = {(c, ex) for c, lst in splits.items() for ex, _ in lst}
         self.t500 = set(t500)
         self.coverage = np.isfinite(self.C).sum(axis=1)
         self._m = None
         self._h = None
+
+    def _sanitize(self, splits):
+        """終値の並びの検査（px_sanity.clean・2026-11-21）。調整済み A の終値を銘柄ごとに調べ、
+        直せるもの（極端な分割の記録・分割の調整漏れ）は値を直し、直せない区間（上場前の仮の値・再上場前の値・
+        単発の桁とび）はその日の足ごと捨てる（NaN＝その日の足が無いのと同じ。出来事も答えもできない）。
+        どれでも直らない銘柄は全部捨てる。異常の無い銘柄（ほとんど全部）は1つも値が変わらない。
+        戻り値 {code: {"status", "problems"（最初の5つ）, "n_problems", "dropped"（捨てた日の数）,
+                        "first"/"last"（異常の日・捨てた日の最初と最後）, "dirty"（異常の日・捨てた日の並び）}}"""
+        import px_sanity as S
+        C = self.C
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = {}
+            # 速さのため: まず行列で「引っかかりそうな列」だけを選ぶ（規則1・2と同じ線を少しゆるく）
+            cand = []
+            for j in range(C.shape[1]):
+                idx = np.flatnonzero(np.isfinite(C[:, j]))
+                if len(idx) < 2:
+                    if len(idx) and not (0 < C[idx[0], j] <= S.MAX_PRICE):
+                        cand.append(j)
+                    continue
+                c = C[idx, j]
+                r = c[1:] / c[:-1]
+                lo, hi = np.minimum(c[1:], c[:-1]), np.maximum(c[1:], c[:-1])
+                jump = ((lo >= S.JUMP_MIN_PRICE) & ((r >= S.JUMP) | (r <= 1 / S.JUMP))) | \
+                       ((hi >= S.JUMP_MIN_PRICE) & ((r >= S.BIG_JUMP) | (r <= 1 / S.BIG_JUMP)))
+                if jump.any() or (c > S.MAX_PRICE).any() or (c <= 0).any() or _longest_same(c) >= S.FLAT_MIN:
+                    cand.append(j)
+        for j in cand:
+            code = self.codes[j]
+            idx = np.flatnonzero(np.isfinite(C[:, j]))
+            pts = [(_date.fromisoformat(self.dates[i]), float(C[i, j])) for i in idx]
+            sp = {ex: r for ex, r in (splits.get(code) or [])}
+            st, new, prob, dropped = S.clean(pts, sp)
+            keep = {} if new is None else {d.isoformat(): v for d, v in new}
+            fixed_k = "fixed" in st                     # a: 極端な分割の記録を戻した → その日の値 R は変えない
+            # 汚れた日: 異常の日と捨てた日。a（極端な分割の記録）は記録の日に過去が後から書き換わったもので、
+            # その前の日に見えていた値は正しかったので、1億円超の印は数えない（捨てた記録の日以後だけ）
+            dirty = sorted({d.isoformat() for k, d, _ in prob if not (fixed_k and k == "huge")}
+                           | {d.isoformat() for d in dropped})
+            for i in idx:
+                d = self.dates[i]
+                v = keep.get(d)
+                if v is None:
+                    for A in (self.O, self.H, self.L, self.C, self.V, self.K, self.AR):
+                        A[i, j] = np.nan
+                    continue
+                f = v / self.C[i, j]
+                if abs(f - 1) < 1e-12:
+                    continue
+                self.O[i, j] *= f
+                self.H[i, j] *= f
+                self.L[i, j] *= f
+                self.C[i, j] = v
+                self.V[i, j] /= f
+                if fixed_k:
+                    self.K[i, j] /= f
+            out[code] = {"status": st, "problems": [(k, d.isoformat(), s) for k, d, s in prob[:5]],
+                         "n_problems": len(prob), "dropped": len(dropped),
+                         "first": dirty[0] if dirty else None, "last": dirty[-1] if dirty else None, "dirty": dirty}
+        return out
+
+    def dirty_codes(self, d, lookback_days=0):
+        """d の日（と、その前 lookback_days 暦日）に検査で異常か捨てた日がある銘柄 {code: 状態}。
+        当日記録の検出で、Yahoo の1年分（prices.json の 52週高値・出来高の倍率など）が同じ汚れを含む銘柄を飛ばすのに使う"""
+        lo = (_date.fromisoformat(d) - timedelta(days=lookback_days)).isoformat()
+        return {c: x["status"] for c, x in self.sanity.items()
+                if any(lo <= t <= d for t in x["dirty"]) or (x["status"] == "bad")}
 
     def _drop_spikes(self, codes, far=0.4, near=0.1, max_len=3):
         """配信の桁とび（例: 1306.T の 2026-03-30・31 が 1/10 の 37円台）を捨てる（相場ボード #889 の drop_spikes と同じ考え方）。
@@ -384,7 +460,11 @@ def default_sources(root=HERE, px5y=None, with_daily=True):
     return src
 
 
-def build(root=HERE, px5y=None, with_daily=True, until=None, since=None):
+def build(root=HERE, px5y=None, with_daily=True, until=None, since=None, sanitize=None):
+    """sanitize: 終値の並びの検査（px_sanity）を当てるか。既定は当てる（環境変数 LEDGER2_PX_SANITIZE=0 のときだけ当てない＝作り直しの前後の比べ用）"""
+    import os
+    if sanitize is None:
+        sanitize = os.environ.get("LEDGER2_PX_SANITIZE", "1") != "0"
     root = Path(root)
     return Panel(default_sources(root, px5y, with_daily), load_splits(root / "docs", [px5y] if px5y else []),
-                 t500_from_universe(root), until=until, since=since)
+                 t500_from_universe(root), until=until, since=since, sanitize=sanitize)

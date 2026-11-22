@@ -54,7 +54,9 @@ THERMO_ONLY = {"thermo_stage_change"}          # 株価の表の期間より前�
 NOTE = ("遡及分（origin=backfill）は、当日記録と同じ検出関数を過去の株価に当てて作ったもの。株価は取得日の時点で Yahoo が見せている値"
         "（分割は遡って調整済み・配当は未調整）で、上場廃止・統合で今いない銘柄は含まない（生き残りの偏り）。"
         "温度計の段階は thermo100_hist（後から同じ式で計算し直した値）。信用残・空売り残高は過去の公表時点の値が無いので遡及していない。"
-        "制限値幅の拡大の日は過去分の情報が無く、ストップ高・安の判定から外れている。")
+        "制限値幅の拡大の日は過去分の情報が無く、ストップ高・安の判定から外れている。"
+        "株価の並びは px_sanity で検査し、上場前・再上場前の仮の値、1年近く売買の無い区間、単発の桁とびは足ごと捨て、"
+        "分割の調整のずれ・極端な分割の記録は直した（meta の px_sanity）。")
 
 
 def log(*a):
@@ -66,7 +68,7 @@ class BackfillSources(L.Sources):
 
     def __init__(self, panel, root=None):
         super().__init__(root=root)
-        self.panel = panel
+        self.panel_ = panel
         self._day = {}
         sp = {}
         for c, lst in panel.splits.items():
@@ -82,22 +84,28 @@ class BackfillSources(L.Sources):
         return self._day[k]
 
     def prices(self, d):
-        return self._per_day("prices", d, lambda: self.panel.prices_like(d))
+        return self._per_day("prices", d, lambda: self.panel_.prices_like(d))
 
     def stophigh(self, d):
-        return self._per_day("stop", d, lambda: self.panel.stop_events(d))
+        return self._per_day("stop", d, lambda: self.panel_.stop_events(d))
 
     def bars(self, d):
-        return self._per_day("bars", d, lambda: self.panel.raw_bar(d) if self.panel.has_day(d) else None)
+        return self._per_day("bars", d, lambda: self.panel_.raw_bar(d) if self.panel_.has_day(d) else None)
 
     def hist_stats(self, d):
-        return self._per_day("hist", d, lambda: self.panel.hist_stats(d))
+        return self._per_day("hist", d, lambda: self.panel_.hist_stats(d))
 
     def split_ex(self, code):
         return self._sp.get(L.code4(code), {})
 
+    def panel(self):
+        return self.panel_
+
+    def px_dirty(self, d, lookback_days):
+        return {}                                 # 遡及の表は検査で直した後の値（汚れた区間は足ごと無い）ので飛ばさない
+
     def stock_codes(self, d):
-        return set(self.panel.codes) | super().stock_codes(d)
+        return set(self.panel_.codes) | super().stock_codes(d)
 
     # 遡及しないもの（過去の公表時点の値が無い）
     def karauri(self, d):
@@ -346,6 +354,10 @@ def main():
             "partial": {"disclosure": "docs/tdnet_hist にある 2026-10-30〜 だけ", "gauge_stage_up": "docs/gauge.json の 2026-10-03〜 だけ",
                         "thermo_stage_change": "thermo100_hist の 2016-11〜（株価の期間より長い）"},
             "dropped_spikes": [list(x) for x in pn.dropped],   # 物差し（1306・^N225）の配信の桁とびとして捨てた日
+            # 終値の並びの検査（px_sanity.clean・2026-11-21）で直した・捨てた銘柄。捨てた区間には出来事も答えも無い
+            "px_sanity": {c: {"status": x["status"], "n_problems": x["n_problems"], "dropped_days": x["dropped"],
+                              "dirty_from": x["first"], "dirty_to": x["last"], "first_problem": (x["problems"] or [None])[0]}
+                          for c, x in sorted(pn.sanity.items())},
             "note": NOTE, "counts": dict(sorted(cnt.items())), "periods": {k: list(v) for k, v in sorted(per.items())},
             "n_events": len(ev), "n_scores": len(sc), "bytes_gz": size}
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -486,6 +498,20 @@ def late(out, nowiso):
         return 0
     done = {(r["event_id"], r["h"]) for r in sc if r.get("h") is not None}
     closed = {r["event_id"] for r in sc if r.get("status") == "invalid"}
+    # 取り込み（origin=live）の出来事は、当日記録と同じく「データの異常」の invalid を足す（2026-11-21・ledger2_score.mark_anomalies）
+    anom = []
+    if any(e.get("origin") == "live" for e in ev):
+        import ledger2_score as LS
+        anom = LS.mark_anomalies(ev, closed, L.Sources(), nowiso)
+        by_m = defaultdict(list)
+        for r in anom:
+            by_m[r["date"][:7]].append(r)
+        for ym, rows in sorted(by_m.items()):
+            with open(Path(out) / "scores" / f"late-{ym}.jsonl", "a", encoding="utf-8", newline="\n") as f:
+                for r in rows:
+                    f.write(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n")
+        if anom:
+            log(f"取り込み分にデータの異常の invalid を追記: {len(anom)}件 {[r['event_id'] for r in anom][:10]}")
     todo = [e for e in ev if e["event_id"] not in closed and any((e["event_id"], h) not in done for h in H)]
     if not todo:
         log("遡及分の窓はすべて埋まっている")

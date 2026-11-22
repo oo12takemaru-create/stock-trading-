@@ -72,6 +72,9 @@ def detect_all(d, data, origin="live"):
             print(f"::warning::{name}({d}) で失敗: {type(e).__name__}: {e}")
             continue
         for e in got:
+            if L.dirty_skip(d, e, data):              # 株価の汚れの守り（ledger2_detect.DIRTY_LOOKBACK）
+                print(f"  株価の検査で飛ばした: {d} {e['code']} {e['event_type']}（{data.px_dirty(d, L.DIRTY_LOOKBACK[e['event_type']]).get(e['code'])}）")
+                continue
             eid = f"{d.replace('-', '')}_{e['code']}_{e['event_type']}"
             try:
                 ctx = L.context(d, e["code"], data)

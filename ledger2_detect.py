@@ -51,6 +51,24 @@ GAUGE_STAGES = ((4, 2, "prepare"), (3, 1, "watch"), (0, 0, "calm"))   # 傾斜�
 
 LIVE_START = "2026-11-18"     # v2 の当日記録を始めた日。これより前の日は live として書かない
 
+# ── 株価の汚れの守り（2026-11-21・px_sanity）
+# 当日記録の検出は、Yahoo の1年分から作った値（prices.json の 52週高値・出来高の倍率、stophigh_hist、data/bars）を読む。
+# その銘柄の日足（data/bars_backfill ＋ data/bars を ledger2_panel で1つにした表）に、px_sanity の検査で
+# 異常（上場前の仮の値・再上場前の値・分割の調整のずれ・極端な分割の記録・単発の桁とび）か捨てた日が、
+# その出来事の判定に使う期間（下の暦日）の中にある銘柄は、その日のその種類を記録しない。異常の無い銘柄は今までと同じ。
+# 既存のシグナル台帳の取り込み（signal_*）は「サイトがその日に出したもの」の記録なので飛ばさず、
+# 答え合わせ（ledger2_score.py）の側で「データの異常」の invalid を足す。
+DIRTY_LOOKBACK = {            # 判定に使う期間（暦日）。ここに無い種類は飛ばさない
+    "high52_close": 366, "low52_close": 366, "ytd_high_close": 366, "ytd_low_close": 366,
+    "volume_surge": 31,
+    "gap_up": 5, "gap_down": 5, "stop_high": 5, "stop_low": 5, "stop_high_touch": 5, "stop_low_touch": 5,
+}
+DIRTY_LOOKBACK_SIGNAL = {     # 取り込み（signal_*）の答え合わせで invalid にする期間。入力が 52週高値なら1年
+    "signal_treasure_contra": 366, "signal_treasure_quiet": 31,
+}
+DIRTY_LOOKBACK_SIGNAL_DEFAULT = 5
+CHART_LOOKBACK = {"from_high52": 366, "dev_ma25": 40, "above_ma25": 40, "ret20": 31, "vol_ratio20": 31}
+
 REGISTRY = []                 # [(name, types, func, version, desc)]
 TYPES = {}                    # event_type → {label, rule, known, source, version}
 
@@ -303,11 +321,8 @@ class Sources:
         if self.bars(d) is None:
             return None
 
-        def load():
-            # 1回だけ作る。値はどれも「その日までの足」だけで計算する（後ろ向きの窓）ので、後の日の足があっても変わらない
-            import ledger2_panel as P
-            return P.build(self.root)
-        pn = self._memo("panel", load)
+        # 1回だけ作る。値はどれも「その日までの足」だけで計算する（後ろ向きの窓）ので、後の日の足があっても変わらない
+        pn = self.panel()
         return pn.hist_stats(d) if pn else None
 
     # ── 決算の前（pre_earnings・2026-11-19）
@@ -374,6 +389,18 @@ class Sources:
                 out.update((jload(f, {}) or {}).get("items") or {})
             return out
         return self._memo("fcrev_all", load) or {}
+
+    def panel(self):
+        """data/bars_backfill（過去1年）＋ data/bars（当日記録）の日足の表（ledger2_panel・px_sanity の検査つき）"""
+        def load():
+            import ledger2_panel as P
+            return P.build(self.root)
+        return self._memo("panel", load)
+
+    def px_dirty(self, d, lookback_days):
+        """d とその前 lookback_days 暦日に、日足の検査で異常か捨てた日がある銘柄 {code: 状態}（無ければ {}）"""
+        pn = self.panel()
+        return pn.dirty_codes(d, lookback_days) if pn is not None else {}
 
     def split_ex(self, code):
         """その銘柄の分割の権利落ち日 {ex: ratio}"""
@@ -1015,6 +1042,14 @@ MCAP_BANDS = ((1e12, "1兆円以上"), (1e11, "1000億〜1兆円"), (1e10, "100�
 VALUE_BANDS = ((10000, "100億円以上"), (1000, "10億〜100億円"), (100, "1億〜10億円"), (0, "1億円未満"))   # 百万円
 
 
+def dirty_skip(d, e, data):
+    """当日記録の検出で、この出来事を飛ばすか（DIRTY_LOOKBACK の種類で、その銘柄の日足が判定の期間に汚れている）"""
+    lb = DIRTY_LOOKBACK.get(e.get("event_type"))
+    if lb is None or e.get("code") in (None, "MKT"):
+        return False
+    return e["code"] in data.px_dirty(d, lb)
+
+
 def context(d, code, data):
     """温度計の段階・℃、時価総額帯、売買代金帯、業種、7章のチャート項目（取れるものだけ・無いものは null）"""
     th = data.thermo_hist().get(d)
@@ -1044,4 +1079,8 @@ def context(d, code, data):
         ch["from_high52"] = it.get("hi52")
         ch["ret20"] = it.get("c20")
         ch["vol_ratio20"] = it.get("vr")
+        # 株価の汚れの守り: prices.json（Yahoo の1年分）の値が汚れた日足から来ている欄は持たない（null）
+        for k, lb in CHART_LOOKBACK.items():
+            if ch.get(k) is not None and code in data.px_dirty(d, lb):
+                ch[k] = None
     return ctx
