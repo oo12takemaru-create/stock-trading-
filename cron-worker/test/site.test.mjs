@@ -192,3 +192,30 @@ test("サイト側の起動が例外でも、既存の起動（収集側）は�
     assert.ok(s.calls.some((c) => c.url.includes("/kaburadar/actions/workflows/site-rebuild.yml/dispatches")));
   } finally { s.restore(); }
 });
+
+test("今日のチャート当て（quiz-daily）は毎朝 06:00・土日も休場日も（2026-11-22）", async () => {
+  for (const d of ["2026-11-25", "2026-11-23", "2026-11-28", "2026-11-29"]) { // 水・祝・土・日
+    assert.ok(targetsFor(new Date(`${d}T06:00:00Z`)).targets.includes("quiz-daily.yml"), `${d} 06:00`);
+    assert.ok(!targetsFor(new Date(`${d}T06:30:00Z`)).targets.includes("quiz-daily.yml"), `${d} 06:30 には無い`);
+  }
+  // 祝日（11/23）に実際に叩かれること（RUN_ON_HOLIDAYS に入っていないと休場日で消える）
+  const s = stubFetch(async (url) =>
+    url.includes("/runs")
+      ? { ok: true, json: async () => ({ workflow_runs: [] }) }
+      : { status: 204, ok: true, text: async () => "" });
+  const pending = [];
+  try {
+    await quietly(async () => {
+      await worker.scheduled(
+        { scheduledTime: utcOf("2026-11-23 06:00").getTime() },
+        { GH_PAT: "A" },
+        { waitUntil: (p) => pending.push(p) },
+      );
+      await Promise.all(pending);
+    });
+    assert.ok(
+      s.calls.some((c) => c.url.endsWith("/stock-trading-/actions/workflows/quiz-daily.yml/dispatches")),
+      "祝日の 06:00 に quiz-daily が叩かれていない",
+    );
+  } finally { s.restore(); }
+});
