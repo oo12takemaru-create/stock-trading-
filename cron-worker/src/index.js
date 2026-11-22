@@ -107,6 +107,10 @@ const PLAN = {
   // prep は ai-prompt/<日付> を push -f で上書きし、routine 側が重複を弾くので害はない。
   // ※ :05 / :35 は3本目の cron（"5,35,40 * * * *"）で発火する。
   "05:35": ["ai-morning-prep.yml"],
+  // 今日のチャート当て（2026-11-22）。画面に「毎朝6時ごろに新しい5問」とあるが、GitHub の schedule（21:00 UTC）は
+  //   11/22 に 9:53 JST まで遅れた。土日（WEEKEND_PLAN）・休場日（RUN_ON_HOLIDAYS）も出す。
+  //   schedule は予備として残す（その日のファイルがあれば書き換えない＝2回走っても同じ）
+  "06:00": ["quiz-daily.yml"],
   "06:05": ["ai-morning-prep.yml"],
   // 06:30 ai-analysis.yml（旧・API課金版のAI朝刊）は 2026-10-28 に停止。朝刊は Claude Code routine（ai-morning-prep→routine→ingest）で作る。
   "07:00": ["pipeline-morning.yml"], // 前営業日ぶんが無ければ失敗させる関門
@@ -125,6 +129,7 @@ const PLAN = {
 const WEEKEND_PLAN = {
   // 土: 週末版AI（答え合わせ）の前段 07:40＋予備 08:00、週末バッチ 09:30
   6: {
+    "06:00": ["quiz-daily.yml"], // 今日のチャート当て（2026-11-22・PLAN の 06:00 と同じ）
     "07:40": ["ai-weekly-prep.yml"],
     "08:00": ["ai-weekly-prep.yml"],
     "09:30": ["pipeline-weekly.yml"],
@@ -132,6 +137,7 @@ const WEEKEND_PLAN = {
   },
   // 日: 週末版AI（来週の想定）の前段 07:40＋予備 08:00
   0: {
+    "06:00": ["quiz-daily.yml"], // 今日のチャート当て（2026-11-22・PLAN の 06:00 と同じ）
     // 日曜版（来週の地図）の公開（2026-11-21）。日曜版は土曜に書かれ、ai-weekly-ingest が日曜 7:00 JST まで保留する。
     //   保留を解くのは GitHub の schedule（7:00/8:00/9:00/12:00）だけで、数時間遅れるので、ここから起こす。
     //   入力なしの起動＝「待っている今日の日曜版」を取り込む。無ければ何もしない（取り込み済み・未着）。
@@ -167,6 +173,8 @@ const RUN_ON_HOLIDAYS = new Set([
   "karte-ai-prep.yml",
   // 日曜版の公開（2026-11-21）。日曜は休場日なので、ここに入れないと起こされない
   "ai-weekly-ingest.yml",
+  // 今日のチャート当て（2026-11-22）。株価を取りに行かず在庫から選ぶだけなので、休場日も毎朝出す
+  "quiz-daily.yml",
 ]);
 
 /** 特定の曜日だけ動かすもの（平日）。JST の曜日で判定 */
@@ -241,6 +249,9 @@ export const NO_DEDUP = new Set([
 const DEDUP_ANYWAY = new Set([
   "pipeline-daily.yml", // 21:00 は予備。18:00 が成功していたら SKIP してよい
   "shinyo-weekly.yml",  // 17:30 は予備。17:00 が成功していたら SKIP してよい
+  // 今日のチャート当て（2026-11-22）。平日・土・日の 06:00 に1回ずつ（別の曜日に書いただけ）。
+  // 手で先に流した日は起こさなくてよい（schedule の遅れた回は数えない＝今日の本命は止まらない）
+  "quiz-daily.yml",
 ]);
 
 /**

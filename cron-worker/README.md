@@ -179,6 +179,7 @@ npx wrangler dev --test-scheduled
 | 時刻 | 起動するもの | |
 |---|---|---|
 | 05:35 | **ai-morning-prep** | AI朝刊の前段（2026-10-07〜）。休場日も動かす |
+| 06:00 | **quiz-daily** | 今日のチャート当ての5問（2026-11-22〜）。**土日・休場日も**動かす。GitHub の schedule は予備 |
 | 06:05 | **ai-morning-prep**（予備） | 05:35 が成功していても**叩く**（push -f で上書き・routine が重複を弾く） |
 | 06:30 | ai-analysis | 朝のAI分析 |
 | 07:00 | **pipeline-morning** | 前営業日ぶんが無ければ**失敗させる**関門 |
@@ -199,6 +200,7 @@ npx wrangler dev --test-scheduled
 
 | 時刻 | 起動するもの |
 |---|---|
+| 06:00 | **quiz-daily**（今日のチャート当て・2026-11-22〜） |
 | 07:40 | **ai-weekly-prep**（`mode=sat`）週末版AIの前段（2026-10-07〜） |
 | 08:00 | **ai-weekly-prep**（`mode=sat`・予備。成功していても叩く） |
 | 09:30 | **pipeline-weekly**（cot→信用残・建玉スコア→十倍株→週次AI） |
@@ -207,6 +209,7 @@ npx wrangler dev --test-scheduled
 
 | 時刻 | 起動するもの |
 |---|---|
+| 06:00 | **quiz-daily**（今日のチャート当て・2026-11-22〜） |
 | 07:00 | **ai-weekly-ingest**（入力なし）日曜版の公開＝土曜に書いて保留してある日曜版を取り込む（2026-11-21〜） |
 | 07:40 | **ai-weekly-prep**（`mode=sun`）週末版AIの前段（2026-10-07〜） |
 | 08:00 | **ai-weekly-prep**（`mode=sun`・予備。成功していても叩く） |
