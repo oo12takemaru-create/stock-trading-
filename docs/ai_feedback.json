@@ -1,6 +1,26 @@
 {
  "issues": [
   {
+   "kind": "morning",
+   "date": "2026-11-23",
+   "issue": 32,
+   "title": "寄りは54,500円台、下げがまだ続きそうな形",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "今日は守りを固める構え。",
+   "watch": "9:00の寄りが先物の示す54,555円近辺（現物比-3.3%）より上なら下値に受け手がいる、下なら米国株安以上の売りが出ていると読みます。",
+   "chars": 1954,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
    "kind": "sun",
    "date": "2026-11-22",
    "issue": 7,
@@ -627,5 +647,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-22T10:50:40+09:00"
+ "updated": "2026-11-23T06:18:40+09:00"
 }
