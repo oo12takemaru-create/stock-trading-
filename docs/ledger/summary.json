@@ -1,7 +1,7 @@
 {
- "updated": "2026-11-21T03:08:58+09:00",
+ "updated": "2026-11-22T17:01:59+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 16695,
+ "total": 16719,
  "sources": {
   "ai": {
    "count": 39,
@@ -46,7 +46,7 @@
    "r20_up_rate": 0.0
   },
   "tenbagger": {
-   "count": 224,
+   "count": 248,
    "scored_r20": 122,
    "r20_mean": -9.13,
    "r20_up_rate": 17.2
@@ -65,9 +65,9 @@
   },
   "treasure_quiet": {
    "count": 5327,
-   "scored_r20": 1655,
+   "scored_r20": 1658,
    "r20_mean": -4.35,
-   "r20_up_rate": 23.9
+   "r20_up_rate": 23.8
   }
  },
  "excluded": {
