@@ -99,6 +99,15 @@ jobs:
         if: steps.done.outputs.skip != '1'
         run: python -X utf8 myboard_px.py || echo "::warning::myboard_px.py が失敗（prices/movers は公開する）"
 
+      # 全銘柄のヒートマップ（docs/heatmap_all.json・prices.json の並べ替え）と業種の騰落率（docs/sector_moves.json・
+      # data/bars から直近60営業日）。kaburadar.jp/heatmap.html の「全銘柄」と「業種の強さ」（2026-11-23）。
+      # Yahoo には行かない。1日1回・上書き（日付ごとのファイルは作らない）。失敗しても prices / movers の公開は止めない
+      - name: Heatmap all stocks / sector moves
+        if: steps.done.outputs.skip != '1'
+        run: |
+          python -X utf8 heatmap_all.py || echo "::warning::heatmap_all.py が失敗（prices/movers は公開する）"
+          python -X utf8 sector_moves.py || echo "::warning::sector_moves.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -113,6 +122,7 @@ jobs:
           git add -f docs/kaiji_after 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
           git add -f data/bars 2>/dev/null || true          # 全銘柄の当日の日足（2026-11-18・無い回は飛ばす）
           git add -f -A docs/px1y 2>/dev/null || true       # マイボードの1年の終値（2026-11-18・消した本体も拾う・無い回は飛ばす）
+          git add -f docs/heatmap_all.json docs/sector_moves.json 2>/dev/null || true   # 全銘柄のヒートマップと業種の騰落率（2026-11-23）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
