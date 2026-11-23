@@ -1,11 +1,11 @@
 {
- "updated": "2026-11-20T23:35:56+09:00",
- "scanner_timestamp": "2026-11-20T14:33:54.592290",
- "regime": "BEARISH",
- "is_halt": false,
- "halt_reason": "",
- "vix": 29.68,
+ "updated": "2026-11-23T12:39:02+09:00",
+ "scanner_timestamp": "2026-11-23T03:37:12.020478",
+ "regime": "PANIC",
+ "is_halt": true,
+ "halt_reason": "VIX=35.9 > 35.0(極度のパニック)",
+ "vix": 35.89,
  "n225": 56436.65,
- "signal_count": 5,
+ "signal_count": 0,
  "rule": "bt-2026-10-24"
 }
