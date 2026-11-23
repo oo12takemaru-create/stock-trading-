@@ -1,10 +1,10 @@
 {
- "updated": "2026-11-22T17:01:59+09:00",
+ "updated": "2026-11-24T06:46:20+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 16719,
+ "total": 16732,
  "sources": {
   "ai": {
-   "count": 39,
+   "count": 41,
    "scored_r20": 18,
    "r20_mean": -9.42,
    "r20_up_rate": 0.0
@@ -16,7 +16,7 @@
    "r20_up_rate": null
   },
   "free_scanner": {
-   "count": 593,
+   "count": 603,
    "scored_r20": 330,
    "r20_mean": -1.79,
    "r20_up_rate": 46.1
@@ -40,7 +40,7 @@
    "r20_up_rate": 40.0
   },
   "score3": {
-   "count": 33,
+   "count": 34,
    "scored_r20": 11,
    "r20_mean": -10.48,
    "r20_up_rate": 0.0
