@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-23T12:39:58+09:00",
+ "updated": "2026-11-23T20:58:53+09:00",
  "trade_date": "2026-11-20",
  "value": 12,
  "regime": "PANIC",
@@ -1014,7 +1014,7 @@
   }
  },
  "radar_check": {
-  "radar_json_regime": "PANIC",
+  "radar_json_regime": "BEARISH",
   "radar_json_day": "2026-11-23",
   "same": null
  }
