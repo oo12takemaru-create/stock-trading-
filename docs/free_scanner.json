@@ -1,48 +1,48 @@
 {
- "target_date": "2026-11-19",
- "generated_at": "2026-11-20T21:03:34+09:00",
+ "target_date": "2026-11-20",
+ "generated_at": "2026-11-24T18:04:16+09:00",
  "jiai": "弱気(75日線の下)",
  "rows": [
-  {
-   "judge": "signal",
-   "code": "7735",
-   "name": "SCREEN HD",
-   "sector": "半導体製造装置",
-   "kairi": -23.37
-  },
   {
    "judge": "signal",
    "code": "5713",
    "name": "住友金属鉱山",
    "sector": "非鉄",
-   "kairi": -22.58
+   "kairi": -30.21
+  },
+  {
+   "judge": "signal",
+   "code": "7735",
+   "name": "SCREEN HD",
+   "sector": "半導体製造装置",
+   "kairi": -28.48
   },
   {
    "judge": "signal",
    "code": "4478",
    "name": "フリー",
    "sector": "SaaS",
-   "kairi": -21.51
+   "kairi": -26.33
   }
  ],
- "asof": "2026-11-20",
+ "asof": "2026-11-24",
  "stale": false,
- "signals_today_date": "2026-11-20",
+ "signals_today_date": "2026-11-24",
  "is_halt": false,
- "signals_today_count": 5,
+ "signals_today_count": 6,
  "signals_today_by_strategy": {
   "MOMENTUM": 0,
-  "BNF-LITE": 5,
+  "BNF-LITE": 6,
   "MINERVINI": 0
  },
  "signal_of_day": {
-  "scan_date": "2026-11-20",
+  "scan_date": "2026-11-24",
   "strategy": "BNF-LITE",
   "strategy_label": "逆張り（乖離）",
-  "code": "7911",
-  "name": "TOPPANHD",
-  "sector": "印刷",
-  "reason": "乖離率-17.4%",
+  "code": "4755",
+  "name": "楽天グループ",
+  "sector": "IT",
+  "reason": "乖離率-14.2%",
   "carried_over": false
  },
  "note": "target_date は乖離率上位3件(rows)の対象日で、終値確定を待つため1営業日前になります。signals_today_date は当日シグナルの日付で、両者は別の日付になり得ます。signal_of_day.carried_over が true の銘柄は、前営業日以前にも条件を満たしていたものです。"
