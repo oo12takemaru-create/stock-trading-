@@ -2,6 +2,26 @@
  "issues": [
   {
    "kind": "morning",
+   "date": "2026-11-25",
+   "issue": 33,
+   "title": "半導体急落で寄りは2.2%安の想定、昨日の上げを試す日",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "今日は守りの構え。",
+   "watch": "9:00の寄りが57,375円近辺で始まった後、昨日の上げ幅をどこまで残せるかが分かれ目です。",
+   "chars": 1862,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
    "date": "2026-11-24",
    "issue": 32,
    "title": "寄りは2.6%高の想定、戻りの続き方を見る日",
@@ -667,5 +687,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-24T06:18:25+09:00"
+ "updated": "2026-11-25T06:18:40+09:00"
 }
