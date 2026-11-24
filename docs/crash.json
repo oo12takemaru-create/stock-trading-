@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-24T18:06:32+09:00",
+ "updated": "2026-11-24T21:05:37+09:00",
  "trade_date": "2026-11-24",
  "n225": 58644.63,
  "horizon": 20,
@@ -13,16 +13,6 @@
  "ratio": 1.9,
  "flags": [
   {
-   "key": "vix_chg5",
-   "label": "VIXが5日で15%以上上昇",
-   "on": true,
-   "value": "+16.89%",
-   "threshold": "15%以上",
-   "distance": "1.89%超過",
-   "ratio": 1.82,
-   "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
-  },
-  {
    "key": "ma200_dev",
    "label": "日経が200日線割れ",
    "on": true,
@@ -31,6 +21,16 @@
    "distance": "5.85%超過",
    "ratio": 1.28,
    "why": "長期トレンドの下。下げが下げを呼ぶ状態に入りやすい"
+  },
+  {
+   "key": "vix_chg5",
+   "label": "VIXが5日で15%以上上昇",
+   "on": true,
+   "value": "+23.44%",
+   "threshold": "15%以上",
+   "distance": "8.44%超過",
+   "ratio": 1.82,
+   "why": "恐怖指数の急な立ち上がり。水準より変化のほうが効く"
   },
   {
    "key": "spx_ma200_dev",
@@ -46,9 +46,9 @@
    "key": "vix_high",
    "label": "VIXが20以上",
    "on": true,
-   "value": "26.78",
+   "value": "28.28",
    "threshold": "20以上",
-   "distance": "6.78超過",
+   "distance": "8.28超過",
    "ratio": 1.4,
    "why": "市場が平常時より不安定と見ている水準"
   },
@@ -66,9 +66,9 @@
    "key": "usdjpy_chg20",
    "label": "20営業日で3%以上の円高",
    "on": false,
-   "value": "+1.80%",
+   "value": "+1.71%",
    "threshold": "-3%未満",
-   "distance": "あと4.80%",
+   "distance": "あと4.71%",
    "ratio": 1.93,
    "why": "急な円高は輸出企業の採算と指数を直接押し下げる"
   },
@@ -76,9 +76,9 @@
    "key": "gold_chg20",
    "label": "金が20営業日で5%以上上昇",
    "on": false,
-   "value": "-9.68%",
+   "value": "-9.33%",
    "threshold": "5%以上",
-   "distance": "あと14.68%",
+   "distance": "あと14.33%",
    "ratio": 1.25,
    "why": "株を持ちながら保険を買う動き。資金が逃げ場を探しているサイン"
   }
