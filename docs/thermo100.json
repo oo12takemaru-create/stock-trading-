@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-25T21:11:45+09:00",
+ "updated": "2026-11-25T21:18:22+09:00",
  "trade_date": "2026-11-25",
  "value": 16,
  "regime": "BEARISH",
@@ -10,7 +10,7 @@
   "hi": 39
  },
  "position_in_band": 2.1,
- "overall_position": 5.2,
+ "overall_position": 5.0,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 30.39,
-   "pos": 5.6,
+   "raw": 30.82,
+   "pos": 4.9,
    "weight": 0.2
   }
  ],
