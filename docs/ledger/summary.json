@@ -1,12 +1,12 @@
 {
- "updated": "2026-11-25T05:29:06+09:00",
+ "updated": "2026-11-25T19:40:01+09:00",
  "note": "内部確認用。サイトには出さない。r20＝判定日の翌営業日始値→20営業日後終値（%）",
- "total": 17236,
+ "total": 17781,
  "sources": {
   "ai": {
-   "count": 41,
-   "scored_r20": 18,
-   "r20_mean": -9.42,
+   "count": 42,
+   "scored_r20": 19,
+   "r20_mean": -9.38,
    "r20_up_rate": 0.0
   },
   "crash": {
@@ -16,21 +16,21 @@
    "r20_up_rate": null
   },
   "free_scanner": {
-   "count": 615,
-   "scored_r20": 334,
-   "r20_mean": -1.74,
-   "r20_up_rate": 46.4
+   "count": 624,
+   "scored_r20": 337,
+   "r20_mean": -1.96,
+   "r20_up_rate": 46.0
   },
   "karauri_new": {
-   "count": 1044,
-   "scored_r20": 833,
-   "r20_mean": -4.24,
-   "r20_up_rate": 38.7
+   "count": 1048,
+   "scored_r20": 838,
+   "r20_mean": -4.29,
+   "r20_up_rate": 38.5
   },
   "movers": {
-   "count": 6651,
-   "scored_r20": 1835,
-   "r20_mean": -16.04,
+   "count": 6938,
+   "scored_r20": 1917,
+   "r20_mean": -16.22,
    "r20_up_rate": 10.4
   },
   "regime": {
@@ -40,34 +40,34 @@
    "r20_up_rate": 40.0
   },
   "score3": {
-   "count": 34,
-   "scored_r20": 12,
-   "r20_mean": -10.14,
+   "count": 35,
+   "scored_r20": 13,
+   "r20_mean": -10.03,
    "r20_up_rate": 0.0
   },
   "tenbagger": {
    "count": 248,
-   "scored_r20": 122,
-   "r20_mean": -9.13,
-   "r20_up_rate": 17.2
+   "scored_r20": 153,
+   "r20_mean": -9.14,
+   "r20_up_rate": 19.0
   },
   "treasure_card": {
-   "count": 31,
-   "scored_r20": 10,
-   "r20_mean": -7.82,
-   "r20_up_rate": 10.0
+   "count": 32,
+   "scored_r20": 11,
+   "r20_mean": -8.97,
+   "r20_up_rate": 9.1
   },
   "treasure_contra": {
-   "count": 3115,
-   "scored_r20": 944,
-   "r20_mean": -15.76,
-   "r20_up_rate": 8.3
+   "count": 3222,
+   "scored_r20": 1045,
+   "r20_mean": -15.92,
+   "r20_up_rate": 8.4
   },
   "treasure_quiet": {
-   "count": 5445,
-   "scored_r20": 1970,
-   "r20_mean": -4.3,
-   "r20_up_rate": 23.6
+   "count": 5580,
+   "scored_r20": 2110,
+   "r20_mean": -4.23,
+   "r20_up_rate": 23.1
   }
  },
  "excluded": {
