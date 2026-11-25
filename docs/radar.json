@@ -1,11 +1,11 @@
 {
- "updated": "2026-11-25T14:20:14+09:00",
- "scanner_timestamp": "2026-11-25T05:17:58.982207",
+ "updated": "2026-11-25T18:04:20+09:00",
+ "scanner_timestamp": "2026-11-25T09:01:26.898459",
  "regime": "BEARISH",
  "is_halt": false,
  "halt_reason": "",
- "vix": 26.36,
- "n225": 58644.63,
- "signal_count": 1,
+ "vix": 27.75,
+ "n225": 57011.62,
+ "signal_count": 5,
  "rule": "bt-2026-10-24"
 }
