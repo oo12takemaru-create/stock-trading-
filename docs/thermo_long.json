@@ -1,23 +1,23 @@
 {
  "name": "相場の温度計（1990年から）",
- "updated": "2026-11-26T01:29:24+09:00",
+ "updated": "2026-11-26T03:34:14+09:00",
  "trade_date": "2026-11-25",
  "today": {
-  "value": 15,
-  "tc": -8,
-  "label_c": "−8℃",
+  "value": 16,
+  "tc": -7,
+  "label_c": "−7℃",
   "regime": "BEARISH",
   "regime_jp": "弱気"
  },
  "records": [
   {
    "type": "year_cold",
-   "value": -8,
+   "value": -7,
    "n": 3,
-   "ties": 0,
+   "ties": 4,
    "days": 217,
    "prev": null,
-   "text": "今年3番目の寒さ（−8℃）"
+   "text": "今年3番目の寒さ（−7℃・同じ温度の日あり）"
   }
  ],
  "records_recent": [
@@ -128,16 +128,16 @@
   },
   {
    "d": "2026-11-25",
-   "tc": -8,
+   "tc": -7,
    "records": [
     {
      "type": "year_cold",
-     "value": -8,
+     "value": -7,
      "n": 3,
-     "ties": 0,
+     "ties": 4,
      "days": 217,
      "prev": null,
-     "text": "今年3番目の寒さ（−8℃）"
+     "text": "今年3番目の寒さ（−7℃・同じ温度の日あり）"
     }
    ]
   }
@@ -1766,8 +1766,8 @@
   "max_abs_c": 9,
   "today": {
    "d": "2026-11-25",
-   "now_c": -8,
-   "expanding_c": -7
+   "now_c": -7,
+   "expanding_c": -6
   },
   "by_year_mean_c": {
    "2016": 0.44,
