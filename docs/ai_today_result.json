@@ -1,29 +1,29 @@
 {
- "date": "2026-11-24",
- "updated": "2026-11-24T16:02:37+09:00",
- "issue": 32,
- "headline": "寄りは2.6%高の想定、戻りの続き方を見る日",
+ "date": "2026-11-25",
+ "updated": "2026-11-25T16:02:23+09:00",
+ "issue": 33,
+ "headline": "半導体急落で寄りは2.2%安の想定、昨日の上げを試す日",
  "stance": "defense",
  "stance_jp": "守り",
  "machine_stance": "defense",
- "n225_prev_close": 56436.65,
- "n225_close": 58644.63,
- "n225_ret": 3.91,
- "hit": false,
- "result_jp": "外れ",
- "machine_hit": false,
+ "n225_prev_close": 58644.63,
+ "n225_close": 57011.62,
+ "n225_ret": -2.78,
+ "hit": true,
+ "result_jp": "当たり",
+ "machine_hit": true,
  "month": {
   "month": "2026-11",
-  "win": 7,
+  "win": 8,
   "lose": 7,
   "neutral": 1
  },
  "total": {
-  "win": 27,
+  "win": 28,
   "lose": 23
  },
- "streak": -1,
- "streak_jp": "1連敗",
+ "streak": 1,
+ "streak_jp": "1連勝",
  "basis": "朝刊の構え（寄り付き前に公開）と、その日の日経平均の騰落（終値÷前営業日の終値）を機械で照合。強気寄りの日は上昇で当たり・守り寄りの日は下落で当たり・中立の日は数えない（ai_record.py と同じ）。",
  "note": "引け後の速報（Yahoo の日足）。正式の成績表は ai_record.json（19時台に更新）。"
 }
