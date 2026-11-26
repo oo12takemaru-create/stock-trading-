@@ -2,6 +2,26 @@
  "issues": [
   {
    "kind": "morning",
+   "date": "2026-11-27",
+   "issue": 35,
+   "title": "米金利低下の朝、57,499円を保てるか",
+   "stance": "defense",
+   "machine": "defense",
+   "first": "今日は守りの構え。",
+   "watch": "9:00の寄りが57,665円近辺で始まったあと、昨日の終値57,499円を保てれば戻りの2日目、割れば昨日の上げは一時的と読みます。",
+   "chars": 1859,
+   "m": {
+    "ga4_views": null,
+    "ga4_sec": null,
+    "tap_good": null,
+    "tap_bad": null,
+    "x_imp": null,
+    "x_eng": null
+   },
+   "note": ""
+  },
+  {
+   "kind": "morning",
    "date": "2026-11-26",
    "issue": 34,
    "title": "寄りは小高い想定、57,000円を守れるかの日",
@@ -707,5 +727,5 @@
   "x_imp": "X: その号を紹介した投稿の表示回数",
   "x_eng": "X: その投稿の反応（いいね＋リポスト＋返信）"
  },
- "updated": "2026-11-26T06:18:30+09:00"
+ "updated": "2026-11-27T06:18:19+09:00"
 }
