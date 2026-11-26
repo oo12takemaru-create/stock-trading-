@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-26T13:51:18+09:00",
+ "updated": "2026-11-26T18:10:58+09:00",
  "trade_date": "2026-11-26",
  "value": 16,
  "regime": "BEARISH",
@@ -9,8 +9,8 @@
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 3.2,
- "overall_position": 6.4,
+ "position_in_band": 3.5,
+ "overall_position": 6.7,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -53,8 +53,8 @@
    "label": "日経平均と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -7.08,
-   "pos": 4.1,
+   "raw": -7.75,
+   "pos": 3.5,
    "weight": 0.2
   },
   {
@@ -62,8 +62,8 @@
    "label": "日経平均と50日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -8.95,
-   "pos": 1.8,
+   "raw": -9.59,
+   "pos": 1.7,
    "weight": 0.2
   },
   {
@@ -71,8 +71,8 @@
    "label": "日経平均の22営業日前比",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -6.87,
-   "pos": 6.1,
+   "raw": -7.54,
+   "pos": 5.1,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 28.29,
-   "pos": 8.2,
+   "raw": 26.67,
+   "pos": 11.2,
    "weight": 0.2
   }
  ],
@@ -764,7 +764,7 @@
       "episodes": 106,
       "r5": {
        "n": 522,
-       "avg": -0.14,
+       "avg": -0.15,
        "med": 0.31,
        "up_pct": 52.3
       },
@@ -787,7 +787,7 @@
       "episodes": 28,
       "r5": {
        "n": 139,
-       "avg": 0.09,
+       "avg": 0.08,
        "med": 0.87,
        "up_pct": 58.3
       },
