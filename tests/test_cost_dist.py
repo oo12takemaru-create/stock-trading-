@@ -134,6 +134,46 @@ def write_bars(root, day, rows):
             w.writerow([day, c, cc, hh, ll, cc, cc, int(vv)])
 
 
+def check_cost_map_cols(cm, root):
+    """cost_map.json の列: 前の7列は位置も意味も同じ・後ろに平均買値の幅としこり（銘柄ごとのファイルと同じ値）"""
+    cols = cm["cols"]
+    ok(cols[:7] == ["t", "p", "lo", "hi", "q", "a", "d"], f"前の7列は変えない {cols}")
+    ok(cols[7:] == ["al", "ah", "wl", "wh", "wd", "ws"], f"足した列 {cols}")
+    ok(all(c in cm["col_names"] for c in cols), "列の説明")
+    ok(all(len(r) == len(cols) for r in cm["rows"]), "行の長さ")
+    ix = {c: i for i, c in enumerate(cols)}
+    for r in cm["rows"]:
+        if r[ix["q"]] == "N":
+            ok(all(r[ix[c]] is None for c in cols[7:]), "データ不足は空")
+            continue
+        al, ah, a = r[ix["al"]], r[ix["ah"]], r[ix["a"]]
+        ok(al is not None and ah is not None and al <= ah, f"平均買値の幅 {al} {ah}")
+        ok(al * 0.99 <= a <= ah * 1.01, f"中心は幅の中（a は有効3桁） {al} {a} {ah}")
+        p = root / "docs" / "cost" / f"{r[0]}.json"
+        if p.exists():
+            js = json.loads(p.read_text(encoding="utf-8"))
+            ok([al, ah] == js["avg"][1:], f"銘柄ごとのファイルの平均買値の幅と同じ {al} {ah} {js['avg']}")
+            w = js["wall"]
+            got = [r[ix[c]] for c in ("wl", "wh", "wd", "ws")]
+            ok(got == ([w["lo"], w["hi"], w["d"], w["s"]] if w else [None] * 4), f"しこりも同じ {got} {w}")
+        if r[ix["wl"]] is not None:
+            ok(r[ix["wl"]] < r[ix["wh"]] and 0 <= r[ix["wd"]] <= 31 and 0 < r[ix["ws"]] <= 100, "しこりの値の範囲")
+
+
+def test_cost_map_no_wall():
+    """終値より上に何も無い銘柄は、しこりの列が空（None）"""
+    h, l, c, v = series()
+    e = CD.Engine(["1111"]); run(e, "1111", h, l, c, v, 1e7)
+    top, k = c[-1], 0
+    while top < h.max() * 1.5:
+        top *= 1.9; k += 1
+        e.step(f"2028-01-{k:02d}", {"1111": (top, top, top, top, 0.0)}, np.array([1e7]), np.array([1.0]))
+    J, m = e.metrics([0])
+    cm = CD.cost_map(e, J, m, "2028-01-10")
+    r = cm["rows"][0]
+    ok(len(r) == 13 and r[9:] == [None] * 4 and r[7] is not None, f"壁なしの行 {r}")
+
+
 def test_end_to_end(tmp):
     root = Path(tmp) / "repo"
     (root / "docs" / "yuho").mkdir(parents=True)
@@ -176,6 +216,7 @@ def test_end_to_end(tmp):
     ok("volume" not in json.dumps(js) and "v" in js["bins"], "出来高を入れない")
     cm = json.loads((root / "docs" / "cost_map.json").read_text(encoding="utf-8"))
     ok([r[0] for r in cm["rows"]] == ["1111", "2222"], "cost_map の銘柄")
+    check_cost_map_cols(cm, root)
     txt = json.dumps(cm, ensure_ascii=False) + json.dumps(js, ensure_ascii=False) + \
         (root / "docs" / "cost" / "index.json").read_text(encoding="utf-8")
     bad = [w for w in NG_WORDS if w in txt]
@@ -206,6 +247,7 @@ if __name__ == "__main__":
     test_wall_within_30pct()
     test_warm_start_and_rcap()
     test_jump_guard()
+    test_cost_map_no_wall()
     with tempfile.TemporaryDirectory() as tmp:
         test_save_load(tmp)
         test_end_to_end(tmp)
