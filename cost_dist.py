@@ -640,21 +640,36 @@ def pct(x, nd=1):
     return None if x is None or not np.isfinite(x) else round(float(x) * 100, nd)
 
 
+def wall_cols(m, n):
+    """+30%までで最も厚い推定のしこり [下の円, 上の円, 終値からの距離％, 厚さ％]（無ければ None×4）"""
+    if not m["wall_s"][n] > 0:
+        return [None, None, None, None]
+    lo, hi, c = m["wall_lo"][n], m["wall_hi"][n], m["c"][n]
+    return [sig(lo), sig(hi), pct(math.sqrt(lo * hi) / c - 1, 0), pct(m["wall_s"][n], 1)]
+
+
 def cost_map(eng, J, m, day):
+    """列は前から t,p,lo,hi,q,a,d（2026-11-27・意味は変えない）のあとに al,ah,wl,wh,wd,ws（2026-11-27 追加）。
+    読む側は cols の名前で引く（無い古いファイルでも動く）"""
     rows = []
     for n, j in enumerate(J):
         q = m["conf"][n]
         if q == "N":
-            rows.append([eng.codes[j], None, None, None, "N", None, None])
+            rows.append([eng.codes[j], None, None, None, "N", None, None] + [None] * 6)
             continue
         rows.append([eng.codes[j], pct(m["pr"][n], 0), pct(m["pr_lo"][n], 0), pct(m["pr_hi"][n], 0), q,
-                     sig(m["avg"][n], 3), pct(m["dev"][n], 0)])
+                     sig(m["avg"][n], 3), pct(m["dev"][n], 0),
+                     sig(m["avg_lo"][n]), sig(m["avg_hi"][n])] + wall_cols(m, n))
     rows.sort(key=lambda r: r[0])
     return {"asof": day, "updated": datetime.now(JST).isoformat(timespec="seconds"), "label": LABEL,
-            "what": "推定の含み益の人の割合（％）と、その幅・確かさ・推定の平均買値（毎日）。しこりの壁の形は docs/cost/{コード}.json（週1回）",
-            "cols": ["t", "p", "lo", "hi", "q", "a", "d"],
+            "what": "推定の含み益の人の割合（％）と、その幅・確かさ・推定の平均買値とその幅・+30%までで最も厚い推定のしこり（毎日）。"
+                    "しこりの壁の形は docs/cost/{コード}.json（週1回）",
+            "cols": ["t", "p", "lo", "hi", "q", "a", "d", "al", "ah", "wl", "wh", "wd", "ws"],
             "col_names": {"t": "コード", "p": "推定 含み益の割合（中心・％）", "lo": "幅の下（％）", "hi": "幅の上（％）",
-                          "q": "推定の確かさ", "a": "推定の平均買値（円）", "d": "終値の推定平均買値からの乖離（％）"},
+                          "q": "推定の確かさ", "a": "推定の平均買値（円）", "d": "終値の推定平均買値からの乖離（％）",
+                          "al": "推定の平均買値 幅の下（円）", "ah": "推定の平均買値 幅の上（円）",
+                          "wl": "+30%までで最も厚い推定のしこり 価格帯の下（円）", "wh": "同 価格帯の上（円）",
+                          "wd": "同 終値からの距離（％・価格帯の中央）", "ws": "同 厚さ（推定の割合・％）"},
             "q_names": CONF_NAMES, "note": NOTE, "params": params(), "rows": rows}
 
 
