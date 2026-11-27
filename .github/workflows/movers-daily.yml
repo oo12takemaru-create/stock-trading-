@@ -116,6 +116,15 @@ jobs:
         run: |
           python -X utf8 tests/test_shuyaku_rank.py && python -X utf8 shuyaku_rank.py || echo "::warning::shuyaku_rank.py が失敗（prices/movers は公開する）"
 
+      # 含み損益の推定（しこりの壁・2026-11-27）。data/cost/state.npz（週1回の控え）から data/bars の新しい日を1日ずつ進め、
+      # docs/cost_map.json（全銘柄の今日の推定・毎日）と data/cost/days/（その日の指標・非公開）を書く。
+      # 週の最初の取引日だけ、控えと docs/cost/{コード}.json（しこりの壁・約3,700件）を書き換える（git の履歴を膨らませない）。
+      # Yahoo には行かない。テストが通らなければ作らない。失敗しても prices / movers の公開は止めない
+      - name: Estimated cost distribution
+        if: steps.done.outputs.skip != '1'
+        run: |
+          python -X utf8 tests/test_cost_dist.py && python -X utf8 cost_dist.py || echo "::warning::cost_dist.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -132,6 +141,8 @@ jobs:
           git add -f -A docs/px1y 2>/dev/null || true       # マイボードの1年の終値（2026-11-18・消した本体も拾う・無い回は飛ばす）
           git add -f docs/heatmap_all.json docs/sector_moves.json 2>/dev/null || true   # 全銘柄のヒートマップと業種の騰落率（2026-11-23）
           git add -f docs/rank_shift.json data/shuyaku 2>/dev/null || true             # 売買代金の週の順位（2026-11-27・無い回は飛ばす）
+          git add -f docs/cost_map.json data/cost 2>/dev/null || true                  # 含み損益の推定（2026-11-27・無い回は飛ばす）
+          git add -f -A docs/cost 2>/dev/null || true                                  # しこりの壁（週1回・消えた銘柄も拾う）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
