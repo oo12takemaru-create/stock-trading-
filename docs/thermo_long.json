@@ -1,6 +1,6 @@
 {
  "name": "相場の温度計（1990年から）",
- "updated": "2026-11-28T00:51:18+09:00",
+ "updated": "2026-11-28T02:59:57+09:00",
  "trade_date": "2026-11-27",
  "today": {
   "value": 17,
@@ -1790,15 +1790,9 @@
  },
  "vs_thermo100": {
   "n_days": 2442,
-  "n_diff": 1,
-  "max_abs": 1,
-  "examples": [
-   {
-    "d": "2026-11-27",
-    "thermo100": 16,
-    "long": 17
-   }
-  ]
+  "n_diff": 0,
+  "max_abs": 0,
+  "examples": []
  },
  "bands": [
   {
