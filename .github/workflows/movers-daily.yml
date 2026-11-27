@@ -108,6 +108,14 @@ jobs:
           python -X utf8 heatmap_all.py || echo "::warning::heatmap_all.py が失敗（prices/movers は公開する）"
           python -X utf8 sector_moves.py || echo "::warning::sector_moves.py が失敗（prices/movers は公開する）"
 
+      # 売買代金の週の順位とシェア（業種33・銘柄）→ data/shuyaku/YYYY.csv（非公開）と docs/rank_shift.json（2026-11-27・
+      # 主役交代マップ（仮称）の元。サイトのページはまだ無い）。data/bars から作る（Yahoo には行かない）。
+      # 当週は暫定で毎日上書き・直近10週だけ作り直す。テストが通らなければ作らない。失敗しても prices / movers の公開は止めない
+      - name: Weekly trading-value ranks
+        if: steps.done.outputs.skip != '1'
+        run: |
+          python -X utf8 tests/test_shuyaku_rank.py && python -X utf8 shuyaku_rank.py || echo "::warning::shuyaku_rank.py が失敗（prices/movers は公開する）"
+
       # 入口強化 A-1・A-2: その日の記録（heatmap_days）・業種別ヒートマップ・ヒートマップ画像。
       # 失敗しても prices / movers の公開は止めない
       - name: Heatmap of the day
@@ -123,6 +131,7 @@ jobs:
           git add -f data/bars 2>/dev/null || true          # 全銘柄の当日の日足（2026-11-18・無い回は飛ばす）
           git add -f -A docs/px1y 2>/dev/null || true       # マイボードの1年の終値（2026-11-18・消した本体も拾う・無い回は飛ばす）
           git add -f docs/heatmap_all.json docs/sector_moves.json 2>/dev/null || true   # 全銘柄のヒートマップと業種の騰落率（2026-11-23）
+          git add -f docs/rank_shift.json data/shuyaku 2>/dev/null || true             # 売買代金の週の順位（2026-11-27・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
