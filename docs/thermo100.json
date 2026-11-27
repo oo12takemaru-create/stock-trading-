@@ -1,16 +1,16 @@
 {
  "name": "相場の温度計",
- "updated": "2026-11-28T00:50:14+09:00",
+ "updated": "2026-11-28T02:58:46+09:00",
  "trade_date": "2026-11-27",
- "value": 16,
+ "value": 17,
  "regime": "BEARISH",
  "regime_jp": "弱気",
  "band": {
   "lo": 15,
   "hi": 39
  },
- "position_in_band": 6.1,
- "overall_position": 8.1,
+ "position_in_band": 7.3,
+ "overall_position": 8.9,
  "regime_changed": false,
  "prev_regime": "BEARISH",
  "compare": {
@@ -19,21 +19,21 @@
    "value": 16,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": 0
+   "diff": 1
   },
   "week": {
    "d": "2026-11-19",
    "value": 16,
    "regime": "BEARISH",
    "regime_jp": "弱気",
-   "diff": 0
+   "diff": 1
   },
   "month": {
    "d": "2026-10-28",
    "value": 42,
    "regime": "NEUTRAL",
    "regime_jp": "中立",
-   "diff": -26
+   "diff": -25
   }
  },
  "year": {
@@ -80,8 +80,8 @@
    "label": "S&P500と200日線の差",
    "unit": "%",
    "direction": "高いほど温度が上がる",
-   "raw": -1.19,
-   "pos": 14.4,
+   "raw": -0.97,
+   "pos": 15.0,
    "weight": 0.2
   },
   {
@@ -89,8 +89,8 @@
    "label": "VIX（米国株の値動きの荒さ）",
    "unit": "",
    "direction": "低いほど温度が上がる",
-   "raw": 26.25,
-   "pos": 11.9,
+   "raw": 24.59,
+   "pos": 15.5,
    "weight": 0.2
   }
  ],
@@ -130,8 +130,8 @@
   "sources": "Yahoo! Finance の ^N225・^GSPC・^VIX（公開の指数値のみ）"
  },
  "celsius": {
-  "value": -7,
-  "label": "−7℃",
+  "value": -6,
+  "label": "−6℃",
   "scale": {
    "min": -20,
    "max": 60
@@ -146,21 +146,21 @@
     "value": -7,
     "label": "−7℃",
     "regime_jp": "弱気",
-    "diff": 0
+    "diff": 1
    },
    "week": {
     "d": "2026-11-19",
     "value": -7,
     "label": "−7℃",
     "regime_jp": "弱気",
-    "diff": 0
+    "diff": 1
    },
    "month": {
     "d": "2026-10-28",
     "value": 14,
     "label": "14℃",
     "regime_jp": "中立",
-    "diff": -21
+    "diff": -20
    }
   },
   "year": {
