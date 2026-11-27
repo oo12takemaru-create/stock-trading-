@@ -1,29 +1,39 @@
 {
- "date": "2026-11-26",
- "updated": "2026-11-26T16:02:12+09:00",
- "issue": 34,
- "headline": "寄りは小高い想定、57,000円を守れるかの日",
+ "date": "2026-11-27",
+ "updated": "2026-11-27T16:02:32+09:00",
+ "issue": 35,
+ "headline": "米金利低下の朝、57,499円を保てるか",
  "stance": "defense",
  "stance_jp": "守り",
  "machine_stance": "defense",
- "n225_prev_close": 57011.62,
- "n225_close": 57499.16,
- "n225_ret": 0.86,
+ "n225_prev_close": 57499.16,
+ "n225_close": 58711.11,
+ "n225_ret": 2.11,
  "hit": false,
  "result_jp": "外れ",
  "machine_hit": false,
  "month": {
   "month": "2026-11",
   "win": 8,
-  "lose": 8,
+  "lose": 9,
   "neutral": 1
  },
  "total": {
   "win": 28,
-  "lose": 24
+  "lose": 25
  },
- "streak": -1,
- "streak_jp": "1連敗",
+ "streak": -2,
+ "streak_jp": "2連敗",
  "basis": "朝刊の構え（寄り付き前に公開）と、その日の日経平均の騰落（終値÷前営業日の終値）を機械で照合。強気寄りの日は上昇で当たり・守り寄りの日は下落で当たり・中立の日は数えない（ai_record.py と同じ）。",
- "note": "引け後の速報（Yahoo の日足）。正式の成績表は ai_record.json（19時台に更新）。"
+ "note": "引け後の速報（Yahoo の日足）。正式の成績表は ai_record.json（19時台に更新）。",
+ "week_question": {
+  "id": "reach",
+  "q": "今週、日経平均は終値で57,000円に届くか",
+  "set_on": "2026-11-24",
+  "asof": "2026-11-27",
+  "close": 58711.11,
+  "level": 57000.0,
+  "hit": true,
+  "rule": "判定日の終値が 57,000円 を上回るか（1つ上の千円台に届くか）"
+ }
 }
