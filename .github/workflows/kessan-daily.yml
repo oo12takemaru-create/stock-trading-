@@ -54,12 +54,18 @@ jobs:
       - name: Keep kessan schedule history
         run: python -X utf8 kessan_yotei_hist.py || echo "::warning::kessan_yotei_hist.py が失敗（kessan.json は公開する）"
 
+      # 今後2週間に発表する会社の、過去の決算のあとの値動きのまとめ（決算またぎ帳・1ファイル・2026-11-29）。
+      # 銘柄ごとの表は週1回（similar-weekly.yml）。ここは index.json と kessan.json を突き合わせるだけ
+      - name: Kessan-ato upcoming
+        run: python -X utf8 kessan_ato.py --upcoming-only || echo "::warning::kessan_ato upcoming が失敗（kessan.json は公開する）"
+
       - name: Commit kessan.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/kessan.json
           git add -f docs/kessan_yotei_hist/ 2>/dev/null || true   # 日付つき一覧の材料（2026-11-11・無い回は飛ばす）
+          git add -f docs/kessan_ato/upcoming.json 2>/dev/null || true   # 決算またぎ帳の今後2週間（2026-11-29）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
