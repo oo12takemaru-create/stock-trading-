@@ -41,11 +41,17 @@ jobs:
       - name: Build docs/similar
         run: python -X utf8 similar_weekly.py
 
+      # 決算発表のあと、過去はどう動いたか（決算またぎ帳・kessan_ato.py・2026-11-29）。
+      # 同じ data/bars を読むだけ（新しい取得なし・十数秒）。決算のあった銘柄のファイルだけ書き換わる。失敗しても similar は出す
+      - name: Build docs/kessan_ato
+        run: python -X utf8 tests/test_kessan_ato.py && python -X utf8 kessan_ato.py || echo "::warning::kessan_ato.py が失敗（similar は公開する）"
+
       - name: Commit docs/similar
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f -A docs/similar   # docs/*.json は .gitignore 対象なので -f。消えた銘柄のファイルも -A で消す
+          git add -f -A docs/kessan_ato 2>/dev/null || true   # 決算またぎ帳（2026-11-29・無い回は飛ばす）
           if git diff --staged --quiet; then
             echo "変更なし"
             exit 0
