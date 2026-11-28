@@ -31,6 +31,7 @@
 ■ 出力（docs/ → GitHub Pages）
   docs/kessan_ato/{コード}.json  回ごとの表とまとめ（1件 数KB）。中身が同じなら書かない（決算のあった銘柄だけ書き換わる）
   docs/kessan_ato/index.json     銘柄ごとのまとめ1行（銘柄ページの生成と決算予定のページが読む）
+  docs/kessan_ato/all.json       全銘柄のまとめと回ごとの行の束（銘柄ページの生成が1回で読む）
   docs/kessan_ato/upcoming.json  今後2週間に発表する会社の、過去の反応のまとめ（決算予定のページ用・毎日）
   docs/kessan_ato/meta.json      計算した日・決まり・件数
   生の日足（四本値の並び）は入れない。騰落率と日付だけ。ダウンロード用の CSV は作らない。
@@ -504,12 +505,15 @@ def build(root=ROOT, out=OUT, upcoming_only=False):
     for (c, d), e in allev.items():
         if c in names:
             by.setdefault(c, []).append(e)
-    index, wrote, same = {}, 0, 0
-    keep = {"meta.json", "index.json", "upcoming.json"}
+    index, wrote, same, allrows = {}, 0, 0, {}
+    keep = {"meta.json", "index.json", "upcoming.json", "all.json"}
     for c, evs in by.items():
         evs.sort(key=lambda e: e["date"])
         obj = file_obj(c, names[c], evs, nxt.get(c), px.cal[-1] if px.cal else today)
         index[c] = index_row(obj["sum"])
+        mx = obj["sum"].get("max") or {}
+        allrows[c] = [index[c] + [mx.get("date"), mx.get("c1")],
+                      [[r[0], r[1], r[3], r[5], r[6], r[7], r[8], r[10]] for r in obj["rows"]]]
         keep.add(f"{c}.json")
         obj_txt = dumps(obj)
         if write_text(out / f"{c}.json", obj_txt):
@@ -522,6 +526,13 @@ def build(root=ROOT, out=OUT, upcoming_only=False):
             p.unlink()
             removed += 1
     write_text(out / "index.json", dumps({"asof": px.cal[-1] if px.cal else today, "cols": INDEX_COLS, "items": index}))
+    # 銘柄ページの生成（サイトの gen_stocks.py）が1回で読む束（全銘柄の回ごとの行）。
+    # 銘柄ごとに1,800回取りに行くと GitHub Pages の一時的な失敗に当たりやすいため（2026-11-29 対象を全銘柄の半分に広げた）
+    write_text(out / "all.json", dumps({"asof": px.cal[-1] if px.cal else today,
+                                         "cols_sum": INDEX_COLS + ["いちばん大きく動いた回", "その回の前の終値→翌営業日の終値"],
+                                         "cols_row": ["発表日", "時刻", "四半期", "窓", "翌営業日", "5営業日後",
+                                                      "前の終値→翌営業日の終値", "翌営業日の対TOPIX"],
+                                         "items": allrows}))
     write_upcoming(out, index, names, days, today)
     cnt = Counter(min(len(v), 12) for v in by.values())
     meta = {"updated": datetime.now(JST).isoformat(timespec="seconds"), "asof": px.cal[-1] if px.cal else None,
