@@ -1,20 +1,26 @@
 {
- "asof": "2026-11-20",
+ "asof": "2026-11-27",
  "from": "2025-11-19",
- "n_days": 244,
- "n_codes": 2950,
+ "n_days": 248,
+ "n_codes": 2948,
  "n_universe": 3686,
  "excluded": {
-  "days_lt_min": 100,
+  "days_lt_min": 99,
   "zero_volume": 0,
-  "low_value": 636
+  "low_value": 639
  },
  "bars_backfill_end": "2026-11-17",
- "sec_load": 3.8,
- "sec_corr": 0.7,
- "updated": "2026-11-20T21:42:24+09:00",
+ "px_sanity": {
+  "flat": 1,
+  "bad": 2,
+  "trimmed": 2,
+  "adjusted": 1
+ },
+ "sec_load": 3.2,
+ "sec_corr": 0.6,
+ "updated": "2026-11-28T17:10:20+09:00",
  "main": "ex",
- "n_files": 2950,
+ "n_files": 2948,
  "rule": {
   "window": 250,
   "min_days": 200,
